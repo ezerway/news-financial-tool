@@ -100,45 +100,76 @@ export async function checkFacebookLoginStatus(): Promise<{
   }
 }
 
+let isInteractiveLoginActive = false;
+
 export async function launchInteractiveLogin(initialUrl?: string): Promise<string> {
+  if (isInteractiveLoginActive) {
+    return 'Cửa sổ trình duyệt đang được mở. Vui lòng thao tác trên cửa sổ trình duyệt đã mở!';
+  }
+
+  isInteractiveLoginActive = true;
   logActivity('INFO', 'AUTH', 'Khởi chạy trình duyệt tương tác để quản lý phiên Facebook / Fanpage...');
 
-  const browser = await chromium.launchPersistentContext(USER_DATA_DIR, {
-    headless: false,
-    viewport: { width: 1280, height: 850 },
-    args: ['--disable-blink-features=AutomationControlled', '--no-sandbox'],
-  });
+  const launchArgs = ['--disable-blink-features=AutomationControlled'];
+  if (process.platform === 'linux') {
+    launchArgs.push('--no-sandbox', '--disable-setuid-sandbox');
+  }
+
+  let browser;
+  try {
+    browser = await chromium.launchPersistentContext(USER_DATA_DIR, {
+      headless: false,
+      viewport: null, // Crucial for macOS / Retina to eliminate viewport redraw flickering
+      args: launchArgs,
+    });
+  } catch (err: unknown) {
+    isInteractiveLoginActive = false;
+    throw err;
+  }
+
+  // Inject existing cookies if available
+  await injectSessionCookies(browser);
 
   const page = browser.pages().length > 0 ? browser.pages()[0] : await browser.newPage();
   const target = initialUrl || getSetting('fb_page_url') || 'https://www.facebook.com/';
   logActivity('INFO', 'AUTH', `Đang mở Facebook tại: ${target}. Bạn có thể đăng nhập hoặc chuyển đổi sang Fanpage cần đăng bài.`);
-  await page.goto(target, { waitUntil: 'domcontentloaded' }).catch(() => { });
+  await page.goto(target, { waitUntil: 'domcontentloaded' }).catch(() => {});
 
-  // Continuously save session state every 3 seconds while user is interacting
+  // Save session state on navigation or periodically
   const saveState = async () => {
     try {
       await browser.storageState({ path: SESSION_FILE });
-    } catch { }
+    } catch {}
   };
 
-  const interval = setInterval(saveState, 3000);
-
-  // Keep browser open until user closes the window or 10-minute timeout
-  await new Promise<void>((resolve) => {
-    browser.on('close', () => {
-      clearInterval(interval);
-      resolve();
-    });
-    setTimeout(() => {
-      clearInterval(interval);
-      resolve();
-    }, 10 * 60 * 1000);
+  page.on('load', () => {
+    saveState().catch(() => {});
   });
 
-  // Final session save
-  await saveState();
-  logActivity('SUCCESS', 'AUTH', 'Đã lưu trữ phiên làm việc và trạng thái tài khoản Facebook/Fanpage thành công!');
-  return 'Đã lưu phiên làm việc Facebook/Fanpage thành công!';
+  // Moderate periodic save (every 15s instead of 3s to avoid CDP focus & render jitter)
+  const interval = setInterval(saveState, 15000);
+
+  try {
+    // Keep browser open until user closes the window or 10-minute timeout
+    await new Promise<void>((resolve) => {
+      browser.on('close', () => {
+        clearInterval(interval);
+        resolve();
+      });
+      setTimeout(() => {
+        clearInterval(interval);
+        resolve();
+      }, 10 * 60 * 1000);
+    });
+
+    // Final session save
+    await saveState();
+    logActivity('SUCCESS', 'AUTH', 'Đã lưu trữ phiên làm việc và trạng thái tài khoản Facebook/Fanpage thành công!');
+    return 'Đã lưu phiên làm việc Facebook/Fanpage thành công!';
+  } finally {
+    clearInterval(interval);
+    isInteractiveLoginActive = false;
+  }
 }
 
 /**
