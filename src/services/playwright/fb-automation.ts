@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import db, { logActivity, getSetting } from '@/lib/db';
 import { PostItem } from '@/types';
-import { isSessionAvailable, getUserDataDir } from './session';
+import { isSessionAvailable, getUserDataDir, injectSessionCookies, getSessionPath } from './session';
 
 const SCREENSHOTS_DIR = path.join(process.cwd(), 'storage', 'screenshots');
 if (!fs.existsSync(SCREENSHOTS_DIR)) {
@@ -153,6 +153,9 @@ export async function executePublishAndComment(
         '--no-sandbox',
       ],
     });
+
+    // Inject cookies from fb-session.json into context
+    await injectSessionCookies(context);
 
     const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
 
@@ -602,6 +605,9 @@ export async function executeCommentOnly(
       viewport: { width: 1280, height: 900 },
       args: ['--disable-blink-features=AutomationControlled', '--disable-notifications', '--no-sandbox'],
     });
+
+    // Inject cookies from fb-session.json into context
+    await injectSessionCookies(context);
 
     const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
 

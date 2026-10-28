@@ -112,13 +112,13 @@ export async function launchInteractiveLogin(initialUrl?: string): Promise<strin
   const page = browser.pages().length > 0 ? browser.pages()[0] : await browser.newPage();
   const target = initialUrl || getSetting('fb_page_url') || 'https://www.facebook.com/';
   logActivity('INFO', 'AUTH', `Đang mở Facebook tại: ${target}. Bạn có thể đăng nhập hoặc chuyển đổi sang Fanpage cần đăng bài.`);
-  await page.goto(target, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.goto(target, { waitUntil: 'domcontentloaded' }).catch(() => { });
 
   // Continuously save session state every 3 seconds while user is interacting
   const saveState = async () => {
     try {
       await browser.storageState({ path: SESSION_FILE });
-    } catch {}
+    } catch { }
   };
 
   const interval = setInterval(saveState, 3000);
@@ -185,4 +185,121 @@ export function saveRawFacebookCookies(cUserVal: string, xsVal: string, extraCoo
   logActivity('SUCCESS', 'AUTH', `Đã lưu cookie Facebook thủ công cho tài khoản ID: ${cleanCUser}`);
   return { success: true, message: `Đã lưu phiên đăng nhập Facebook thành công cho User ID: ${cleanCUser}` };
 }
+
+/**
+ * Smart parse and save cookies from multiple formats:
+ * - Cookie-Editor JSON array: [{ name: "c_user", value: "..." }, ...]
+ * - Playwright storageState JSON: { cookies: [...], origins: [...] }
+ * - Raw cookie string: c_user=...; xs=...; datr=...
+ */
+export function parseAndSaveFacebookCookies(rawInput: string): { success: boolean; message: string; cUser?: string } {
+  const text = rawInput.trim();
+  if (!text) {
+    throw new Error('Dữ liệu cookie trống. Vui lòng dán cookie hợp lệ.');
+  }
+
+  let cookiesList: Array<Record<string, unknown>> = [];
+  let originsList: Array<Record<string, unknown>> = [];
+
+  if (text.startsWith('[') || text.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        cookiesList = parsed;
+      } else if (parsed && Array.isArray(parsed.cookies)) {
+        cookiesList = parsed.cookies;
+        if (Array.isArray(parsed.origins)) {
+          originsList = parsed.origins;
+        }
+      }
+    } catch (e: unknown) {
+      throw new Error(`Dữ liệu JSON không đúng định dạng: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  } else {
+    // Parse key=value; key=value string
+    const pairs = text.split(';');
+    for (const pair of pairs) {
+      const idx = pair.indexOf('=');
+      if (idx > 0) {
+        const name = pair.slice(0, idx).trim();
+        const value = pair.slice(idx + 1).trim();
+        if (name && value) {
+          cookiesList.push({ name, value });
+        }
+      }
+    }
+  }
+
+  // Validate c_user and xs
+  const cUserObj = cookiesList.find((c) => c.name === 'c_user');
+  const xsObj = cookiesList.find((c) => c.name === 'xs');
+
+  if (!cUserObj || !cUserObj.value || !xsObj || !xsObj.value) {
+    throw new Error('Không tìm thấy cookie c_user hoặc xs trong dữ liệu bạn vừa nhập. Vui lòng đảm bảo đã copy đúng cookie Facebook.');
+  }
+
+  const oneYearLater = Math.floor(Date.now() / 1000) + 365 * 24 * 3600;
+  const normalizedCookies = cookiesList.map((c) => ({
+    name: String(c.name),
+    value: String(c.value),
+    domain: typeof c.domain === 'string' && c.domain ? (c.domain.startsWith('.') ? c.domain : `.${c.domain.replace(/^\.+/, '')}`) : '.facebook.com',
+    path: typeof c.path === 'string' && c.path ? c.path : '/',
+    expires: typeof c.expires === 'number' ? c.expires : (typeof c.expirationDate === 'number' ? Math.floor(c.expirationDate) : oneYearLater),
+    httpOnly: Boolean(c.httpOnly),
+    secure: Boolean(c.secure ?? true),
+    sameSite: (c.sameSite === 'Strict' || c.sameSite === 'Lax' || c.sameSite === 'None') ? c.sameSite : 'None',
+  }));
+
+  const state = {
+    cookies: normalizedCookies,
+    origins: originsList,
+  };
+
+  fs.writeFileSync(SESSION_FILE, JSON.stringify(state, null, 2), 'utf-8');
+  logActivity('SUCCESS', 'AUTH', `Đã lưu thành công ${normalizedCookies.length} cookies Facebook cho User ID: ${cUserObj.value}`);
+
+  return {
+    success: true,
+    message: `Đã lưu thành công ${normalizedCookies.length} cookies Facebook cho User ID: ${cUserObj.value}`,
+    cUser: String(cUserObj.value),
+  };
+}
+
+/**
+ * Injects cookies from fb-session.json into an active Playwright browser context
+ */
+export async function injectSessionCookies(context: { addCookies: (cookies: any[]) => Promise<void> }): Promise<number> {
+  if (!fs.existsSync(SESSION_FILE)) return 0;
+
+  try {
+    const raw = fs.readFileSync(SESSION_FILE, 'utf-8');
+    const state = JSON.parse(raw);
+    const cookies = state.cookies || [];
+    if (!Array.isArray(cookies) || cookies.length === 0) return 0;
+
+    const oneYearLater = Math.floor(Date.now() / 1000) + 365 * 24 * 3600;
+    const validCookies = cookies
+      .filter((c: any) => c.name && c.value)
+      .map((c: any) => ({
+        name: c.name,
+        value: c.value,
+        domain: c.domain?.startsWith('.') ? c.domain : (c.domain ? `.${c.domain.replace(/^\.+/, '')}` : '.facebook.com'),
+        path: c.path || '/',
+        expires: typeof c.expires === 'number' ? c.expires : (c.expirationDate ? Math.floor(c.expirationDate) : oneYearLater),
+        httpOnly: Boolean(c.httpOnly),
+        secure: Boolean(c.secure ?? true),
+        sameSite: (c.sameSite === 'Strict' || c.sameSite === 'Lax' || c.sameSite === 'None') ? c.sameSite : 'None',
+      }));
+
+    if (validCookies.length > 0) {
+      await context.addCookies(validCookies);
+      return validCookies.length;
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logActivity('WARN', 'AUTH', `Không thể nạp cookies từ session file: ${msg}`);
+  }
+  return 0;
+}
+
 

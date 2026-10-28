@@ -3,6 +3,7 @@ import {
   checkFacebookLoginStatus,
   launchInteractiveLogin,
   saveRawFacebookCookies,
+  parseAndSaveFacebookCookies,
 } from '@/services/playwright/session';
 
 export async function GET() {
@@ -21,7 +22,18 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const isHeadless = process.platform === 'linux' && !process.env.DISPLAY;
 
-    // 1. Direct Cookie input (c_user & xs) - Best for VPS
+    // 1. Raw cookies string / JSON array (from Cookie-Editor or clipboard)
+    if (body.rawCookies && typeof body.rawCookies === 'string' && body.rawCookies.trim()) {
+      const saveResult = parseAndSaveFacebookCookies(body.rawCookies);
+      const status = await checkFacebookLoginStatus();
+      return NextResponse.json({
+        success: true,
+        message: saveResult.message,
+        status,
+      });
+    }
+
+    // 2. Direct Cookie input (c_user & xs)
     if (body.cUser && body.xs) {
       const saveResult = saveRawFacebookCookies(body.cUser, body.xs);
       const status = await checkFacebookLoginStatus();
