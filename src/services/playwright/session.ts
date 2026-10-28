@@ -140,3 +140,49 @@ export async function launchInteractiveLogin(initialUrl?: string): Promise<strin
   logActivity('SUCCESS', 'AUTH', 'Đã lưu trữ phiên làm việc và trạng thái tài khoản Facebook/Fanpage thành công!');
   return 'Đã lưu phiên làm việc Facebook/Fanpage thành công!';
 }
+
+/**
+ * Saves Facebook cookies directly into fb-session.json for headless environments (Linux VPS)
+ */
+export function saveRawFacebookCookies(cUserVal: string, xsVal: string, extraCookies: Array<Record<string, unknown>> = []): { success: boolean; message: string } {
+  const cleanCUser = cUserVal.trim();
+  const cleanXs = xsVal.trim();
+  if (!cleanCUser || !cleanXs) {
+    throw new Error('Vui lòng cung cấp cả c_user và xs hợp lệ.');
+  }
+
+  const oneYearLater = Math.floor(Date.now() / 1000) + 365 * 24 * 3600;
+  const cookies = [
+    {
+      name: 'c_user',
+      value: cleanCUser,
+      domain: '.facebook.com',
+      path: '/',
+      expires: oneYearLater,
+      httpOnly: false,
+      secure: true,
+      sameSite: 'None',
+    },
+    {
+      name: 'xs',
+      value: cleanXs,
+      domain: '.facebook.com',
+      path: '/',
+      expires: oneYearLater,
+      httpOnly: true,
+      secure: true,
+      sameSite: 'None',
+    },
+    ...extraCookies.filter((c) => c.name !== 'c_user' && c.name !== 'xs'),
+  ];
+
+  const state = {
+    cookies,
+    origins: [],
+  };
+
+  fs.writeFileSync(SESSION_FILE, JSON.stringify(state, null, 2), 'utf-8');
+  logActivity('SUCCESS', 'AUTH', `Đã lưu cookie Facebook thủ công cho tài khoản ID: ${cleanCUser}`);
+  return { success: true, message: `Đã lưu phiên đăng nhập Facebook thành công cho User ID: ${cleanCUser}` };
+}
+

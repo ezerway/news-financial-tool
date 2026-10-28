@@ -29,18 +29,17 @@ pnpm dev
 Sau đó mở trình duyệt tại: **`http://localhost:3000`**
 
 ### 2. Kết nối tài khoản Facebook (Chỉ cần 1 lần duy nhất)
-Facebook có cơ chế bảo mật cao (2FA, Captcha, Checkpoint). Công cụ hỗ trợ chế độ đăng nhập tương tác:
+Facebook có cơ chế bảo mật cao (2FA, Captcha, Checkpoint). Công cụ hỗ trợ 3 cách kết nối linh hoạt:
 
-**Cách 1 (Qua Dashboard):**
-- Mở Dashboard `http://localhost:3000`
-- Bấm vào nút **"Kết nối Facebook"** ở thanh điều hướng trên cùng hoặc tab **"Cài đặt"**
-- Trình duyệt Chromium sẽ tự động mở ra. Bạn chỉ cần đăng nhập tài khoản Facebook bình thường và xác thực 2FA.
-- Sau khi đăng nhập xong, hệ thống tự động lưu session vào `storage/browser-profile` và `storage/fb-session.json`.
+**Cách 1 (Trên máy cá nhân có màn hình - Mac/Windows):**
+- Chạy `pnpm fb:login` trong terminal, hoặc bấm **"Mở trình duyệt quản lý phiên Facebook"** tại tab **Cài đặt**.
+- Cửa sổ Chromium sẽ mở ra. Bạn chỉ cần đăng nhập tài khoản Facebook và xác thực 2FA.
+- Sau khi xong, hệ thống tự động lưu file `storage/fb-session.json`.
 
-**Cách 2 (Qua Terminal):**
-```bash
-pnpm fb:login
-```
+**Cách 2 (Trên Linux VPS / Server không có giao diện GUI):**
+- **Phương án A (Nhập Cookie qua CLI - Nhanh nhất)**: Chạy `pnpm fb:login`. Script sẽ tự động nhận diện VPS và yêu cầu bạn dán 2 cookie `c_user` và `xs` (lấy từ DevTools F12 hoặc extension Cookie-Editor trên trình duyệt cá nhân).
+- **Phương án B (Tải file session lên Dashboard)**: Đăng nhập trên máy tính cá nhân bằng Cách 1 -> Mở Dashboard VPS -> vào tab **Cài đặt** -> phần **Sao lưu & Khôi phục** -> Tải file `fb-session.json` lên.
+- **Phương án C (Dùng xvfb nếu có)**: `xvfb-run -a pnpm fb:login`
 
 ### 3. Cấu hình Gemini API Key
 Bạn có thể cấu hình API key bằng 2 cách:
