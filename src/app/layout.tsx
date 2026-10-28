@@ -46,7 +46,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" data-theme="night" className={`${geistSans.variable} ${geistMono.variable} h-full`}>
+    <html lang="vi" data-theme="night" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full`}>
       <body className="min-h-full antialiased font-sans flex flex-col">
         {children}
         <PwaManager />
