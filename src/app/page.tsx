@@ -7,6 +7,7 @@ import TrendsTab from '@/components/TrendsTab';
 import PostsTab from '@/components/PostsTab';
 import LogsTab from '@/components/LogsTab';
 import SettingsTab from '@/components/SettingsTab';
+import FacebookConnectModal from '@/components/FacebookConnectModal';
 import { TrendItem, PostItem, ActivityLog } from '@/types';
 import { formatTime } from '@/lib/date';
 import {
@@ -43,6 +44,8 @@ export default function DashboardPage() {
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [commentingId, setCommentingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isFbModalOpen, setIsFbModalOpen] = useState(false);
+  const [fbTargetUrlForModal, setFbTargetUrlForModal] = useState<string | undefined>(undefined);
 
   const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToastMessage({ text, type });
@@ -312,27 +315,10 @@ export default function DashboardPage() {
     }
   };
 
-  // Launch interactive FB login or Page setup
-  const handleConnectFb = async (url?: string) => {
-    try {
-      showToast(
-        url
-          ? 'Đang mở Fanpage trên trình duyệt để kiểm tra & chuyển quyền...'
-          : 'Đang khởi chạy trình duyệt để đăng nhập Facebook / quản lý Page...',
-        'info'
-      );
-      const res = await fetch('/api/fb-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast(data.message, 'success');
-      }
-    } catch (err: any) {
-      showToast(`Lỗi: ${err.message}`, 'error');
-    }
+  // Open FB login / cookie setup modal
+  const handleConnectFb = (url?: string) => {
+    setFbTargetUrlForModal(url);
+    setIsFbModalOpen(true);
   };
 
   const tabItems: Array<{
@@ -574,6 +560,18 @@ export default function DashboardPage() {
           );
         })}
       </nav>
+
+      {/* Facebook Connect Modal */}
+      <FacebookConnectModal
+        isOpen={isFbModalOpen}
+        onClose={() => setIsFbModalOpen(false)}
+        onSuccess={() => {
+          fetchData();
+          showToast('Đã lưu phiên đăng nhập Facebook thành công!', 'success');
+        }}
+        fbStatus={fbStatus}
+        initialTargetUrl={fbTargetUrlForModal}
+      />
     </div>
   );
 }
