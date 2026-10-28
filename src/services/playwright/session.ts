@@ -23,6 +23,31 @@ export function getUserDataDir(): string {
   return USER_DATA_DIR;
 }
 
+/**
+ * Robust launch flags for Chromium across macOS, Windows, and Linux VPS
+ * Adds --disable-dev-shm-usage and --disable-gpu on Linux to eliminate RESULT_CODE_KILLED_BAD_MESSAGE
+ */
+export function getChromiumLaunchArgs(extraArgs: string[] = []): string[] {
+  const args = [
+    '--disable-blink-features=AutomationControlled',
+    ...extraArgs,
+  ];
+
+  if (process.platform === 'linux') {
+    args.push(
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage', // Uses /tmp instead of 64MB /dev/shm (fixes RESULT_CODE_KILLED_BAD_MESSAGE)
+      '--disable-gpu',           // Avoids GPU IPC driver crash on headless VPS
+      '--disable-software-rasterizer',
+      '--disable-features=IsolateOrigins,site-per-process'
+    );
+  }
+
+  return args;
+}
+
+
 export async function checkFacebookLoginStatus(): Promise<{
   loggedIn: boolean;
   username?: string;
@@ -110,10 +135,7 @@ export async function launchInteractiveLogin(initialUrl?: string): Promise<strin
   isInteractiveLoginActive = true;
   logActivity('INFO', 'AUTH', 'Khởi chạy trình duyệt tương tác để quản lý phiên Facebook / Fanpage...');
 
-  const launchArgs = ['--disable-blink-features=AutomationControlled'];
-  if (process.platform === 'linux') {
-    launchArgs.push('--no-sandbox', '--disable-setuid-sandbox');
-  }
+  const launchArgs = getChromiumLaunchArgs();
 
   let browser;
   try {

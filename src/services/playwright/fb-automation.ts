@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import db, { logActivity, getSetting } from '@/lib/db';
 import { PostItem } from '@/types';
-import { isSessionAvailable, getUserDataDir, injectSessionCookies, getSessionPath } from './session';
+import { isSessionAvailable, getUserDataDir, injectSessionCookies, getSessionPath, getChromiumLaunchArgs } from './session';
 
 const SCREENSHOTS_DIR = path.join(process.cwd(), 'storage', 'screenshots');
 if (!fs.existsSync(SCREENSHOTS_DIR)) {
@@ -147,11 +147,7 @@ export async function executePublishAndComment(
     context = await chromium.launchPersistentContext(getUserDataDir(), {
       headless: headless,
       viewport: { width: 1280, height: 900 },
-      args: [
-        '--disable-blink-features=AutomationControlled',
-        '--disable-notifications',
-        '--no-sandbox',
-      ],
+      args: getChromiumLaunchArgs(['--disable-notifications']),
     });
 
     // Inject cookies from fb-session.json into context
@@ -603,7 +599,7 @@ export async function executeCommentOnly(
     context = await chromium.launchPersistentContext(getUserDataDir(), {
       headless: headless,
       viewport: { width: 1280, height: 900 },
-      args: ['--disable-blink-features=AutomationControlled', '--disable-notifications', '--no-sandbox'],
+      args: getChromiumLaunchArgs(['--disable-notifications']),
     });
 
     // Inject cookies from fb-session.json into context

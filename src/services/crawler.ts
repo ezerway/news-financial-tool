@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import * as cheerio from 'cheerio';
 import db, { logActivity } from '@/lib/db';
 import { TrendItem, NewsArticle } from '@/types';
+import { getChromiumLaunchArgs } from '@/services/playwright/session';
 
 function cleanHtmlText(str: string): string {
   if (!str) return '';
@@ -144,7 +145,7 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
 
   const browser = await chromium.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'],
+    args: getChromiumLaunchArgs(),
   });
 
   try {

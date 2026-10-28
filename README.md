@@ -73,7 +73,7 @@ crontab -e
 ```
 Thêm dòng sau:
 ```cron
-0 */2 * * * cd /Volumes/KINGSTON/Code/news-financial-tool && pnpm auto-cycle --publish >> /Volumes/KINGSTON/Code/news-financial-tool/storage/cron.log 2>&1
+0 */2 * * * cd /home/ezerway-financial-news/news-financial-tool && pnpm auto-cycle --publish >> /home/ezerway-financial-news/logs/cron_debug.log 2>&1
 ```
 
 ---
