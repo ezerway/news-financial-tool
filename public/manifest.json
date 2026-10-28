@@ -1,0 +1,55 @@
+{
+  "name": "TrendPulse - AI Finance & Social Automation",
+  "short_name": "TrendPulse",
+  "description": "Cào tin Google Trends tài chính & kinh tế, tự động viết bài AI và đăng bài kèm bình luận nguồn lên Facebook.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0f19",
+  "theme_color": "#4f46e5",
+  "lang": "vi",
+  "dir": "ltr",
+  "categories": ["business", "finance", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Xu hướng Google Trends",
+      "short_name": "Xu hướng",
+      "description": "Xem các xu hướng tài chính kinh tế thịnh hành",
+      "url": "/?tab=trends",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Bài viết & Studio",
+      "short_name": "Bài viết",
+      "description": "Quản lý bài viết và bình luận tự động",
+      "url": "/?tab=posts",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}

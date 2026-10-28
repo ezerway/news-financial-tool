@@ -1,36 +1,103 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 TrendPulse - Google Trends & Facebook Automation Tool
 
-## Getting Started
+Một công cụ tự động hóa toàn diện giúp bạn:
+1. **Cào các chủ đề thịnh hành (Google Trends)**: Tự động trích xuất các xu hướng nóng từ Google Trends (Việt Nam, US, SG...), phân loại các tin tức Tài chính / Kinh tế / Xã hội và lấy liên kết bài báo gốc.
+2. **Sáng tạo nội dung với AI (Gemini)**: Viết bài đăng Facebook thu hút người xem (Hook, gạch đầu dòng điểm tin, kêu gọi hành động CTA, hashtag). **Tuyệt đối không chèn link vào bài đăng** để thuật toán Facebook không bóp tương tác (Reach).
+3. **Tự động đăng bài lên Facebook (Playwright)**: Sử dụng Playwright với Persistent Session để tự động đăng lên Facebook cá nhân hoặc Fanpage.
+4. **Tự động bình luận nguồn tin (Auto-Comment Source Links)**: Ngay sau khi bài viết được đăng, bot tự động vào ô bình luận của bài viết đó để comment đầy đủ các link nguồn gốc.
+5. **Dashboard quản lý trực quan (Tailwind CSS)**: Quản lý xu hướng, studio duyệt bài, xem ảnh chụp màn hình đối soát (Audit Screenshots), theo dõi nhật ký hoạt động thời gian thực và cấu hình tài khoản.
 
-First, run the development server:
+---
 
+## 🛠️ Công nghệ sử dụng (Tech Stack)
+
+- **Ngôn ngữ & Runtime**: Node.js v20+ / TypeScript
+- **Web Framework & UI**: Next.js 16 (App Router) + Tailwind CSS v4 + **daisyUI 5** + Lucide Icons
+- **Tự động hóa trình duyệt**: Playwright (Persistent Context & Anti-detection)
+- **Cơ sở dữ liệu**: SQLite (Better-SQLite3) chế độ WAL (Zero-config, chạy cục bộ siêu nhanh)
+- **AI Content Generator**: Google Gemini API (`@google/genai`) kèm bộ template thông minh dự phòng
+
+---
+
+## 🚀 Hướng dẫn cài đặt & Khởi chạy
+
+### 1. Khởi chạy Dashboard trực quan
+Chạy lệnh sau trong thư mục dự án:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
 pnpm dev
-# or
-bun dev
+```
+Sau đó mở trình duyệt tại: **`http://localhost:3000`**
+
+### 2. Kết nối tài khoản Facebook (Chỉ cần 1 lần duy nhất)
+Facebook có cơ chế bảo mật cao (2FA, Captcha, Checkpoint). Công cụ hỗ trợ chế độ đăng nhập tương tác:
+
+**Cách 1 (Qua Dashboard):**
+- Mở Dashboard `http://localhost:3000`
+- Bấm vào nút **"Kết nối Facebook"** ở thanh điều hướng trên cùng hoặc tab **"Cài đặt"**
+- Trình duyệt Chromium sẽ tự động mở ra. Bạn chỉ cần đăng nhập tài khoản Facebook bình thường và xác thực 2FA.
+- Sau khi đăng nhập xong, hệ thống tự động lưu session vào `storage/browser-profile` và `storage/fb-session.json`.
+
+**Cách 2 (Qua Terminal):**
+```bash
+pnpm fb:login
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Cấu hình Gemini API Key
+Bạn có thể cấu hình API key bằng 2 cách:
+- **Cách 1**: Vào tab **"Cài đặt & Tài khoản FB"** trên Dashboard, nhập API key và bấm **"Lưu tất cả cấu hình"**.
+- **Cách 2**: Tạo file `.env.local` ở thư mục gốc:
+  ```env
+  GEMINI_API_KEY=your_gemini_api_key_here
+  ```
+*(Lưu ý: Nếu chưa nhập API Key, công cụ vẫn hoạt động bình thường với bộ sinh nội dung thông minh tích hợp sẵn).*
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 💻 Các lệnh dòng lệnh (CLI Commands)
 
-## Learn More
+| Lệnh | Ý nghĩa |
+|---|---|
+| `pnpm dev` | Khởi động máy chủ Next.js và Dashboard quản trị |
+| `pnpm fb:login` | Mở trình duyệt để đăng nhập tài khoản Facebook và lưu session |
+| `pnpm auto-cycle` | Chạy 1 chu kỳ hoàn chỉnh: Cào Google Trends -> Viết bài -> Đưa vào hàng đợi |
+| `pnpm auto-cycle --dry-run` | Chạy thử mô phỏng toàn bộ chu kỳ mà không đăng thật lên Facebook |
+| `pnpm auto-cycle --publish` | Tự động cào, viết bài và xuất bản thật ngay lập tức lên Facebook |
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## ⏰ Cài đặt chạy định kỳ tự động (Cron Job)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Nếu bạn muốn công cụ tự động cào và đăng bài mỗi 2 tiếng:
+Mở crontab:
+```bash
+crontab -e
+```
+Thêm dòng sau:
+```cron
+0 */2 * * * cd /Volumes/KINGSTON/Code/news-financial-tool && pnpm auto-cycle --publish >> /Volumes/KINGSTON/Code/news-financial-tool/storage/cron.log 2>&1
+```
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📂 Cấu trúc thư mục
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```text
+news-financial-tool/
+├── src/
+│   ├── app/                     # Next.js App Router (Dashboard & API endpoints)
+│   │   ├── api/                 # REST APIs: trends, generate, publish, logs, settings
+│   │   ├── page.tsx             # Trang Dashboard chính
+│   │   └── layout.tsx           # Layout & Theme
+│   ├── components/              # Các thành phần UI (Header, Stats, Trends, Posts Studio...)
+│   ├── lib/                     # SQLite database & Logging helper (db.ts)
+│   ├── services/
+│   │   ├── crawler.ts           # Cào Google Trends Category 3 (Business & Finance) & lấy link nguồn In the news
+│   │   ├── ai-generator.ts      # Tạo bài đăng & comment nguồn tin bằng Gemini
+│   │   ├── auto-runner.ts       # Điều phối chu kỳ tự động
+│   │   └── playwright/          # Tự động hóa Facebook & chụp ảnh đối soát
+│   └── types/                   # Định nghĩa TypeScript
+├── scripts/                     # Các CLI scripts (fb-login, auto-cycle)
+├── storage/                     # Thư mục lưu DB (app.db), session Facebook, ảnh chụp màn hình
+├── package.json
+└── README.md
+```

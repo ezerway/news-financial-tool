@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrendPulse - Ngoại tuyến</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background-color: #0b0f19;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      text-align: center;
+      box-sizing: border-box;
+      padding: 20px;
+    }
+    .card {
+      max-width: 420px;
+      padding: 32px 24px;
+      border-radius: 24px;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px border rgba(148, 163, 184, 0.15);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    .icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #4f46e5, #10b981);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 800;
+      margin: 0 0 8px;
+    }
+    p {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.5;
+      margin: 0 0 24px;
+    }
+    button {
+      background: linear-gradient(135deg, #4f46e5, #2563eb);
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+      transition: opacity 0.2s;
+    }
+    button:active {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🔥</div>
+    <h1>Không có kết nối mạng</h1>
+    <p>TrendPulse đang ở chế độ ngoại tuyến. Hãy kiểm tra kết nối Wi-Fi hoặc dữ liệu di động của bạn và thử lại.</p>
+    <button onclick="window.location.reload()">Thử tải lại</button>
+  </div>
+</body>
+</html>

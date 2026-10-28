@@ -6,21 +6,38 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "fb:login": "tsx scripts/fb-login.ts",
+    "auto-cycle": "tsx scripts/auto-cycle.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.31.0",
+    "adm-zip": "^0.6.1",
+    "better-sqlite3": "^13.0.3",
+    "cheerio": "^1.2.0",
+    "clsx": "^2.1.1",
+    "dotenv": "^18.0.9",
+    "lucide-react": "^1.61.0",
     "next": "16.4.3",
+    "playwright": "^1.64.1",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "tailwind-merge": "^3.7.0",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
+    "@types/adm-zip": "^0.5.8",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/xml2js": "^0.4.14",
+    "daisyui": "^5.7.50",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

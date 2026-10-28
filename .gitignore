@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local storage & sessions
+storage/*.db*
+storage/*.json
+storage/browser-profile/
+storage/screenshots/
+
