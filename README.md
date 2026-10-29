@@ -170,6 +170,14 @@ pm2 restart ecosystem.config.js
 pm2 stop all
 ```
 
+**Cấu hình số bài viết đăng mỗi lần chạy cron:**
+* **Cách 1 (Khuyên dùng):** Mở Web Dashboard -> Tab **Cài đặt** -> mục **"Số lượng bài đăng mỗi lần chạy tự động"** (chọn 1, 2, 3, 4 hoặc 5 bài/lần) rồi bấm **Lưu tất cả cấu hình**. `trendpulse-cron` sẽ tự động đọc cấu hình này từ database.
+* **Cách 2 (Cố định qua PM2):** Trong file [`ecosystem.config.js`](file:///Volumes/KINGSTON/Code/news-financial-tool/ecosystem.config.js), thêm `--limit 3` vào phần `args`:
+  ```js
+  args: 'scripts/auto-cycle.ts --limit 3',
+  ```
+  *(Khi đăng từ 2 bài trở lên, bot tự động nghỉ 25 giây giữa các bài để bảo vệ tài khoản Facebook khỏi bị checkpoint / chống spam).*
+
 ---
 
 ### 6. Quy trình Cập nhật Code mới (Redeploy / Update)

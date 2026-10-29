@@ -7,6 +7,7 @@ export async function POST(req: NextRequest) {
     const result = await runAutomationCycle({
       forcePublish: body.forcePublish,
       dryRun: body.dryRun,
+      limit: body.limit ? parseInt(body.limit, 10) : undefined,
     });
     return NextResponse.json({ success: true, result });
   } catch (err: any) {

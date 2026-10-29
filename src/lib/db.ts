@@ -71,6 +71,7 @@ export function initSchema(database: Database.Database) {
     fb_target_url: 'https://www.facebook.com/',
     crawler_interval_minutes: '60',
     filter_keywords: 'tài chính, chứng khoán, ngân hàng, bất động sản, kinh tế, crypto, usd, vàng, lạm phát',
+    posts_per_cycle: '1',
   };
 
   const insertSettingStmt = database.prepare(`

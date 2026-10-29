@@ -41,6 +41,7 @@ export default function SettingsTab({
       settings.filter_keywords ||
       'tài chính, chứng khoán, ngân hàng, bất động sản, kinh tế, crypto, usd, vàng, lạm phát',
     crawler_interval_minutes: settings.crawler_interval_minutes || '60',
+    posts_per_cycle: settings.posts_per_cycle || '1',
   });
 
   const [showKey, setShowKey] = useState(false);
@@ -278,6 +279,30 @@ export default function SettingsTab({
           >
             <div className="w-5 h-5 rounded-full bg-white shadow-md"></div>
           </button>
+        </div>
+
+        {/* Posts Per Automation Cycle */}
+        <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 shadow-inner flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-bold text-white flex items-center gap-1.5">
+              <Sliders className="w-4 h-4 text-indigo-400" />
+              <span>Số lượng bài đăng mỗi lần chạy tự động (trendpulse-cron / Auto-cycle)</span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Số bài viết AI tự động cào và xuất bản trong mỗi chu kỳ chạy tự động. Khi chọn từ 2 bài trở lên, hệ thống sẽ tự động nghỉ 25 giây giữa các bài để bảo vệ tài khoản Facebook khỏi spam.
+            </p>
+          </div>
+          <select
+            value={form.posts_per_cycle}
+            onChange={(e) => setForm({ ...form, posts_per_cycle: e.target.value })}
+            className="px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-indigo-300 focus:outline-none focus:border-indigo-500 shadow-inner cursor-pointer shrink-0"
+          >
+            <option value="1">1 bài / lần chạy</option>
+            <option value="2">2 bài / lần chạy</option>
+            <option value="3">3 bài / lần chạy</option>
+            <option value="4">4 bài / lần chạy</option>
+            <option value="5">5 bài / lần chạy</option>
+          </select>
         </div>
 
         {/* Tone & Region */}
