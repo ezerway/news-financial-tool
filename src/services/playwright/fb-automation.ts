@@ -240,6 +240,8 @@ export async function executePublishAndComment(
     context = await chromium.launchPersistentContext(getUserDataDir(), {
       headless: headless,
       viewport: { width: 1280, height: 900 },
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       args: getChromiumLaunchArgs(['--disable-notifications']),
     });
 
@@ -247,18 +249,12 @@ export async function executePublishAndComment(
     await injectSessionCookies(context);
 
     const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
-
-    // Block video media streaming to prevent RAM exhaustion and Page Crashes on Linux VPS
-    await page.route('**/*', (route) => {
-      try {
-        if (route.request().resourceType() === 'media') {
-          return route.abort();
-        }
-        return route.continue();
-      } catch {
-        // Safe fallback
-      }
+    page.on('crash', () => {
+      logActivity('ERROR', 'PUBLISH', 'Playwright page crashed (Bộ nhớ RAM trên VPS bị cạn kiệt hoặc tiến trình bị ngắt).');
     });
+
+    // Only abort actual video streaming files (avoids proxying hundreds of normal requests through DevTools Protocol)
+    await page.route(/\.(mp4|webm|avi|mov)($|\?)/i, (route) => route.abort().catch(() => {}));
 
     logActivity('INFO', 'PUBLISH', `Đang điều hướng đến trang đích Facebook: ${targetUrl}`);
     await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
@@ -707,6 +703,8 @@ export async function executeCommentOnly(
     context = await chromium.launchPersistentContext(getUserDataDir(), {
       headless: headless,
       viewport: { width: 1280, height: 900 },
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       args: getChromiumLaunchArgs(['--disable-notifications']),
     });
 
@@ -714,18 +712,12 @@ export async function executeCommentOnly(
     await injectSessionCookies(context);
 
     const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
-
-    // Block video media streaming to prevent RAM exhaustion and Page Crashes on Linux VPS
-    await page.route('**/*', (route) => {
-      try {
-        if (route.request().resourceType() === 'media') {
-          return route.abort();
-        }
-        return route.continue();
-      } catch {
-        // Safe fallback
-      }
+    page.on('crash', () => {
+      logActivity('ERROR', 'COMMENT', 'Playwright page crashed (Bộ nhớ RAM trên VPS bị cạn kiệt hoặc tiến trình bị ngắt).');
     });
+
+    // Only abort actual video streaming files (avoids proxying hundreds of normal requests through DevTools Protocol)
+    await page.route(/\.(mp4|webm|avi|mov)($|\?)/i, (route) => route.abort().catch(() => {}));
 
     let resolvedPostUrl = targetUrl;
     if (!isDirectPost) {
