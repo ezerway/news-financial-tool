@@ -174,9 +174,16 @@ pm2 stop all
 * **Cách 1 (Khuyên dùng):** Mở Web Dashboard -> Tab **Cài đặt** -> mục **"Số lượng bài đăng mỗi lần chạy tự động"** (chọn 1, 2, 3, 4 hoặc 5 bài/lần) rồi bấm **Lưu tất cả cấu hình**. `trendpulse-cron` sẽ tự động đọc cấu hình này từ database.
 * **Cách 2 (Cố định qua PM2):** Trong file [`ecosystem.config.js`](file:///Volumes/KINGSTON/Code/news-financial-tool/ecosystem.config.js), thêm `--limit 3` vào phần `args`:
   ```js
-  args: 'scripts/auto-cycle.ts --limit 3',
+  args: 'scripts/cron-daemon.ts --limit 3',
   ```
   *(Khi đăng từ 2 bài trở lên, bot tự động nghỉ 25 giây giữa các bài để bảo vệ tài khoản Facebook khỏi bị checkpoint / chống spam).*
+
+**Cơ chế chạy đúng giờ tròn (1h00, 2h00, 3h00...):**
+1. Tiến trình `trendpulse-cron` sử dụng script [`scripts/cron-daemon.ts`](file:///Volumes/KINGSTON/Code/news-financial-tool/scripts/cron-daemon.ts) - tự động tính toán thời gian đến đúng mili-giây đầu tiên của mỗi giờ tròn (`HH:00:00.000`) và kích hoạt chu kỳ.
+2. Để đảm bảo mốc giờ trùng khớp với giờ Việt Nam, trên VPS Ubuntu hãy chạy:
+   ```bash
+   sudo timedatectl set-timezone Asia/Ho_Chi_Minh
+   ```
 
 ---
 

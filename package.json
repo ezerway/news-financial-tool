@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "fb:login": "tsx scripts/fb-login.ts",
-    "auto-cycle": "tsx scripts/auto-cycle.ts"
+    "auto-cycle": "tsx scripts/auto-cycle.ts",
+    "cron-daemon": "tsx scripts/cron-daemon.ts"
   },
   "dependencies": {
     "@google/genai": "^2.31.0",
