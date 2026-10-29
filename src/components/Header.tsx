@@ -123,10 +123,11 @@ export default function Header({
           <button
             onClick={() => onRunCycle(false)}
             disabled={isRunning}
-            className="relative group flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all active:scale-95 disabled:opacity-50"
+            className="relative group flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all active:scale-95 disabled:opacity-50 shrink-0"
           >
             <Play className={`w-3.5 h-3.5 fill-current ${isRunning ? 'animate-spin' : ''}`} />
-            <span>{isRunning ? 'Chạy...' : 'Chạy tự động'}</span>
+            <span className="hidden sm:inline">{isRunning ? 'Chạy...' : 'Chạy tự động'}</span>
+            <span className="sm:hidden">{isRunning ? '...' : 'Chạy'}</span>
           </button>
 
           {/* Logout Button */}

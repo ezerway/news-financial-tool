@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Save, Key, Check, Sparkles, Sliders, ShieldCheck, Megaphone, User, ExternalLink, Globe } from 'lucide-react';
+import { Save, Key, Check, Sparkles, Sliders, ShieldCheck, Megaphone, User, ExternalLink, Globe, Smartphone, Download } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import BackupRestoreSection from './BackupRestoreSection';
 import AdminSecuritySection from './AdminSecuritySection';
@@ -61,9 +61,9 @@ export default function SettingsTab({
       <form onSubmit={handleSubmit} className="space-y-6">
       {/* Target Destination: Fanpage vs Personal Profile */}
       <div className="p-6 sm:p-7 rounded-3xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-xl space-y-5">
-        <div className="flex items-center justify-between pb-5 border-b border-slate-800/80">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-800/80">
           <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-blue-600/15 text-blue-400 border border-blue-500/30 flex items-center justify-center shadow-lg shadow-blue-500/10">
+            <div className="w-11 h-11 rounded-2xl bg-blue-600/15 text-blue-400 border border-blue-500/30 flex items-center justify-center shadow-lg shadow-blue-500/10 shrink-0">
               <Megaphone className="w-6 h-6 text-blue-400" />
             </div>
             <div>
@@ -72,7 +72,7 @@ export default function SettingsTab({
             </div>
           </div>
 
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 shrink-0 whitespace-nowrap">
+          <span className="self-start sm:self-auto px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 shrink-0 whitespace-nowrap">
             {form.fb_target_type === 'page' ? '📢 Đang chọn Fanpage' : '👤 Đang chọn Trang cá nhân'}
           </span>
         </div>
@@ -349,6 +349,57 @@ export default function SettingsTab({
         </button>
       </div>
     </form>
+
+      {/* PWA Mobile & Desktop App Section */}
+      <div className="p-6 sm:p-7 rounded-3xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 pb-4 border-b border-slate-800/80">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-indigo-600/15 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shadow-lg shadow-indigo-500/10 shrink-0">
+              <Smartphone className="w-6 h-6 text-indigo-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                <span>Cài đặt Ứng dụng Di động (PWA)</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  Mobile &amp; PC
+                </span>
+              </h3>
+              <p className="text-xs text-slate-400 font-medium">Cài đặt TrendPulse lên màn hình chính điện thoại hoặc máy tính để dùng mượt như App gốc.</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('trendpulse:install-pwa'));
+            }}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition active:scale-95 shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            <span>Cài đặt Ứng dụng</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-300">
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1.5">
+            <div className="font-bold text-white flex items-center gap-1.5">
+              <span>📱 Hướng dẫn trên iPhone / iPad (Safari)</span>
+            </div>
+            <p className="text-slate-400 text-[11px] leading-relaxed">
+              Mở Safari &gt; Bấm nút <strong>Chia sẻ (Share 📤)</strong> ở thanh dưới &gt; Chọn <strong>Thêm vào MH chính (Add to Home Screen)</strong>.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1.5">
+            <div className="font-bold text-white flex items-center gap-1.5">
+              <span>🤖 Hướng dẫn trên Android / Chrome / Edge</span>
+            </div>
+            <p className="text-slate-400 text-[11px] leading-relaxed">
+              Bấm nút <strong>&quot;Cài đặt Ứng dụng&quot;</strong> ở trên, hoặc bấm <strong>menu (⋮)</strong> &gt; Chọn <strong>Cài đặt ứng dụng</strong> hoặc <strong>Thêm vào màn hình chính</strong>.
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Admin Security: Change credentials on VPS */}
       <AdminSecuritySection />

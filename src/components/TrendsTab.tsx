@@ -222,7 +222,7 @@ export default function TrendsTab({
                       )}
                       <button
                         disabled
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800/60 border border-slate-800 text-slate-500 text-xs font-medium cursor-not-allowed"
+                        className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/60 border border-slate-800 text-slate-500 text-xs font-medium cursor-not-allowed"
                         title="Chỉ cho phép tạo bài nếu có source link"
                       >
                         <AlertCircle className="w-3.5 h-3.5 text-slate-600" />

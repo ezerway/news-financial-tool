@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trendpulse-v1';
+const CACHE_NAME = 'trendpulse-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -10,11 +10,13 @@ const STATIC_ASSETS = [
   '/icons/maskable-icon-512x512.png'
 ];
 
-// Install: Cache critical static shell
+// Install: Cache critical static shell resiliently
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
+      return Promise.allSettled(
+        STATIC_ASSETS.map((asset) => cache.add(asset).catch(() => {}))
+      );
     })
   );
   self.skipWaiting();
