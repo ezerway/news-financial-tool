@@ -78,25 +78,184 @@ Thêm dòng sau:
 
 ---
 
+---
+
+## 🌐 Hướng dẫn Triển khai VPS (Production Deployment)
+
+### 1. Chuẩn bị môi trường VPS (Ubuntu / Debian)
+
+Cài đặt Node.js 20+, pnpm và các thư viện cần thiết cho Chromium Playwright:
+
+```bash
+# Cập nhật hệ thống
+sudo apt update && sudo apt upgrade -y
+
+# Cài đặt Node.js 20.x
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs git
+
+# Cài đặt pnpm và PM2 toàn cục
+sudo npm install -g pnpm pm2
+```
+
+### 2. Kéo mã nguồn & Cài đặt dependencies
+
+```bash
+# Clone repository
+git clone https://github.com/ezerway/news-financial-tool.git /home/ezerway-financial-news/news-financial-tool
+cd /home/ezerway-financial-news/news-financial-tool
+
+# Cài đặt gói thư viện dự án
+pnpm install
+
+# Cài đặt Chromium cùng các thư viện hệ thống cho Playwright trên Linux VPS
+npx playwright install --with-deps chromium
+```
+
+### 3. Cấu hình biến môi trường (`.env`)
+
+Sao chép và thiết lập file `.env`:
+```bash
+cp .env.example .env 2>/dev/null || touch .env
+nano .env
+```
+
+Nội dung gợi ý trong file `.env`:
+```env
+PORT=3000
+NODE_ENV=production
+
+# Tài khoản đăng nhập Dashboard quản trị VPS
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=your_secure_password_here
+AUTH_SECRET=your_random_secret_key_32_characters_here
+
+# Cấu hình AI
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+### 4. Build ứng dụng
+
+```bash
+pnpm build
+```
+
+### 5. Khởi chạy bằng PM2 (`ecosystem.config.js`)
+
+Dự án đã tích hợp sẵn file `ecosystem.config.js` quản lý cả **Web Dashboard** và **Cron Job tự động chạy mỗi 1 tiếng**:
+
+```bash
+# Khởi động cả Web và Cron tự động
+pm2 start ecosystem.config.js
+
+# Lưu trạng thái để tự khởi động lại khi VPS reboot
+pm2 save
+pm2 startup
+```
+
+**Các lệnh PM2 thông dụng:**
+```bash
+# Xem trạng thái các dịch vụ đang chạy
+pm2 status
+
+# Xem log thời gian thực (đặc biệt khi bot chạy chu kỳ)
+pm2 logs
+pm2 logs trendpulse-cron    # Chỉ xem log của cron
+pm2 logs trendpulse-web     # Chỉ xem log của web
+
+# Khởi động lại
+pm2 restart ecosystem.config.js
+
+# Dừng hệ thống
+pm2 stop all
+```
+
+---
+
+### 6. Quy trình Cập nhật Code mới (Redeploy / Update)
+
+Khi có bản cập nhật hoặc sửa lỗi mới từ GitHub, chạy các lệnh sau trên VPS:
+
+```bash
+cd /home/ezerway-financial-news/news-financial-tool
+
+# 1. Kéo code mới nhất về
+git pull
+
+# 2. Xóa cache browser profile cũ bị hỏng do các lần crash trước (nếu có)
+rm -rf storage/browser-profile
+
+# 3. Cài lại thư viện (nếu có thay đổi package.json) và build lại
+pnpm install
+pnpm build
+
+# 4. Khởi động lại tiến trình PM2
+pm2 restart ecosystem.config.js
+```
+
+---
+
+### 7. Cấu hình Nginx & HTTPS để hỗ trợ PWA (Cài đặt trên Mobile)
+
+> **Lưu ý quan trọng về PWA**: Trình duyệt di động (Chrome, Edge) chỉ hiển thị nút **"Cài đặt Ứng dụng" (Add to Home Screen)** khi trang web chạy qua giao thức **HTTPS (SSL)**.
+
+Cấu hình mẫu Nginx Reverse Proxy (`/etc/nginx/sites-available/trendpulse`):
+
+```nginx
+server {
+    server_name yourdomain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+Kích hoạt và cấp chứng chỉ SSL miễn phí với Let's Encrypt:
+```bash
+sudo ln -s /etc/nginx/sites-available/trendpulse /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d yourdomain.com
+```
+
+**Cách cài đặt PWA trên điện thoại:**
+- **Android / Chrome / Edge**: Truy cập `https://yourdomain.com`, bấm banner nổi **"Cài đặt TrendPulse"** hoặc bấm menu 3 chấm (⋮) chọn **"Cài đặt ứng dụng"**.
+- **iPhone / iPad (Safari)**: Mở Safari truy cập web -> Bấm nút **Chia sẻ (Share icon 📤)** ở thanh dưới -> Chọn **"Thêm vào MH chính" (Add to Home Screen)**.
+
+---
+
 ## 📂 Cấu trúc thư mục
 
 ```text
 news-financial-tool/
 ├── src/
-│   ├── app/                     # Next.js App Router (Dashboard & API endpoints)
-│   │   ├── api/                 # REST APIs: trends, generate, publish, logs, settings
-│   │   ├── page.tsx             # Trang Dashboard chính
-│   │   └── layout.tsx           # Layout & Theme
-│   ├── components/              # Các thành phần UI (Header, Stats, Trends, Posts Studio...)
-│   ├── lib/                     # SQLite database & Logging helper (db.ts)
+│   ├── app/                     # Next.js App Router (Dashboard, Login, API endpoints)
+│   │   ├── api/                 # REST APIs: trends, generate, publish, logs, settings, backup, auth
+│   │   ├── login/               # Trang xác thực quản trị viên
+│   │   ├── page.tsx             # Trang Dashboard chính (Overview, Trends, Posts, Logs, Settings)
+│   │   └── layout.tsx           # Layout, PWA Manifest, SEO & Fonts
+│   ├── components/              # Các thành phần UI (Header, Stats, Trends, Posts Studio, PWA Manager...)
+│   ├── lib/                     # SQLite database & Authentication (db.ts, auth-server.ts, auth-token.ts)
 │   ├── services/
-│   │   ├── crawler.ts           # Cào Google Trends Category 3 (Business & Finance) & lấy link nguồn In the news
+│   │   ├── crawler.ts           # Cào Google Trends Category 3 (Kinh tế & Tài chính) kèm link báo gốc
 │   │   ├── ai-generator.ts      # Tạo bài đăng & comment nguồn tin bằng Gemini
-│   │   ├── auto-runner.ts       # Điều phối chu kỳ tự động
-│   │   └── playwright/          # Tự động hóa Facebook & chụp ảnh đối soát
+│   │   ├── auto-runner.ts       # Điều phối chu kỳ tự động (Cào -> Viết -> Đăng)
+│   │   └── playwright/          # Tự động hóa Facebook (Persistent Context, Chống crash VPS, Auto-comment)
 │   └── types/                   # Định nghĩa TypeScript
-├── scripts/                     # Các CLI scripts (fb-login, auto-cycle)
+├── public/                      # Static assets, PWA icons, manifest.json, sw.js
+├── scripts/                     # Các CLI scripts (fb-login, auto-cycle, generate-icons)
 ├── storage/                     # Thư mục lưu DB (app.db), session Facebook, ảnh chụp màn hình
+├── ecosystem.config.js          # Cấu hình PM2 chạy Web & Cron tự động trên VPS
 ├── package.json
 └── README.md
 ```
+

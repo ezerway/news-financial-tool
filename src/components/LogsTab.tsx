@@ -52,21 +52,22 @@ export default function LogsTab({ logs, onClearLogs }: LogsTabProps) {
   return (
     <div className="space-y-5">
       {/* Controls Bar */}
-      <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center flex-wrap gap-2.5">
+      {/* Controls Bar */}
+      <div className="p-3 sm:p-4 rounded-2xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5 flex-1 min-w-0">
           {/* Level Filter */}
-          <div className="inline-flex p-1 bg-slate-950/80 border border-slate-800 rounded-xl">
+          <div className="flex items-center gap-1 p-1 bg-slate-950/80 border border-slate-800 rounded-xl overflow-x-auto">
             {(['all', 'SUCCESS', 'INFO', 'WARN', 'ERROR'] as const).map((lvl) => (
               <button
                 key={lvl}
                 onClick={() => setLevelFilter(lvl)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
                   levelFilter === lvl
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                {lvl === 'all' ? 'Tất cả mức độ' : lvl}
+                {lvl === 'all' ? 'Tất cả' : lvl}
               </button>
             ))}
           </div>
@@ -75,7 +76,7 @@ export default function LogsTab({ logs, onClearLogs }: LogsTabProps) {
           <select
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
-            className="bg-slate-950/80 border border-slate-800 text-xs font-medium text-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500"
+            className="bg-slate-950/80 border border-slate-800 text-xs font-medium text-slate-200 rounded-xl px-3 py-2 sm:py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner"
           >
             <option value="all">Tất cả hành động</option>
             <option value="CRAWL">CRAWL (Cào tin)</option>
@@ -89,58 +90,89 @@ export default function LogsTab({ logs, onClearLogs }: LogsTabProps) {
 
         <button
           onClick={onClearLogs}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 border border-slate-700 text-xs font-semibold transition"
+          className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 border border-slate-700 text-xs font-semibold transition shrink-0"
         >
           <Trash2 className="w-3.5 h-3.5" />
           <span>Xóa nhật ký</span>
         </button>
       </div>
 
-      {/* Logs Table */}
+      {/* Logs View */}
       {filteredLogs.length === 0 ? (
-        <div className="p-12 text-center rounded-3xl bg-slate-900/50 border border-slate-800/80">
-          <Activity className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+        <div className="p-8 sm:p-12 text-center rounded-3xl bg-slate-900/50 border border-slate-800/80">
+          <Activity className="w-10 h-10 sm:w-12 sm:h-12 text-slate-600 mx-auto mb-3" />
           <h3 className="text-base font-bold text-white">Chưa có nhật ký hoạt động</h3>
           <p className="text-xs text-slate-400 mt-1.5">Các hoạt động cào tin, viết bài AI và tự động đăng sẽ được ghi nhận tại đây.</p>
         </div>
       ) : (
-        <div className="rounded-2xl bg-slate-900/70 border border-slate-800/80 overflow-hidden shadow-xl backdrop-blur-md">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950/90 text-slate-400 border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider">
-                <tr>
-                  <th className="py-3.5 px-5">Thời gian</th>
-                  <th className="py-3.5 px-5">Mức độ</th>
-                  <th className="py-3.5 px-5">Hành động</th>
-                  <th className="py-3.5 px-5">Nội dung chi tiết</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 font-mono">
-                {filteredLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="py-3.5 px-5 text-slate-500 whitespace-nowrap text-[11px]" suppressHydrationWarning>
-                      {formatDateTime(log.created_at)}
-                    </td>
-                    <td className="py-3.5 px-5 whitespace-nowrap">{getLevelBadge(log.level)}</td>
-                    <td className="py-3.5 px-5 whitespace-nowrap">
-                      <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-5 text-slate-200">
-                      <div className="font-sans leading-relaxed text-xs">{log.message}</div>
-                      {log.details_json && (
-                        <pre className="mt-1.5 p-2.5 rounded-xl bg-slate-950/90 border border-slate-800/80 text-[10px] text-slate-400 overflow-x-auto">
-                          {log.details_json}
-                        </pre>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <>
+          {/* Mobile Card List (sm:hidden) */}
+          <div className="sm:hidden space-y-2.5">
+            {filteredLogs.map((log) => (
+              <div
+                key={log.id}
+                className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-md space-y-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    {getLevelBadge(log.level)}
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                      {log.action}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono" suppressHydrationWarning>
+                    {formatDateTime(log.created_at)}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-200 leading-relaxed font-sans">{log.message}</div>
+                {log.details_json && (
+                  <pre className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[10px] text-slate-400 overflow-x-auto font-mono">
+                    {log.details_json}
+                  </pre>
+                )}
+              </div>
+            ))}
           </div>
-        </div>
+
+          {/* Desktop Table (hidden sm:block) */}
+          <div className="hidden sm:block rounded-2xl bg-slate-900/70 border border-slate-800/80 overflow-hidden shadow-xl backdrop-blur-md">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-950/90 text-slate-400 border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3.5 px-5">Thời gian</th>
+                    <th className="py-3.5 px-5">Mức độ</th>
+                    <th className="py-3.5 px-5">Hành động</th>
+                    <th className="py-3.5 px-5">Nội dung chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-mono">
+                  {filteredLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="py-3.5 px-5 text-slate-500 whitespace-nowrap text-[11px]" suppressHydrationWarning>
+                        {formatDateTime(log.created_at)}
+                      </td>
+                      <td className="py-3.5 px-5 whitespace-nowrap">{getLevelBadge(log.level)}</td>
+                      <td className="py-3.5 px-5 whitespace-nowrap">
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-5 text-slate-200">
+                        <div className="font-sans leading-relaxed text-xs">{log.message}</div>
+                        {log.details_json && (
+                          <pre className="mt-1.5 p-2.5 rounded-xl bg-slate-950/90 border border-slate-800/80 text-[10px] text-slate-400 overflow-x-auto">
+                            {log.details_json}
+                          </pre>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

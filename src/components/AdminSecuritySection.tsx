@@ -224,14 +224,14 @@ export default function AdminSecuritySection() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
           <p className="text-[11px] text-slate-500">
             Mật khẩu được mã hóa an toàn bằng PBKDF2 (SHA-512, 100.000 vòng) theo tiêu chuẩn bảo mật OWASP.
           </p>
           <button
             type="submit"
             disabled={isLoading}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 transition-all active:scale-95 disabled:opacity-50 shrink-0"
+            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 transition-all active:scale-95 disabled:opacity-50 shrink-0 self-end sm:self-auto"
           >
             {isLoading ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />

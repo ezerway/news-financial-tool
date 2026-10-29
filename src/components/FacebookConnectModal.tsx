@@ -247,9 +247,9 @@ export default function FacebookConnectModal({
           </div>
         </div>
 
-        {/* Clean Segmented Tab Navigation (no ugly scrollbars) */}
-        <div className="p-3 bg-slate-950/40 border-b border-slate-800/80">
-          <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-slate-950/80 border border-slate-800/80">
+        {/* Clean Segmented Tab Navigation */}
+        <div className="p-2 sm:p-3 bg-slate-950/40 border-b border-slate-800/80">
+          <div className="grid grid-cols-3 gap-1 p-1 rounded-2xl bg-slate-950/80 border border-slate-800/80">
             {/* Tab 1: Cookies */}
             <button
               type="button"
@@ -257,7 +257,7 @@ export default function FacebookConnectModal({
                 setActiveTab('cookies');
                 setErrorMessage(null);
               }}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1.5 py-2 px-1.5 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all ${
                 activeTab === 'cookies'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -279,14 +279,14 @@ export default function FacebookConnectModal({
                 setActiveTab('file');
                 setErrorMessage(null);
               }}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1.5 py-2 px-1.5 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all ${
                 activeTab === 'file'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
               }`}
             >
               <Upload className="w-3.5 h-3.5 shrink-0" />
-              <span>Tải file Session</span>
+              <span className="truncate">File Session</span>
             </button>
 
             {/* Tab 3: Browser */}
@@ -296,20 +296,20 @@ export default function FacebookConnectModal({
                 setActiveTab('browser');
                 setErrorMessage(null);
               }}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1.5 py-2 px-1.5 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all ${
                 activeTab === 'browser'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
               }`}
             >
               <Globe className="w-3.5 h-3.5 shrink-0" />
-              <span>Mở Chromium</span>
+              <span className="truncate">Trình duyệt</span>
             </button>
           </div>
         </div>
 
         {/* Body Content */}
-        <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
           {/* Alerts */}
           {errorMessage && (
             <div className="p-3.5 rounded-2xl bg-rose-950/70 border border-rose-500/40 text-rose-200 text-xs flex items-center gap-2.5 animate-in fade-in">
@@ -329,25 +329,25 @@ export default function FacebookConnectModal({
           {activeTab === 'cookies' && (
             <div className="space-y-4">
               {/* Sub-mode switcher */}
-              <div className="flex items-center justify-between pb-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
                 <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                   <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
                   <span>Chọn cách nhập:</span>
                 </span>
-                <div className="inline-flex p-1 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-semibold">
+                <div className="grid grid-cols-2 p-1 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-semibold">
                   <button
                     type="button"
                     onClick={() => {
                       setCookieInputMode('json');
                       setErrorMessage(null);
                     }}
-                    className={`px-3 py-1 rounded-lg transition-all ${
+                    className={`px-2.5 py-1.5 rounded-lg text-center transition-all ${
                       cookieInputMode === 'json'
                         ? 'bg-blue-600 text-white shadow-sm font-bold'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    Dán Cookie-Editor (JSON) ★
+                    JSON (Khuyên dùng) ★
                   </button>
                   <button
                     type="button"
@@ -355,7 +355,7 @@ export default function FacebookConnectModal({
                       setCookieInputMode('fields');
                       setErrorMessage(null);
                     }}
-                    className={`px-3 py-1 rounded-lg transition-all ${
+                    className={`px-2.5 py-1.5 rounded-lg text-center transition-all ${
                       cookieInputMode === 'fields'
                         ? 'bg-blue-600 text-white shadow-sm font-bold'
                         : 'text-slate-400 hover:text-white'

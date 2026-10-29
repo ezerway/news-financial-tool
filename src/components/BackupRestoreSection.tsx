@@ -520,12 +520,12 @@ export default function BackupRestoreSection({ onRefreshData }: BackupRestoreSec
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto shrink-0">
           <button
             type="button"
             onClick={handleExportFull}
             disabled={isExporting !== null}
-            className="flex items-center gap-1.5 py-2 px-3.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-all active:scale-95 disabled:opacity-50 shadow-sm"
+            className="flex items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-all active:scale-95 disabled:opacity-50 shadow-sm"
           >
             {isExporting === 'full' ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
@@ -539,7 +539,7 @@ export default function BackupRestoreSection({ onRefreshData }: BackupRestoreSec
             type="button"
             onClick={() => fullInputRef.current?.click()}
             disabled={isImporting !== null}
-            className="flex items-center gap-1.5 py-2 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
+            className="flex items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
           >
             {isImporting === 'full' ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-300" />
