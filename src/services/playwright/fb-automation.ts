@@ -149,7 +149,7 @@ async function handleAccountChooserOrLogin(
       // If a target URL was specified (like a Fanpage) and we are currently on facebook.com home, navigate to targetUrl
       if (targetUrl && page.url() && !page.url().includes(targetUrl.replace(/^https?:\/\/(www\.)?facebook\.com\/?/, ''))) {
         logActivity('INFO', 'AUTH', `Đang điều hướng tiếp tục đến trang đích: ${targetUrl}`);
-        await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(() => {});
+        await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
         await page.waitForTimeout(3000);
       }
 
@@ -248,8 +248,16 @@ export async function executePublishAndComment(
 
     const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
 
+    // Block video media streaming to prevent RAM exhaustion and Page Crashes on Linux VPS
+    await page.route('**/*', (route) => {
+      if (route.request().resourceType() === 'media') {
+        return route.abort();
+      }
+      return route.continue();
+    });
+
     logActivity('INFO', 'PUBLISH', `Đang điều hướng đến trang đích Facebook: ${targetUrl}`);
-    await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 50000 });
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
     await page.waitForTimeout(3000);
 
     // Bypass Account Chooser / Continue splash screen if present
@@ -492,7 +500,7 @@ export async function executePublishAndComment(
     let exactPostUrl = targetUrl;
 
     try {
-      await page.goto('https://www.facebook.com/?filter=all&sk=h_chr', { waitUntil: 'networkidle', timeout: 40000 });
+      await page.goto('https://www.facebook.com/?filter=all&sk=h_chr', { waitUntil: 'domcontentloaded', timeout: 40000 });
       await page.waitForTimeout(3000);
 
       // Find the timestamp link (contains __tn__=%2CO%2CP-R) of the top post
@@ -518,7 +526,7 @@ export async function executePublishAndComment(
         }
       } else {
         logActivity('INFO', 'PUBLISH', 'Chưa tìm thấy trên sk=h_chr, chuyển về timeline Fanpage...');
-        await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 35000 });
+        await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
         await page.waitForTimeout(2000);
       }
     } catch (feedNavErr: any) {
@@ -703,11 +711,19 @@ export async function executeCommentOnly(
 
     const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
 
+    // Block video media streaming to prevent RAM exhaustion and Page Crashes on Linux VPS
+    await page.route('**/*', (route) => {
+      if (route.request().resourceType() === 'media') {
+        return route.abort();
+      }
+      return route.continue();
+    });
+
     let resolvedPostUrl = targetUrl;
     if (!isDirectPost) {
       logActivity('INFO', 'COMMENT', '[Comment Only] Đang tìm bài viết mới nhất trên Feeds (sk=h_chr)...');
       try {
-        await page.goto('https://www.facebook.com/?filter=all&sk=h_chr', { waitUntil: 'networkidle', timeout: 40000 });
+        await page.goto('https://www.facebook.com/?filter=all&sk=h_chr', { waitUntil: 'domcontentloaded', timeout: 40000 });
         await page.waitForTimeout(3000);
 
         // Bypass Account Chooser / Continue splash screen if present
@@ -733,17 +749,17 @@ export async function executeCommentOnly(
           }
         } else {
           logActivity('INFO', 'COMMENT', `[Comment Only] Điều hướng về Fanpage: ${targetUrl}`);
-          await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 40000 });
+          await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 40000 });
           await page.waitForTimeout(2500);
           await page.evaluate(() => window.scrollBy(0, 500));
         }
       } catch (err: any) {
         logActivity('WARN', 'COMMENT', `[Comment Only] Lỗi tìm bài qua feeds: ${err.message}, mở timeline...`);
-        await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 35000 });
+        await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
       }
     } else {
       logActivity('INFO', 'COMMENT', `[Comment Only] Điều hướng trực tiếp đến bài viết: ${targetUrl}`);
-      await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 50000 });
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
       await page.waitForTimeout(3000);
     }
 

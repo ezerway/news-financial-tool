@@ -157,8 +157,8 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
     });
 
     const page = await context.newPage();
-    await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 35000 });
-    await page.waitForTimeout(2000);
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
+    await page.waitForTimeout(3000);
 
     // Handle Google cookie consent popup if present
     const consentBtn = page.getByRole('button', { name: /accept all|i agree|tôi đồng ý/i });
