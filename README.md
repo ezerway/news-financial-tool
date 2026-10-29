@@ -178,12 +178,10 @@ pm2 stop all
   ```
   *(Khi đăng từ 2 bài trở lên, bot tự động nghỉ 25 giây giữa các bài để bảo vệ tài khoản Facebook khỏi bị checkpoint / chống spam).*
 
-**Cơ chế chạy đúng giờ tròn (1h00, 2h00, 3h00...):**
-1. Tiến trình `trendpulse-cron` sử dụng script [`scripts/cron-daemon.ts`](file:///Volumes/KINGSTON/Code/news-financial-tool/scripts/cron-daemon.ts) - tự động tính toán thời gian đến đúng mili-giây đầu tiên của mỗi giờ tròn (`HH:00:00.000`) và kích hoạt chu kỳ.
-2. Để đảm bảo mốc giờ trùng khớp với giờ Việt Nam, trên VPS Ubuntu hãy chạy:
-   ```bash
-   sudo timedatectl set-timezone Asia/Ho_Chi_Minh
-   ```
+**Cơ chế chạy tự động 1 tiếng 1 lần (`trendpulse-cron`):**
+1. Tiến trình `trendpulse-cron` sử dụng script [`scripts/cron-daemon.ts`](file:///Volumes/KINGSTON/Code/news-financial-tool/scripts/cron-daemon.ts) kèm cờ `--publish`.
+2. Khi vừa khởi động (`pm2 start` hoặc `pm2 restart`), bot sẽ **chạy ngay lập tức 1 lần** để cào tin và đăng bài lên Facebook (không phải chờ đợi).
+3. Sau đó, bot tự động lặp lại chu kỳ **đúng 1 tiếng 1 lần (mỗi 60 phút)** liên tục 24/7. Có thể xem thời gian đếm ngược lần chạy kế tiếp qua `pm2 logs trendpulse-cron`.
 
 ---
 

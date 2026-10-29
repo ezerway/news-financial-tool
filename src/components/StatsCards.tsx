@@ -50,13 +50,13 @@ export default function StatsCards({ trends, posts, logs }: StatsCardsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
       {cards.map((c, i) => {
         const Icon = c.icon;
         return (
           <div
             key={i}
-            className={`p-4 sm:p-5 rounded-2xl bg-gradient-to-br ${c.gradient} bg-slate-900/60 border ${c.borderColor} backdrop-blur-md shadow-md transition-all duration-200 hover:-translate-y-0.5`}
+            className={`p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-gradient-to-br ${c.gradient} bg-slate-900/60 border ${c.borderColor} backdrop-blur-md shadow-md transition-all duration-200 hover:-translate-y-0.5`}
           >
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-slate-400">{c.title}</span>

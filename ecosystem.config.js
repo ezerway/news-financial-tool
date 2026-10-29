@@ -23,11 +23,11 @@ module.exports = {
     {
       name: 'trendpulse-cron',
       script: 'node_modules/tsx/dist/cli.mjs',
-      args: 'scripts/cron-daemon.ts',
+      args: 'scripts/cron-daemon.ts --publish',
       cwd: __dirname,
       instances: 1,
       exec_mode: 'fork',
-      autorestart: true, // Luôn duy trì tiến trình chạy nền, tự động hẹn giờ đúng đầu giờ tròn (HH:00:00)
+      autorestart: true, // Tiến trình daemon chạy nền liên tục, tự động chạy chu kỳ 1 tiếng 1 lần
       watch: false,
       max_memory_restart: '1000M',
       env: {

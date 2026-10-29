@@ -32,7 +32,7 @@ export default function Header({
 
   return (
     <header className="sticky top-0 z-40 backdrop-blur-xl bg-slate-950/85 border-b border-slate-800/80 shadow-2xl pt-[env(safe-area-inset-top)]">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-4">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-4">
         {/* Brand identity */}
         <div className="flex items-center gap-2 sm:gap-3.5">
           <div className="relative group shrink-0">

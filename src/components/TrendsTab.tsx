@@ -57,18 +57,18 @@ export default function TrendsTab({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3.5 sm:space-y-5">
       {/* Search and Crawl Action Bar */}
-      <div className="p-3 sm:p-4 rounded-2xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
+      <div className="p-2.5 sm:p-4 rounded-2xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm kiếm xu hướng..."
-            className="w-full pl-10 pr-4 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner"
+            className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner"
           />
         </div>
 
@@ -77,7 +77,7 @@ export default function TrendsTab({
           <select
             value={selectedGeo}
             onChange={(e) => handleGeoChange(e.target.value)}
-            className="flex-1 sm:flex-initial bg-slate-950/80 border border-slate-800 text-xs font-semibold text-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner"
+            className="flex-1 sm:flex-initial bg-slate-950/80 border border-slate-800 text-xs font-semibold text-slate-200 rounded-xl px-2.5 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner"
           >
             <option value="VN">🇻🇳 Việt Nam</option>
             <option value="US">🇺🇸 Hoa Kỳ</option>
@@ -91,7 +91,7 @@ export default function TrendsTab({
           <button
             onClick={() => onCrawl(selectedGeo === 'all' ? 'VN' : selectedGeo)}
             disabled={isCrawling}
-            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-emerald-600/25 transition active:scale-95 disabled:opacity-50 shrink-0"
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-emerald-600/25 transition active:scale-95 disabled:opacity-50 shrink-0"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isCrawling ? 'animate-spin' : ''}`} />
             <span>{isCrawling ? 'Đang cào...' : 'Cào Trends'}</span>
@@ -101,8 +101,8 @@ export default function TrendsTab({
 
       {/* Grid of Trends */}
       {filteredTrends.length === 0 ? (
-        <div className="p-12 text-center rounded-3xl bg-slate-900/50 border border-slate-800/80">
-          <TrendingUp className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+        <div className="p-8 sm:p-12 text-center rounded-3xl bg-slate-900/50 border border-slate-800/80">
+          <TrendingUp className="w-10 h-10 sm:w-12 sm:h-12 text-slate-600 mx-auto mb-3" />
           <h3 className="text-base font-bold text-white">
             Chưa có dữ liệu xu hướng cho {GEO_NAMES[selectedGeo]?.label || selectedGeo}
           </h3>
@@ -119,7 +119,7 @@ export default function TrendsTab({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {filteredTrends.map((trend) => {
             const isGenerating = generatingId === trend.id;
             const isSearchingSource = searchingSourceId === trend.id;
@@ -129,7 +129,7 @@ export default function TrendsTab({
             return (
               <div
                 key={trend.id}
-                className="group p-5 rounded-2xl bg-slate-900/70 border border-slate-800/80 hover:border-slate-700 backdrop-blur-md shadow-lg hover:shadow-2xl transition-all duration-200 flex flex-col justify-between"
+                className="group p-3.5 sm:p-5 rounded-2xl bg-slate-900/70 border border-slate-800/80 hover:border-slate-700 backdrop-blur-md shadow-lg hover:shadow-2xl transition-all duration-200 flex flex-col justify-between"
               >
                 <div>
                   {/* Traffic & Sources count */}

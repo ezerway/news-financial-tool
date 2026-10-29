@@ -90,9 +90,9 @@ export default function AdminSecuritySection() {
   };
 
   return (
-    <div className="p-6 sm:p-7 rounded-3xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-xl space-y-5">
+    <div className="p-4 sm:p-7 rounded-2xl sm:rounded-3xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-xl space-y-3.5 sm:space-y-5">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-slate-800/80">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 sm:pb-5 border-b border-slate-800/80">
         <div className="flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-2xl bg-indigo-600/15 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shadow-lg shadow-indigo-500/10">
             <Lock className="w-6 h-6 text-indigo-400" />

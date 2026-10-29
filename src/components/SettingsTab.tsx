@@ -58,11 +58,11 @@ export default function SettingsTab({
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
       {/* Target Destination: Fanpage vs Personal Profile */}
-      <div className="p-6 sm:p-7 rounded-3xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-xl space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-800/80">
+      <div className="p-4 sm:p-7 rounded-2xl sm:rounded-3xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-xl space-y-3.5 sm:space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pb-3 sm:pb-5 border-b border-slate-800/80">
           <div className="flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-blue-600/15 text-blue-400 border border-blue-500/30 flex items-center justify-center shadow-lg shadow-blue-500/10 shrink-0">
               <Megaphone className="w-6 h-6 text-blue-400" />
@@ -222,8 +222,8 @@ export default function SettingsTab({
       </div>
 
       {/* AI & Automation Configurations */}
-      <div className="p-6 sm:p-7 rounded-3xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-xl space-y-5">
-        <div className="flex items-center gap-3.5 pb-5 border-b border-slate-800/80">
+      <div className="p-4 sm:p-7 rounded-2xl sm:rounded-3xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-xl space-y-3.5 sm:space-y-5">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 pb-3 sm:pb-5 border-b border-slate-800/80">
           <div className="w-11 h-11 rounded-2xl bg-indigo-600/15 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shadow-lg shadow-indigo-500/10">
             <Key className="w-6 h-6" />
           </div>
@@ -376,8 +376,8 @@ export default function SettingsTab({
     </form>
 
       {/* PWA Mobile & Desktop App Section */}
-      <div className="p-6 sm:p-7 rounded-3xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 pb-4 border-b border-slate-800/80">
+      <div className="p-4 sm:p-7 rounded-2xl sm:rounded-3xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-xl space-y-3 sm:space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3.5 pb-3 sm:pb-4 border-b border-slate-800/80">
           <div className="flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-indigo-600/15 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shadow-lg shadow-indigo-500/10 shrink-0">
               <Smartphone className="w-6 h-6 text-indigo-400" />

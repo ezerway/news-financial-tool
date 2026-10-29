@@ -366,7 +366,7 @@ export default function DashboardPage() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3.5 sm:py-6 space-y-4 sm:space-y-6 pb-36 sm:pb-32 md:pb-10">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-2.5 sm:px-6 lg:px-8 py-2.5 sm:py-5 space-y-3 sm:space-y-5 pb-20 sm:pb-24 md:pb-8">
         {/* Desktop Tab Navigation (Floating Segmented Dock) */}
         <div className="hidden md:flex items-center justify-start overflow-x-auto pb-1">
           <div className="inline-flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-xl shadow-xl">
