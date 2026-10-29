@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Flame, Play, RefreshCw, CheckCircle2, AlertTriangle, Sparkles, LogOut } from 'lucide-react';
+import React, { useState } from 'react';
+import { Flame, Play, RefreshCw, CheckCircle2, AlertTriangle, Sparkles, LogOut, ChevronDown, Check } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 
 interface HeaderProps {
@@ -10,6 +10,9 @@ interface HeaderProps {
   onRefresh: () => void;
   onConnectFb: () => void;
   isRunning: boolean;
+  autoRefreshInterval: number;
+  onChangeAutoRefresh: (seconds: number) => void;
+  secondsUntilRefresh: number;
 }
 
 export default function Header({
@@ -18,7 +21,11 @@ export default function Header({
   onRefresh,
   onConnectFb,
   isRunning,
+  autoRefreshInterval,
+  onChangeAutoRefresh,
+  secondsUntilRefresh,
 }: HeaderProps) {
+  const [isRefreshMenuOpen, setIsRefreshMenuOpen] = useState(false);
   const handleLogout = async () => {
     if (confirm('Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?')) {
       try {
@@ -98,15 +105,75 @@ export default function Header({
             );
           })()}
 
-          {/* Refresh Data */}
-          <button
-            onClick={onRefresh}
-            disabled={isRunning}
-            className="p-1.5 sm:p-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-800 shadow-sm transition active:scale-95 disabled:opacity-50"
-            title="Làm mới dữ liệu"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isRunning ? 'animate-spin text-indigo-400' : ''}`} />
-          </button>
+          {/* Refresh Data & Auto-Refresh Controls */}
+          <div className="relative">
+            <div className="flex items-center rounded-xl bg-slate-900/90 border border-slate-800 shadow-sm overflow-hidden">
+              {/* Manual Refresh Trigger */}
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={isRunning}
+                className="p-1.5 sm:p-2 text-slate-300 hover:text-white hover:bg-slate-800/80 transition active:scale-95 disabled:opacity-50"
+                title="Bấm để làm mới dữ liệu ngay lập tức"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isRunning ? 'animate-spin text-indigo-400' : ''}`} />
+              </button>
+
+              {/* Auto-Refresh Status & Dropdown Trigger */}
+              <button
+                type="button"
+                onClick={() => setIsRefreshMenuOpen(!isRefreshMenuOpen)}
+                className="flex items-center gap-1 px-1.5 sm:px-2 py-1.5 sm:py-2 text-[10px] sm:text-xs font-semibold border-l border-slate-800/90 hover:bg-slate-800/80 transition text-slate-300 active:scale-95"
+                title="Tùy chọn tự động làm mới dữ liệu"
+              >
+                {autoRefreshInterval > 0 ? (
+                  <span className="flex items-center gap-1 text-emerald-400 font-mono">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>{secondsUntilRefresh}s</span>
+                  </span>
+                ) : (
+                  <span className="text-slate-400">Tắt</span>
+                )}
+                <ChevronDown className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Dropdown Menu for Auto-Refresh Interval */}
+            {isRefreshMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsRefreshMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1.5 z-50 w-48 rounded-2xl bg-slate-950/95 border border-slate-800 backdrop-blur-2xl shadow-2xl p-1.5 text-xs animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800/80 mb-1">
+                    Tự động làm mới
+                  </div>
+                  {[
+                    { label: 'Tắt tự động', value: 0 },
+                    { label: 'Mỗi 15 giây', value: 15 },
+                    { label: 'Mỗi 30 giây (Mặc định)', value: 30 },
+                    { label: 'Mỗi 1 phút', value: 60 },
+                    { label: 'Mỗi 2 phút', value: 120 },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        onChangeAutoRefresh(opt.value);
+                        setIsRefreshMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl font-medium transition ${
+                        autoRefreshInterval === opt.value
+                          ? 'bg-indigo-600/20 text-indigo-300 font-bold'
+                          : 'text-slate-300 hover:bg-slate-900 hover:text-white'
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      {autoRefreshInterval === opt.value && <Check className="w-3.5 h-3.5 text-indigo-400" />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Dry Run Test (Desktop/Tablet) */}
           <button

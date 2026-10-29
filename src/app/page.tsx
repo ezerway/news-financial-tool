@@ -53,8 +53,8 @@ export default function DashboardPage() {
   };
 
   // Fetch all dashboard data
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const [trendsRes, postsRes, logsRes, settingsRes] = await Promise.all([
         fetch('/api/trends'),
@@ -83,9 +83,74 @@ export default function DashboardPage() {
     } catch (err: any) {
       console.error('Fetch error:', err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, []);
+
+  // Auto-refresh interval (in seconds: 0 = off, 15, 30, 60, 120)
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState<number>(30);
+  const [secondsUntilRefresh, setSecondsUntilRefresh] = useState<number>(30);
+
+  // Load saved preference on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('trendpulse_auto_refresh');
+      if (saved !== null) {
+        const val = parseInt(saved, 10);
+        setAutoRefreshInterval(val);
+        setSecondsUntilRefresh(val > 0 ? val : 0);
+      }
+    }
+  }, []);
+
+  const handleChangeAutoRefresh = (seconds: number) => {
+    setAutoRefreshInterval(seconds);
+    setSecondsUntilRefresh(seconds);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('trendpulse_auto_refresh', seconds.toString());
+    }
+    if (seconds > 0) {
+      showToast(`Đã bật tự động làm mới: mỗi ${seconds >= 60 ? `${seconds / 60} phút` : `${seconds}s`}`, 'info');
+    } else {
+      showToast('Đã tắt tự động làm mới', 'info');
+    }
+  };
+
+  // Timer loop for auto-refresh
+  useEffect(() => {
+    if (autoRefreshInterval <= 0) return;
+
+    setSecondsUntilRefresh(autoRefreshInterval);
+
+    const timer = setInterval(() => {
+      // Pause if browser tab is hidden / in background
+      if (typeof document !== 'undefined' && document.hidden) {
+        return;
+      }
+
+      setSecondsUntilRefresh((prev) => {
+        if (prev <= 1) {
+          fetchData(true); // silent background fetch
+          return autoRefreshInterval;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [autoRefreshInterval, fetchData]);
+
+  // When switching back into the tab, immediately refresh silently
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && autoRefreshInterval > 0) {
+        fetchData(true);
+        setSecondsUntilRefresh(autoRefreshInterval);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [autoRefreshInterval, fetchData]);
 
   useEffect(() => {
     fetchData();
@@ -360,9 +425,12 @@ export default function DashboardPage() {
       <Header
         fbStatus={fbStatus}
         onRunCycle={handleRunCycle}
-        onRefresh={fetchData}
+        onRefresh={() => fetchData(false)}
         onConnectFb={handleConnectFb}
         isRunning={isRunningCycle || isLoading}
+        autoRefreshInterval={autoRefreshInterval}
+        onChangeAutoRefresh={handleChangeAutoRefresh}
+        secondsUntilRefresh={secondsUntilRefresh}
       />
 
       {/* Main Container */}
