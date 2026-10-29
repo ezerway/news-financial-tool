@@ -39,17 +39,7 @@ export function getChromiumLaunchArgs(extraArgs: string[] = []): string[] {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage', // Uses /tmp instead of 64MB /dev/shm (fixes RESULT_CODE_KILLED_BAD_MESSAGE)
       '--disable-gpu',           // Avoids GPU IPC driver crash on headless VPS
-      '--disable-software-rasterizer',
-      '--disable-features=IsolateOrigins,site-per-process',
-      '--disable-background-networking',
-      '--disable-background-timer-throttling',
-      '--disable-backgrounding-occluded-windows',
-      '--disable-breakpad',
-      '--disable-component-extensions-with-background-pages',
-      '--disable-extensions',
-      '--mute-audio',
-      '--no-zygote',
-      '--js-flags=--max-old-space-size=512'
+      '--disable-software-rasterizer'
     );
   }
 

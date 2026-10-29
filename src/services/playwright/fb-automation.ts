@@ -250,10 +250,14 @@ export async function executePublishAndComment(
 
     // Block video media streaming to prevent RAM exhaustion and Page Crashes on Linux VPS
     await page.route('**/*', (route) => {
-      if (route.request().resourceType() === 'media') {
-        return route.abort();
+      try {
+        if (route.request().resourceType() === 'media') {
+          return route.abort();
+        }
+        return route.continue();
+      } catch {
+        // Safe fallback
       }
-      return route.continue();
     });
 
     logActivity('INFO', 'PUBLISH', `Đang điều hướng đến trang đích Facebook: ${targetUrl}`);
@@ -713,10 +717,14 @@ export async function executeCommentOnly(
 
     // Block video media streaming to prevent RAM exhaustion and Page Crashes on Linux VPS
     await page.route('**/*', (route) => {
-      if (route.request().resourceType() === 'media') {
-        return route.abort();
+      try {
+        if (route.request().resourceType() === 'media') {
+          return route.abort();
+        }
+        return route.continue();
+      } catch {
+        // Safe fallback
       }
-      return route.continue();
     });
 
     let resolvedPostUrl = targetUrl;
