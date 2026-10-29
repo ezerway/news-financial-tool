@@ -70,6 +70,99 @@ async function dismissBlockingPagePopups(page: any): Promise<boolean> {
   return dismissed;
 }
 
+/**
+ * Automatically handle Facebook Account Chooser / "Continue as [User]" / Remembered Profile splash screens
+ */
+async function handleAccountChooserOrLogin(
+  page: any,
+  context: any,
+  targetUrl?: string
+): Promise<boolean> {
+  try {
+    // 1. Check if Facebook cookie consent popup is present
+    const cookieConsent = page
+      .locator(
+        'button:has-text("Allow all cookies"), ' +
+        'button:has-text("Cho phép tất cả cookie"), ' +
+        'button:has-text("Chấp nhận tất cả"), ' +
+        'button:has-text("Allow essential and optional cookies"), ' +
+        'button:has-text("Allow essential cookies"), ' +
+        'div[role="button"]:has-text("Allow all cookies"), ' +
+        'div[role="button"]:has-text("Cho phép tất cả cookie")'
+      )
+      .first();
+    if ((await cookieConsent.count()) > 0 && (await cookieConsent.isVisible({ timeout: 1500 }).catch(() => false))) {
+      logActivity('INFO', 'AUTH', '[Bypass] Bấm chấp nhận Cookie Facebook...');
+      await cookieConsent.click().catch(() => {});
+      await page.waitForTimeout(2000);
+    }
+
+    // 2. Check for Account Chooser / "Continue" button (as shown on VPS splash screen)
+    const continueSelectors = [
+      'button:has-text("Continue")',
+      'button:has-text("Tiếp tục")',
+      'div[role="button"]:has-text("Continue")',
+      'div[role="button"]:has-text("Tiếp tục")',
+      'div[aria-label*="Continue"]',
+      'div[aria-label*="Tiếp tục"]',
+      'a[role="button"]:has-text("Continue")',
+      'a[role="button"]:has-text("Tiếp tục")',
+      'span:has-text("Continue")',
+      'span:has-text("Tiếp tục")',
+    ];
+
+    let continueBtn = null;
+    for (const sel of continueSelectors) {
+      const el = page.locator(sel).first();
+      if ((await el.count()) > 0 && (await el.isVisible({ timeout: 1500 }).catch(() => false))) {
+        continueBtn = el;
+        break;
+      }
+    }
+
+    if (continueBtn) {
+      logActivity(
+        'INFO',
+        'AUTH',
+        '[Bypass] Phát hiện màn hình xác nhận tài khoản ("Continue / Tiếp tục"). Đang tự động bấm "Continue"...'
+      );
+      await continueBtn.click({ force: true });
+      await page.waitForTimeout(4000);
+
+      // Check if password prompt appears
+      const passwordInput = page.locator('input[type="password"]').first();
+      if ((await passwordInput.count()) > 0 && (await passwordInput.isVisible({ timeout: 2000 }).catch(() => false))) {
+        logActivity(
+          'WARN',
+          'AUTH',
+          'Facebook yêu cầu nhập mật khẩu trên IP VPS mới. Vui lòng export đầy đủ JSON Cookie từ tiện ích Cookie-Editor trên máy tính cá nhân để bỏ qua mật khẩu.'
+        );
+        return false;
+      }
+
+      // Check if we entered Facebook successfully
+      logActivity('SUCCESS', 'AUTH', '[Bypass] Đã kích hoạt tài khoản qua màn hình Continue, đang cập nhật session...');
+      try {
+        await context.storageState({ path: getSessionPath() });
+      } catch {}
+
+      // If a target URL was specified (like a Fanpage) and we are currently on facebook.com home, navigate to targetUrl
+      if (targetUrl && page.url() && !page.url().includes(targetUrl.replace(/^https?:\/\/(www\.)?facebook\.com\/?/, ''))) {
+        logActivity('INFO', 'AUTH', `Đang điều hướng tiếp tục đến trang đích: ${targetUrl}`);
+        await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(() => {});
+        await page.waitForTimeout(3000);
+      }
+
+      return true;
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logActivity('WARN', 'AUTH', `Kiểm tra màn hình Account Chooser: ${msg}`);
+  }
+
+  return false;
+}
+
 export async function executePublishAndComment(
   post: PostItem,
   options?: { dryRun?: boolean; headless?: boolean }
@@ -158,6 +251,9 @@ export async function executePublishAndComment(
     logActivity('INFO', 'PUBLISH', `Đang điều hướng đến trang đích Facebook: ${targetUrl}`);
     await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 50000 });
     await page.waitForTimeout(3000);
+
+    // Bypass Account Chooser / Continue splash screen if present
+    await handleAccountChooserOrLogin(page, context, targetUrl);
 
     // Step 0: Check if we are in Page mode and Facebook shows a "Switch to Page" prompt
     if (targetType === 'page') {
@@ -613,6 +709,9 @@ export async function executeCommentOnly(
       try {
         await page.goto('https://www.facebook.com/?filter=all&sk=h_chr', { waitUntil: 'networkidle', timeout: 40000 });
         await page.waitForTimeout(3000);
+
+        // Bypass Account Chooser / Continue splash screen if present
+        await handleAccountChooserOrLogin(page, context);
 
         const timeLink = page.locator('a[href*="__tn__=%2CO%2CP-R"]').first();
         if ((await timeLink.count()) > 0 && (await timeLink.isVisible({ timeout: 5000 }).catch(() => false))) {
