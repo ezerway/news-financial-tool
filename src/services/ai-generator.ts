@@ -2,11 +2,30 @@ import { GoogleGenAI } from '@google/genai';
 import { TrendItem, PostItem, NewsArticle } from '@/types';
 import db, { getSetting, logActivity } from '@/lib/db';
 import { findExactNewsSources } from './crawler';
+import { findDuplicatePost } from './dedup';
 import crypto from 'crypto';
 
-export async function generateSocialPost(trend: TrendItem, customTone?: string): Promise<PostItem> {
+export async function generateSocialPost(trend: TrendItem, customTone?: string, options?: { force?: boolean }): Promise<PostItem> {
   const apiKey = getSetting('gemini_api_key') || process.env.GEMINI_API_KEY || '';
   const tone = customTone || getSetting('post_tone', 'finance_news');
+
+  // DEDUPLICATION GUARD: Prevent creating duplicate posts for trends that already have posts
+  if (!options?.force) {
+    const dup = findDuplicatePost(trend);
+    if (dup.isDuplicate && dup.matchedPost) {
+      if (dup.matchedPost.status === 'published') {
+        const err = `Xu hướng "${trend.title}" đã được xuất bản trên Facebook trước đó (${dup.matchedPost.published_at || ''}). Không thể tạo bài mới để tránh trùng lặp.`;
+        logActivity('WARN', 'GENERATE', err);
+        throw new Error(err);
+      }
+      logActivity(
+        'INFO',
+        'GENERATE',
+        `Xu hướng "${trend.title}" đã có bản thảo (ID: ${dup.matchedPost.id}). Trả về bản thảo hiện có để tránh tạo bài trùng lặp.`
+      );
+      return dup.matchedPost;
+    }
+  }
 
   // STRICT REQUIREMENT: Only use exact publisher source links, filter out ANY google.com / google trend URLs
   let exactArticles: NewsArticle[] = (trend.articles || []).filter(
@@ -168,6 +187,8 @@ ${articleSummaries}
 
   // Mark trend status as drafted
   db.prepare(`UPDATE trends SET status = 'drafted' WHERE id = ?`).run(trend.id);
+  db.prepare(`UPDATE trends SET status = 'drafted' WHERE LOWER(TRIM(title)) = LOWER(TRIM(?))`).run(trend.title);
+  trend.status = 'drafted';
 
   logActivity('SUCCESS', 'GENERATE', `Generated post ${postId} for "${trend.title}" with verified publisher sources.`);
   return newPost;

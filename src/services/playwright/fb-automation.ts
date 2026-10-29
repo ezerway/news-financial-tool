@@ -4,6 +4,7 @@ import fs from 'fs';
 import db, { logActivity, getSetting } from '@/lib/db';
 import { PostItem } from '@/types';
 import { isSessionAvailable, getUserDataDir, injectSessionCookies, getSessionPath, getChromiumLaunchArgs } from './session';
+import { checkDuplicatePublish, markTrendAsPublished } from '../dedup';
 
 const SCREENSHOTS_DIR = path.join(process.cwd(), 'storage', 'screenshots');
 if (!fs.existsSync(SCREENSHOTS_DIR)) {
@@ -185,6 +186,16 @@ export async function executePublishAndComment(
     targetUrl = pageUrl;
   }
 
+  // DEDUPLICATION GUARD: Check if post or topic was already published
+  if (!dryRun) {
+    const dupCheck = checkDuplicatePublish(post);
+    if (dupCheck.isDuplicate) {
+      const errorMsg = `Hủy đăng bài để tránh trùng lặp: ${dupCheck.reason}`;
+      logActivity('WARN', 'PUBLISH', errorMsg);
+      return { success: false, postId: post.id, error: errorMsg };
+    }
+  }
+
   logActivity(
     'INFO',
     'PUBLISH',
@@ -209,6 +220,8 @@ export async function executePublishAndComment(
       SET status = 'published', fb_post_url = ?, published_at = CURRENT_TIMESTAMP, screenshot_path = ?
       WHERE id = ?
     `).run(mockUrl, mockScreenshot, post.id);
+
+    markTrendAsPublished({ trend_id: post.trend_id, trend_title: post.trend_title });
 
     logActivity(
       'SUCCESS',
@@ -631,6 +644,8 @@ export async function executePublishAndComment(
       SET status = 'published', published_at = CURRENT_TIMESTAMP, screenshot_path = ?, fb_post_url = ?, error_message = NULL
       WHERE id = ?
     `).run(screenshotFileName, exactPostUrl, post.id);
+
+    markTrendAsPublished({ trend_id: post.trend_id, trend_title: post.trend_title });
 
     logActivity('SUCCESS', 'PUBLISH', `Post ${post.id} successfully published to ${targetType === 'page' ? 'Fanpage' : 'Facebook'}!`);
 

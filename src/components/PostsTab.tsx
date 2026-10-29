@@ -15,6 +15,8 @@ import {
   Image as ImageIcon,
   Clock,
   X,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import { formatDateTime } from '@/lib/date';
@@ -47,6 +49,11 @@ export default function PostsTab({
   const [customPostUrl, setCustomPostUrl] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+  const [expandedPosts, setExpandedPosts] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = (id: string) => {
+    setExpandedPosts((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const filteredPosts = posts.filter((p) => {
     if (filter === 'all') return true;
@@ -67,39 +74,37 @@ export default function PostsTab({
   return (
     <div className="space-y-5">
       {/* Status Segmented Filter Bar */}
-      <div className="p-2 rounded-2xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-lg flex items-center justify-between overflow-x-auto">
-        <div className="inline-flex items-center gap-1.5">
-          {(['all', 'draft', 'published', 'failed'] as const).map((st) => {
-            const count = st === 'all' ? posts.length : posts.filter((p) => p.status === st).length;
-            const labels = {
-              all: 'Tất cả',
-              draft: 'Bản thảo',
-              published: 'Đã đăng',
-              failed: 'Lỗi',
-            };
-            const isActive = filter === st;
-            return (
-              <button
-                key={st}
-                onClick={() => setFilter(st)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  isActive
-                    ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-600/30'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+      <div className="p-1.5 rounded-2xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-md shadow-lg flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        {(['all', 'draft', 'published', 'failed'] as const).map((st) => {
+          const count = st === 'all' ? posts.length : posts.filter((p) => p.status === st).length;
+          const labels = {
+            all: 'Tất cả',
+            draft: 'Bản thảo',
+            published: 'Đã đăng',
+            failed: 'Lỗi',
+          };
+          const isActive = filter === st;
+          return (
+            <button
+              key={st}
+              onClick={() => setFilter(st)}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 whitespace-nowrap active:scale-95 outline-none focus:outline-none ${
+                isActive
+                  ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <span>{labels[st]}</span>
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  isActive ? 'bg-black/30 text-white' : 'bg-slate-800 text-slate-400'
                 }`}
               >
-                <span>{labels[st]}</span>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    isActive ? 'bg-black/30 text-white' : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Posts Cards */}
@@ -166,9 +171,9 @@ export default function PostsTab({
                 )}
 
                 {/* Content Side-by-Side Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mt-4">
                   {/* Left: Main Facebook Post */}
-                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800/80 flex flex-col justify-between shadow-inner">
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-slate-950/70 border border-slate-800/80 flex flex-col justify-between shadow-inner">
                     <div>
                       <div className="flex items-center justify-between text-xs font-bold text-slate-300 mb-2.5 pb-2 border-b border-slate-800/60">
                         <span className="flex items-center gap-1.5 text-indigo-400">
@@ -186,15 +191,40 @@ export default function PostsTab({
                           className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 font-mono leading-relaxed resize-y"
                         />
                       ) : (
-                        <div className="text-xs text-slate-200 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto pr-1">
-                          {post.post_content}
+                        <div>
+                          <div
+                            className={`text-xs text-slate-200 whitespace-pre-wrap leading-relaxed ${
+                              !expandedPosts[post.id] ? 'line-clamp-6' : ''
+                            }`}
+                          >
+                            {post.post_content}
+                          </div>
+                          {post.post_content.length > 200 && (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpand(post.id)}
+                              className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 active:opacity-70 transition py-1"
+                            >
+                              {expandedPosts[post.id] ? (
+                                <>
+                                  <ChevronUp className="w-3.5 h-3.5" />
+                                  <span>Thu gọn</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                  <span>Xem toàn bộ bài viết</span>
+                                </>
+                              )}
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
                   </div>
 
                   {/* Right: First Comment with Source Links */}
-                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800/80 flex flex-col justify-between shadow-inner">
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-slate-950/70 border border-slate-800/80 flex flex-col justify-between shadow-inner">
                     <div>
                       <div className="flex items-center justify-between text-xs font-bold text-slate-300 mb-2.5 pb-2 border-b border-slate-800/60">
                         <span className="flex items-center gap-1.5 text-emerald-400">
@@ -212,8 +242,33 @@ export default function PostsTab({
                           className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 font-mono leading-relaxed resize-y"
                         />
                       ) : (
-                        <div className="text-xs text-emerald-300/90 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto pr-1 font-mono">
-                          {post.comment_content}
+                        <div>
+                          <div
+                            className={`text-xs text-emerald-300/90 whitespace-pre-wrap leading-relaxed break-all font-mono ${
+                              !expandedPosts[post.id] ? 'line-clamp-4' : ''
+                            }`}
+                          >
+                            {post.comment_content}
+                          </div>
+                          {post.comment_content.length > 150 && (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpand(post.id)}
+                              className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 active:opacity-70 transition py-1"
+                            >
+                              {expandedPosts[post.id] ? (
+                                <>
+                                  <ChevronUp className="w-3.5 h-3.5" />
+                                  <span>Thu gọn link</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                  <span>Xem toàn bộ bình luận</span>
+                                </>
+                              )}
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -221,128 +276,171 @@ export default function PostsTab({
                 </div>
 
                 {/* Footer Controls */}
-                <div className="mt-4 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    {post.fb_post_url && (
-                      <a
-                        href={post.fb_post_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 transition"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Mở Facebook</span>
-                      </a>
-                    )}
-
-                    {post.screenshot_path && (
-                      <button
-                        onClick={() => setPreviewScreenshot(post.screenshot_path || null)}
-                        className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-slate-200 transition"
-                      >
-                        <ImageIcon className="w-3.5 h-3.5 text-indigo-400" />
-                        <span>Ảnh chụp</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
-                    {isEditing ? (
-                      <>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition"
+                <div className="mt-4 pt-4 border-t border-slate-800/80 space-y-3">
+                  {/* Row 1: Meta links (FB, Screenshot) and Secondary actions (Edit, Comment, Delete) */}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      {post.fb_post_url && (
+                        <a
+                          href={post.fb_post_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 active:opacity-75 transition"
                         >
-                          Hủy
-                        </button>
-                        <button
-                          onClick={() => handleSaveEdit(post.id)}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/30 transition"
-                        >
-                          <Save className="w-3.5 h-3.5" />
-                          <span>Lưu thay đổi</span>
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => handleStartEdit(post)}
-                          className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition"
-                        >
-                          Chỉnh sửa
-                        </button>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>Mở Facebook</span>
+                        </a>
+                      )}
 
-                        {confirmDeleteId === post.id ? (
-                          <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+                      {post.screenshot_path && (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewScreenshot(post.screenshot_path || null)}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-slate-200 active:opacity-75 transition"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Ảnh chụp</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Secondary Action Toolbar */}
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      {isEditing ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(null)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition"
+                          >
+                            Hủy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEdit(post.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/30 transition"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                            <span>Lưu</span>
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleStartEdit(post)}
+                            className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 transition active:scale-95"
+                          >
+                            Sửa
+                          </button>
+
+                          {onComment && (
                             <button
-                              onClick={async () => {
-                                setIsDeletingId(post.id);
-                                try {
-                                  await onDelete(post.id);
-                                } finally {
-                                  setIsDeletingId(null);
-                                  setConfirmDeleteId(null);
-                                }
+                              type="button"
+                              onClick={() => {
+                                setCommentModalPost(post);
+                                setCustomPostUrl(post.fb_post_url || '');
                               }}
-                              disabled={isDeletingId === post.id}
-                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/30 transition disabled:opacity-50"
+                              disabled={isPublishing || isCommenting}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-950/60 text-emerald-300 text-xs font-medium border border-emerald-500/30 transition active:scale-95 disabled:opacity-50"
+                              title="Bình luận link nguồn vào bài viết Facebook"
+                            >
+                              <MessageSquare className={`w-3.5 h-3.5 text-emerald-400 ${isCommenting ? 'animate-spin' : ''}`} />
+                              <span className="hidden xs:inline">Bình luận</span>
+                            </button>
+                          )}
+
+                          {confirmDeleteId === post.id ? (
+                            <div className="flex items-center gap-1 animate-in fade-in duration-150">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  setIsDeletingId(post.id);
+                                  try {
+                                    await onDelete(post.id);
+                                  } finally {
+                                    setIsDeletingId(null);
+                                    setConfirmDeleteId(null);
+                                  }
+                                }}
+                                disabled={isDeletingId === post.id}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold shadow-md transition disabled:opacity-50"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>{isDeletingId === post.id ? '...' : 'Xóa'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="px-2 py-1.5 rounded-lg bg-slate-800 text-slate-400 text-xs"
+                              >
+                                Hủy
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteId(post.id)}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 border border-slate-700 transition active:scale-95"
+                              title="Xóa bài viết"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                              <span>{isDeletingId === post.id ? 'Đang xóa...' : 'Xác nhận xóa'}</span>
                             </button>
-                            <button
-                              onClick={() => setConfirmDeleteId(null)}
-                              className="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-medium border border-slate-700 transition"
-                            >
-                              Hủy
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setConfirmDeleteId(post.id)}
-                            className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 border border-slate-700 transition"
-                            title="Xóa bài viết"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-
-                        {onComment && (
-                          <button
-                            onClick={() => {
-                              setCommentModalPost(post);
-                              setCustomPostUrl(post.fb_post_url || '');
-                            }}
-                            disabled={isPublishing || isCommenting}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-emerald-950/60 text-emerald-300 text-xs font-semibold border border-emerald-500/30 transition disabled:opacity-50"
-                            title="Bình luận link nguồn vào bài viết Facebook"
-                          >
-                            <MessageSquare className={`w-3.5 h-3.5 text-emerald-400 ${isCommenting ? 'animate-spin' : ''}`} />
-                            <span>{isCommenting ? 'Đang gửi...' : 'Bình luận'}</span>
-                          </button>
-                        )}
-
-                        <button
-                          onClick={() => onPublish(post.id, true)}
-                          disabled={isPublishing || isCommenting}
-                          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-semibold border border-amber-500/30 transition disabled:opacity-50"
-                        >
-                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Chạy thử</span>
-                        </button>
-
-                        <button
-                          onClick={() => onPublish(post.id, false)}
-                          disabled={isPublishing || isCommenting}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all active:scale-95 disabled:opacity-50"
-                        >
-                          <Send className={`w-3.5 h-3.5 ${isPublishing ? 'animate-spin' : ''}`} />
-                          <span>{isPublishing ? 'Đang đăng...' : 'Đăng bài'}</span>
-                        </button>
-                      </>
-                    )}
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Row 2: Primary execution controls (Mobile Grid / Full Width) */}
+                  {!isEditing && (
+                    <div className="pt-1">
+                      {post.status === 'published' ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div
+                            className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-emerald-950/50 text-emerald-300 text-xs font-bold border border-emerald-500/30"
+                            title="Bài viết đã xuất bản"
+                          >
+                            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span>Đã xuất bản trên Facebook</span>
+                          </div>
+                          {post.fb_post_url && (
+                            <a
+                              href={post.fb_post_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-blue-950/60 hover:bg-blue-900/80 text-blue-300 text-xs font-semibold border border-blue-500/30 transition active:scale-98"
+                            >
+                              <FacebookIcon className="w-4 h-4" />
+                              <span>Xem bài đăng</span>
+                            </a>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onPublish(post.id, true)}
+                            disabled={isPublishing || isCommenting}
+                            className="col-span-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-amber-300 text-xs font-semibold border border-amber-500/30 transition disabled:opacity-50 touch-manipulation"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span className="truncate">Chạy thử</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => onPublish(post.id, false)}
+                            disabled={isPublishing || isCommenting}
+                            className="col-span-2 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 hover:from-indigo-500 hover:to-blue-500 active:scale-[0.98] text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50 touch-manipulation"
+                          >
+                            <Send className={`w-3.5 h-3.5 shrink-0 ${isPublishing ? 'animate-spin' : ''}`} />
+                            <span className="truncate">{isPublishing ? 'Đang đăng...' : 'Đăng bài ngay'}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );

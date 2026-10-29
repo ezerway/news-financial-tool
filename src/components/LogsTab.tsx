@@ -56,12 +56,13 @@ export default function LogsTab({ logs, onClearLogs }: LogsTabProps) {
       <div className="p-3 sm:p-4 rounded-2xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5 flex-1 min-w-0">
           {/* Level Filter */}
-          <div className="flex items-center gap-1 p-1 bg-slate-950/80 border border-slate-800 rounded-xl overflow-x-auto">
+          <div className="flex items-center gap-1 p-1 bg-slate-950/80 border border-slate-800 rounded-xl overflow-x-auto no-scrollbar">
             {(['all', 'SUCCESS', 'INFO', 'WARN', 'ERROR'] as const).map((lvl) => (
               <button
                 key={lvl}
+                type="button"
                 onClick={() => setLevelFilter(lvl)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 active:scale-95 ${
                   levelFilter === lvl
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-white'
@@ -89,8 +90,9 @@ export default function LogsTab({ logs, onClearLogs }: LogsTabProps) {
         </div>
 
         <button
+          type="button"
           onClick={onClearLogs}
-          className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 border border-slate-700 text-xs font-semibold transition shrink-0"
+          className="self-end sm:self-auto flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 border border-slate-700 text-xs font-semibold transition shrink-0 active:scale-95"
         >
           <Trash2 className="w-3.5 h-3.5" />
           <span>Xóa nhật ký</span>
@@ -106,27 +108,27 @@ export default function LogsTab({ logs, onClearLogs }: LogsTabProps) {
         </div>
       ) : (
         <>
-          {/* Mobile Card List (sm:hidden) */}
-          <div className="sm:hidden space-y-2.5">
+          {/* Mobile Card List (lg:hidden) */}
+          <div className="lg:hidden space-y-2.5">
             {filteredLogs.map((log) => (
               <div
                 key={log.id}
-                className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-md space-y-2"
+                className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-md space-y-2 backdrop-blur-md"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {getLevelBadge(log.level)}
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
                       {log.action}
                     </span>
                   </div>
-                  <span className="text-[10px] text-slate-500 font-mono" suppressHydrationWarning>
+                  <span className="text-[10px] text-slate-400 font-mono shrink-0" suppressHydrationWarning>
                     {formatDateTime(log.created_at)}
                   </span>
                 </div>
                 <div className="text-xs text-slate-200 leading-relaxed font-sans">{log.message}</div>
                 {log.details_json && (
-                  <pre className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[10px] text-slate-400 overflow-x-auto font-mono">
+                  <pre className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[10px] text-slate-400 overflow-x-auto font-mono no-scrollbar">
                     {log.details_json}
                   </pre>
                 )}
@@ -134,8 +136,8 @@ export default function LogsTab({ logs, onClearLogs }: LogsTabProps) {
             ))}
           </div>
 
-          {/* Desktop Table (hidden sm:block) */}
-          <div className="hidden sm:block rounded-2xl bg-slate-900/70 border border-slate-800/80 overflow-hidden shadow-xl backdrop-blur-md">
+          {/* Desktop Table (hidden lg:block) */}
+          <div className="hidden lg:block rounded-2xl bg-slate-900/70 border border-slate-800/80 overflow-hidden shadow-xl backdrop-blur-md">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-950/90 text-slate-400 border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider">

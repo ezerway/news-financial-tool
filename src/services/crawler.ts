@@ -4,6 +4,7 @@ import * as cheerio from 'cheerio';
 import db, { logActivity } from '@/lib/db';
 import { TrendItem, NewsArticle } from '@/types';
 import { getChromiumLaunchArgs } from '@/services/playwright/session';
+import { findDuplicatePost, getExistingPosts } from './dedup';
 
 function cleanHtmlText(str: string): string {
   if (!str) return '';
@@ -98,10 +99,13 @@ export async function findExactNewsSources(
  * Shared database upsert for trends
  */
 export function saveTrendsToDatabase(trends: TrendItem[], geo: string): number {
-  // Clear previous un-drafted trend items for this geo before saving newly crawled ones
+  // Clear previous un-drafted trend items for this geo before saving newly crawled ones,
+  // while preserving all trends that have been drafted, published, or attached to a post.
   db.prepare(`
     DELETE FROM trends 
-    WHERE geo = ? AND id NOT IN (SELECT trend_id FROM posts WHERE trend_id IS NOT NULL)
+    WHERE geo = ? 
+      AND status = 'discovered'
+      AND id NOT IN (SELECT trend_id FROM posts WHERE trend_id IS NOT NULL)
   `).run(geo);
 
   const insertStmt = db.prepare(`
@@ -109,7 +113,11 @@ export function saveTrendsToDatabase(trends: TrendItem[], geo: string): number {
     VALUES (@id, @title, @geo, @approx_traffic, @pub_date, @articles_json, @category, @status)
     ON CONFLICT(id) DO UPDATE SET
       approx_traffic = excluded.approx_traffic,
-      articles_json = excluded.articles_json
+      articles_json = excluded.articles_json,
+      status = CASE 
+        WHEN trends.status IN ('drafted', 'published') THEN trends.status 
+        ELSE excluded.status 
+      END
   `);
 
   const tx = db.transaction((items: TrendItem[]) => {
@@ -130,7 +138,22 @@ export function saveTrendsToDatabase(trends: TrendItem[], geo: string): number {
     return count;
   });
 
-  return tx(trends);
+  const count = tx(trends);
+
+  // Synchronize returned in-memory trends with actual database status
+  try {
+    const dbRows = db.prepare('SELECT id, status FROM trends WHERE geo = ?').all(geo) as { id: string; status: string }[];
+    const statusMap = new Map(dbRows.map((r) => [r.id, r.status]));
+    for (const t of trends) {
+      if (statusMap.has(t.id)) {
+        t.status = statusMap.get(t.id) as any;
+      }
+    }
+  } catch (err: any) {
+    console.error('Error syncing trend statuses:', err.message);
+  }
+
+  return count;
 }
 
 /**
@@ -179,6 +202,7 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
 
     const trendList: TrendItem[] = [];
     const limit = Math.min(count, 20);
+    const existingPosts = getExistingPosts();
 
     for (let i = 0; i < limit; i++) {
       const row = rowLocators.nth(i);
@@ -251,7 +275,21 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
         return links;
       });
 
-      const id = 'trend_' + crypto.createHash('md5').update(`${targetGeo}_${rowData.title}`).digest('hex').substring(0, 12);
+      const normalizedTitle = rowData.title.trim().toLowerCase();
+      const id = 'trend_' + crypto.createHash('md5').update(`${targetGeo}_${normalizedTitle}`).digest('hex').substring(0, 12);
+
+      // Check whether this trend already has a post or is already published/drafted
+      const dupCheck = findDuplicatePost({ id, title: rowData.title, articles }, existingPosts);
+      let initialStatus: 'discovered' | 'drafted' | 'published' = 'discovered';
+
+      if (dupCheck.isDuplicate && dupCheck.matchedPost) {
+        initialStatus = dupCheck.matchedPost.status === 'published' ? 'published' : 'drafted';
+      } else {
+        const existingRow = db.prepare('SELECT status FROM trends WHERE id = ?').get(id) as { status: string } | undefined;
+        if (existingRow && existingRow.status !== 'discovered') {
+          initialStatus = existingRow.status as any;
+        }
+      }
 
       trendList.push({
         id,
@@ -261,7 +299,7 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
         pub_date: new Date().toISOString(),
         articles,
         category: 'finance',
-        status: 'discovered',
+        status: initialStatus,
       });
     }
 

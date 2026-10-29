@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { TrendItem } from '@/types';
-import { TrendingUp, Sparkles, ExternalLink, RefreshCw, Search, Newspaper, DollarSign, Globe, FileSpreadsheet, Bot, Zap, Link2, AlertCircle, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Sparkles, ExternalLink, RefreshCw, Search, Newspaper, DollarSign, Globe, FileSpreadsheet, Bot, Zap, Link2, AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 interface TrendsTabProps {
   trends: TrendItem[];
@@ -134,16 +134,28 @@ export default function TrendsTab({
                 <div>
                   {/* Traffic & Sources count */}
                   <div className="flex items-center justify-between gap-2 mb-2.5">
-                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/25">
-                      🔥 {trend.approx_traffic || 'Nhiều tìm kiếm'}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/25">
+                        🔥 {trend.approx_traffic || 'Nhiều tìm kiếm'}
+                      </span>
+                      {trend.status === 'published' && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Đã đăng
+                        </span>
+                      )}
+                      {trend.status === 'drafted' && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
+                          📝 Đã có bài
+                        </span>
+                      )}
+                    </div>
 
                     {hasSourceLinks ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 flex items-center gap-1">
-                        <Link2 className="w-3 h-3" /> {validArticles.length} nguồn
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1 shrink-0">
+                        <Link2 className="w-3 h-3 text-emerald-400" /> {validArticles.length} nguồn
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/25 flex items-center gap-1">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/25 flex items-center gap-1 shrink-0">
                         <AlertCircle className="w-3 h-3 text-rose-400" /> Chưa có nguồn
                       </span>
                     )}
@@ -186,19 +198,37 @@ export default function TrendsTab({
                 </div>
 
                 {/* Footer Action */}
-                <div className="mt-4 pt-3.5 border-t border-slate-800/80 flex items-center justify-between">
+                <div className="mt-4 pt-3.5 border-t border-slate-800/80 flex items-center justify-between gap-2">
                   <span className="text-[11px] font-medium text-slate-500">
-                    {trend.status === 'drafted' ? 'Đã tạo bài' : ''}
+                    {trend.status === 'published'
+                      ? 'Đã xuất bản'
+                      : trend.status === 'drafted'
+                      ? 'Đã có bản thảo'
+                      : 'Mới phát hiện'}
                   </span>
 
-                  {hasSourceLinks ? (
+                  {trend.status === 'published' ? (
+                    <div
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-950/40 border border-emerald-700/50 text-emerald-400 text-xs font-semibold cursor-default"
+                      title="Xu hướng này đã được xuất bản lên Facebook. Hệ thống chặn tạo trùng lặp."
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Đã đăng</span>
+                    </div>
+                  ) : hasSourceLinks ? (
                     <button
                       onClick={() => onGenerate(trend.id)}
                       disabled={isGenerating}
                       className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95 disabled:opacity-50"
                     >
                       <Sparkles className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
-                      <span>{isGenerating ? 'Đang viết...' : 'Tạo bài'}</span>
+                      <span>
+                        {isGenerating
+                          ? 'Đang viết...'
+                          : trend.status === 'drafted'
+                          ? 'Xem / Viết lại'
+                          : 'Tạo bài'}
+                      </span>
                     </button>
                   ) : (
                     <div className="flex items-center gap-2">

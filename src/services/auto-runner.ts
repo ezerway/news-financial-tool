@@ -2,6 +2,8 @@ import { crawlGoogleTrends, getStoredTrends } from './crawler';
 import { generateSocialPost } from './ai-generator';
 import { executePublishAndComment } from './playwright/fb-automation';
 import db, { getSetting, logActivity } from '@/lib/db';
+import { TrendItem } from '@/types';
+import { findDuplicatePost, getExistingPosts } from './dedup';
 
 export async function runAutomationCycle(options?: { forcePublish?: boolean; dryRun?: boolean }) {
   logActivity('INFO', 'AUTO', 'Starting automation cycle...');
@@ -19,26 +21,43 @@ export async function runAutomationCycle(options?: { forcePublish?: boolean; dry
       return { success: false, message: 'No trends found' };
     }
 
-    // Step 2: Pick the highest priority un-drafted trend that HAS verified source links
+    // Step 2: Pick the highest priority un-drafted, un-published trend that HAS verified source links AND is not duplicate
     const hasSource = (t: any) =>
       Array.isArray(t.articles) &&
       t.articles.some((a: any) => a.url && !a.url.includes('google.com'));
 
+    const existingPosts = getExistingPosts();
+
+    const isEligible = (t: TrendItem) => {
+      if (!hasSource(t)) return false;
+      if (t.status !== 'discovered') return false;
+      const dup = findDuplicatePost(t, existingPosts);
+      if (dup.isDuplicate) {
+        logActivity('INFO', 'AUTO', `[Chống trùng lặp] Bỏ qua "${t.title}": ${dup.reason}`);
+        return false;
+      }
+      return true;
+    };
+
     // Prefer finance category if available
-    let candidate = trends.find((t) => t.category === 'finance' && t.status === 'discovered' && hasSource(t));
+    let candidate = trends.find((t) => t.category === 'finance' && isEligible(t));
     if (!candidate) {
-      candidate = trends.find((t) => t.status === 'discovered' && hasSource(t));
+      candidate = trends.find((t) => isEligible(t));
     }
 
     if (!candidate) {
       // Look in stored trends
       const stored = getStoredTrends({ status: 'discovered', limit: 30 });
-      candidate = stored.find((t) => t.category === 'finance' && hasSource(t)) || stored.find((t) => hasSource(t));
+      candidate = stored.find((t) => t.category === 'finance' && isEligible(t)) || stored.find((t) => isEligible(t));
     }
 
     if (!candidate) {
-      logActivity('WARN', 'AUTO', 'Không có xu hướng mới nào có sẵn link nguồn (source link) để tạo bài.');
-      return { success: false, message: 'No candidate trends with source links found' };
+      logActivity('INFO', 'AUTO', 'Tất cả xu hướng hiện tại đều đã được tạo bài hoặc xuất bản trước đó. Dừng chu kỳ để không đăng bài trùng lặp.');
+      return {
+        success: true,
+        skipped: true,
+        message: 'Tất cả các xu hướng hiện tại đều đã được đăng bài hoặc có bản thảo. Đã dừng chu kỳ để tránh đăng trùng lặp.',
+      };
     }
 
     // Step 3: Generate post and source comment with AI

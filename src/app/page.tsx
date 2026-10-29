@@ -366,7 +366,7 @@ export default function DashboardPage() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 pb-28 md:pb-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3.5 sm:py-6 space-y-4 sm:space-y-6 pb-36 sm:pb-32 md:pb-10">
         {/* Desktop Tab Navigation (Floating Segmented Dock) */}
         <div className="hidden md:flex items-center justify-start overflow-x-auto pb-1">
           <div className="inline-flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-xl shadow-xl">
@@ -529,8 +529,8 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation Bar (PWA Dock) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 border-t border-slate-800/80 backdrop-blur-2xl px-1.5 py-1.5 flex items-center justify-around shadow-2xl pb-[max(0.6rem,env(safe-area-inset-bottom))]">
+      {/* Mobile Bottom Navigation Bar (Native iOS Glass Dock) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 border-t border-slate-800/80 backdrop-blur-2xl px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-[0_-8px_30px_rgba(0,0,0,0.5)] select-none">
         {tabItems.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -538,23 +538,31 @@ export default function DashboardPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-0.5 rounded-xl transition-all relative ${
+              className={`flex flex-col items-center justify-center flex-1 py-1 px-0.5 transition-all outline-none focus:outline-none active:scale-90 relative ${
                 isActive ? 'text-indigo-400' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <div className="relative">
-                <Icon className={`w-5 h-5 transition-transform ${isActive ? 'scale-110 text-indigo-400' : ''}`} />
+              <div className="relative flex items-center justify-center">
+                <Icon
+                  className={`w-5 h-5 transition-transform duration-200 ${
+                    isActive ? 'scale-110 text-indigo-400 drop-shadow-[0_0_8px_rgba(129,140,248,0.5)]' : 'text-slate-400'
+                  }`}
+                />
                 {tab.count !== undefined && tab.count > 0 && (
-                  <span className="absolute -top-1.5 -right-2.5 min-w-[15px] h-3.5 px-1 rounded-full bg-indigo-600 text-[9px] font-black text-white flex items-center justify-center shadow-sm">
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-gradient-to-r from-indigo-500 to-indigo-600 text-[9px] font-black text-white flex items-center justify-center shadow-md border border-slate-950">
                     {tab.count > 99 ? '99+' : tab.count}
                   </span>
                 )}
               </div>
-              <span className={`text-[10px] mt-1 tracking-tight truncate max-w-[62px] ${isActive ? 'font-bold text-white' : 'font-medium'}`}>
+              <span
+                className={`text-[10px] mt-1 tracking-tight truncate max-w-[62px] transition-colors ${
+                  isActive ? 'font-bold text-white' : 'font-medium text-slate-400'
+                }`}
+              >
                 {tab.label}
               </span>
               {isActive && (
-                <span className="absolute bottom-0 w-8 h-0.5 rounded-full bg-gradient-to-r from-indigo-500 to-emerald-400" />
+                <span className="w-4 h-0.5 rounded-full bg-gradient-to-r from-indigo-400 to-emerald-400 mt-0.5 shadow-sm" />
               )}
             </button>
           );

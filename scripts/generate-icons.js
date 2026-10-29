@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
-const iconsDir = path.join(__dirname, 'public', 'icons');
+const iconsDir = path.join(__dirname, '..', 'public', 'icons');
 if (!fs.existsSync(iconsDir)) {
   fs.mkdirSync(iconsDir, { recursive: true });
 }
@@ -94,7 +94,7 @@ async function generatePngs() {
   await sharp(svgBuffer)
     .resize(32, 32)
     .png()
-    .toFile(path.join(__dirname, 'public', 'favicon.png'));
+    .toFile(path.join(__dirname, '..', 'public', 'favicon.png'));
   console.log('Generated favicon.png');
 }
 
