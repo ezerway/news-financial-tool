@@ -12,7 +12,7 @@ Một công cụ tự động hóa toàn diện giúp bạn:
 ## 🛠️ Công nghệ sử dụng (Tech Stack)
 
 - **Ngôn ngữ & Runtime**: Node.js v20+ / TypeScript
-- **Web Framework & UI**: Next.js 16 (App Router) + Tailwind CSS v4 + **daisyUI 5** + Lucide Icons
+- **Web Framework & UI**: Next.js 16 (App Router) + Tailwind CSS v4 + **Meta Astryx Design System** (`@astryxdesign/core`) + Lucide Icons
 - **Tự động hóa trình duyệt**: Playwright (Persistent Context & Anti-detection)
 - **Cơ sở dữ liệu**: SQLite (Better-SQLite3) chế độ WAL (Zero-config, chạy cục bộ siêu nhanh)
 - **AI Content Generator**: Google Gemini API (`@google/genai`) kèm bộ template thông minh dự phòng

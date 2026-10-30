@@ -10,6 +10,8 @@ import SettingsTab from '@/components/SettingsTab';
 import FacebookConnectModal from '@/components/FacebookConnectModal';
 import { TrendItem, PostItem, ActivityLog } from '@/types';
 import { formatTime } from '@/lib/date';
+import { useI18n } from '@/context/I18nThemeContext';
+import { Toast } from '@astryxdesign/core/Toast';
 import {
   TrendingUp,
   FileText,
@@ -17,7 +19,6 @@ import {
   Settings,
   Sparkles,
   ArrowRight,
-  Flame,
   CheckCircle,
   Play,
   Info,
@@ -26,6 +27,7 @@ import {
 } from 'lucide-react';
 
 export default function DashboardPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<'overview' | 'trends' | 'posts' | 'logs' | 'settings'>('overview');
   const [trends, setTrends] = useState<TrendItem[]>([]);
   const [posts, setPosts] = useState<PostItem[]>([]);
@@ -123,14 +125,13 @@ export default function DashboardPage() {
     setSecondsUntilRefresh(autoRefreshInterval);
 
     const timer = setInterval(() => {
-      // Pause if browser tab is hidden / in background
       if (typeof document !== 'undefined' && document.hidden) {
         return;
       }
 
       setSecondsUntilRefresh((prev) => {
         if (prev <= 1) {
-          fetchData(true); // silent background fetch
+          fetchData(true);
           return autoRefreshInterval;
         }
         return prev - 1;
@@ -140,7 +141,6 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, [autoRefreshInterval, fetchData]);
 
-  // When switching back into the tab, immediately refresh silently
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible' && autoRefreshInterval > 0) {
@@ -167,7 +167,7 @@ export default function DashboardPage() {
   const handleCrawl = async (geo: string) => {
     setIsCrawling(true);
     showToast(
-      `Đang mở Playwright cào xu hướng Kinh doanh & Tài chính (Category 3) cho ${geo}...`,
+      `Đang cào xu hướng Kinh doanh & Tài chính cho ${geo}...`,
       'info'
     );
     try {
@@ -179,7 +179,7 @@ export default function DashboardPage() {
       const data = await res.json();
       if (data.success) {
         showToast(
-          `Đã cào thành công ${data.count} xu hướng Kinh doanh & Tài chính kèm link nguồn!`,
+          `Đã cào thành công ${data.count} xu hướng Kinh doanh & Tài chính!`,
           'success'
         );
         await fetchData();
@@ -196,7 +196,7 @@ export default function DashboardPage() {
   // Generate AI post handler
   const handleGenerate = async (trendId: string) => {
     setGeneratingId(trendId);
-    showToast('Đang tạo bài viết và comment nguồn bằng AI...', 'info');
+    showToast('Đang tạo bài viết và comment nguồn bằng Gemini AI...', 'info');
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -205,7 +205,7 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast('Đã tạo xong bài viết và comment nguồn!', 'success');
+        showToast('Đã tạo xong bài viết và bình luận nguồn!', 'success');
         await fetchData();
         setActiveTab('posts');
       } else {
@@ -220,7 +220,7 @@ export default function DashboardPage() {
 
   // Find sources for trend handler
   const handleFindSources = async (trendId: string) => {
-    showToast('Đang tìm kiếm bài báo nguồn cho xu hướng...', 'info');
+    showToast('Đang tìm bài báo nguồn cho xu hướng...', 'info');
     try {
       const res = await fetch('/api/trends/find-sources', {
         method: 'POST',
@@ -267,7 +267,7 @@ export default function DashboardPage() {
   // Comment-only handler for existing posts
   const handleCommentOnly = async (postId: string, postUrl?: string) => {
     setCommentingId(postId);
-    showToast('Đang mở Playwright để gửi bình luận link nguồn vào bài viết...', 'info');
+    showToast('Đang gửi bình luận link nguồn vào bài viết...', 'info');
     try {
       const res = await fetch('/api/comment', {
         method: 'POST',
@@ -276,7 +276,7 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast('Đã gửi bình luận link nguồn vào bài viết thành công!', 'success');
+        showToast('Đã gửi bình luận link nguồn thành công!', 'success');
         await fetchData();
       } else {
         showToast(`Lỗi gửi bình luận: ${data.error || data.result?.error}`, 'error');
@@ -306,12 +306,9 @@ export default function DashboardPage() {
     }
   };
 
-  // Delete post (optimistic with server sync)
+  // Delete post
   const handleDeletePost = async (postId: string) => {
-    // Optimistic UI update
     setPosts((prev) => prev.filter((p) => p.id !== postId));
-    showToast('Đang xóa bài viết...', 'info');
-
     try {
       const res = await fetch(`/api/posts/${postId}`, { method: 'DELETE' });
       const data = await res.json().catch(() => ({}));
@@ -380,7 +377,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Open FB login / cookie setup modal
   const handleConnectFb = (url?: string) => {
     setFbTargetUrlForModal(url);
     setIsFbModalOpen(true);
@@ -392,36 +388,36 @@ export default function DashboardPage() {
     icon: any;
     count?: number;
   }> = [
-    { id: 'overview', label: 'Tổng quan', icon: Sparkles },
-    { id: 'trends', label: 'Xu hướng', icon: TrendingUp, count: trends.length },
-    { id: 'posts', label: 'Bài viết', icon: FileText, count: posts.length },
-    { id: 'logs', label: 'Nhật ký', icon: Activity, count: logs.length },
-    { id: 'settings', label: 'Cài đặt', icon: Settings },
+    { id: 'overview', label: t('tab_overview'), icon: Sparkles },
+    { id: 'trends', label: t('tab_trends'), icon: TrendingUp, count: trends.length },
+    { id: 'posts', label: t('tab_posts'), icon: FileText, count: posts.length },
+    { id: 'logs', label: t('tab_logs'), icon: Activity, count: logs.length },
+    { id: 'settings', label: t('tab_settings'), icon: Settings },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-base-300 text-base-content">
-      {/* daisyUI Toast Notification */}
+    <div className="min-h-screen flex flex-col transition-colors duration-150" style={{ backgroundColor: 'var(--app-bg)', color: 'var(--app-text)' }}>
+      {/* Astryx Toast Notification */}
       {toastMessage && (
-        <div className="toast toast-end toast-bottom z-50">
-          <div
-            className={`alert ${
-              toastMessage.type === 'success'
-                ? 'alert-success'
-                : toastMessage.type === 'error'
-                ? 'alert-error'
-                : 'alert-info'
-            } shadow-lg text-xs font-semibold`}
-          >
-            {toastMessage.type === 'success' && <CheckCircle2 className="w-4 h-4" />}
-            {toastMessage.type === 'error' && <AlertCircle className="w-4 h-4" />}
-            {toastMessage.type === 'info' && <Info className="w-4 h-4" />}
-            <span>{toastMessage.text}</span>
-          </div>
+        <div className="fixed bottom-5 right-5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <Toast
+            body={
+              <div className="flex items-center gap-2">
+                {toastMessage.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
+                {toastMessage.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />}
+                {toastMessage.type === 'info' && <Info className="w-4 h-4 text-indigo-500 shrink-0" />}
+                <span className="text-xs font-semibold">{toastMessage.text}</span>
+              </div>
+            }
+            type={toastMessage.type === 'error' ? 'error' : 'info'}
+            isAutoHide={true}
+            autoHideDuration={4000}
+            onDismiss={() => setToastMessage(null)}
+          />
         </div>
       )}
 
-      {/* Header */}
+      {/* Header with Integrated Tab Navigation */}
       <Header
         fbStatus={fbStatus}
         onRunCycle={handleRunCycle}
@@ -431,70 +427,82 @@ export default function DashboardPage() {
         autoRefreshInterval={autoRefreshInterval}
         onChangeAutoRefresh={handleChangeAutoRefresh}
         secondsUntilRefresh={secondsUntilRefresh}
+        activeTab={activeTab}
+        onSelectTab={(tab) => setActiveTab(tab)}
+        tabCounts={{
+          trends: trends.length,
+          posts: posts.length,
+          logs: logs.length,
+        }}
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-2.5 sm:px-6 lg:px-8 py-2.5 sm:py-5 space-y-3 sm:space-y-5 pb-20 sm:pb-24 md:pb-8">
-        {/* Desktop Tab Navigation (Floating Segmented Dock) */}
-        <div className="hidden md:flex items-center justify-start overflow-x-auto pb-1">
-          <div className="inline-flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-xl shadow-xl">
-            {tabItems.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-600/30'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                  {tab.count !== undefined && (
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isActive ? 'bg-black/30 text-white' : 'bg-slate-800 text-slate-400'
-                      }`}
-                    >
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5 pb-24 md:pb-8">
         {/* Tab Content Display */}
         <div>
           {activeTab === 'overview' && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               {/* KPI Stat Cards */}
               <StatsCards trends={trends} posts={posts} logs={logs} />
 
+              {/* Quick Actions & System Info Banner */}
+              <div className="p-4 rounded-xl app-card shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
+                      AI FinTech Automation
+                    </span>
+                    <span className="text-sm font-bold text-slate-900 dark:text-white">
+                      Google Trends Kinh Doanh & Tài Chính
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Tự động cào xu hướng nóng, tạo bài viết tài chính và xuất bản Fanpage kèm bình luận link báo nguồn.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
+                  <button
+                    onClick={() => handleCrawl('VN')}
+                    disabled={isCrawling}
+                    className="btn btn-md btn-secondary flex-1 md:flex-initial"
+                  >
+                    <TrendingUp className={`w-3.5 h-3.5 text-blue-500 ${isCrawling ? 'animate-spin' : ''}`} />
+                    <span>{isCrawling ? t('crawling') : 'Cào Trends VN'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleRunCycle(false)}
+                    disabled={isRunningCycle}
+                    className="btn btn-md btn-primary flex-1 md:flex-initial"
+                  >
+                    <Play className={`w-3.5 h-3.5 fill-current ${isRunningCycle ? 'animate-spin' : ''}`} />
+                    <span>{isRunningCycle ? 'Đang chạy...' : 'Chạy toàn chu kỳ'}</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Two Column Layout: Recent Published Posts & Recent Activity */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
                 {/* Left: Recent Published Posts */}
-                <div className="card bg-base-100 border border-base-200 shadow-sm">
-                  <div className="card-body p-5">
-                    <div className="flex items-center justify-between pb-3 border-b border-base-200 mb-2">
-                      <h3 className="font-bold text-sm text-base-content flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-success" /> Bài viết vừa xuất bản
+                <div className="rounded-xl app-card shadow-xs p-4 sm:p-5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between pb-3 border-b border-[var(--app-border)] mb-3">
+                      <h3 className="font-semibold text-sm flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-emerald-500" /> {t('recent_published_title')}
                       </h3>
                       <button
                         onClick={() => setActiveTab('posts')}
-                        className="btn btn-xs btn-ghost text-primary gap-1"
+                        className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
                       >
-                        Xem tất cả <ArrowRight className="w-3 h-3" />
+                        {t('view_all')} <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
 
                     {posts.filter((p) => p.status === 'published').length === 0 ? (
-                      <div className="p-8 text-center text-xs text-base-content/50">
-                        Chưa có bài viết nào được xuất bản. Bấm &quot;Chạy ngay chu kỳ tự động&quot; để trải nghiệm.
+                      <div className="py-8 text-center text-xs text-slate-400">
+                        {t('no_published_posts')}
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -502,18 +510,41 @@ export default function DashboardPage() {
                           .filter((p) => p.status === 'published')
                           .slice(0, 3)
                           .map((p) => (
-                            <div key={p.id} className="p-3.5 rounded-xl bg-base-200/50 border border-base-200 text-xs">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="font-bold text-base-content capitalize">{p.trend_title}</span>
-                                <span className="text-[10px] text-base-content/50" suppressHydrationWarning>
-                                  {formatTime(p.published_at || p.created_at)}
+                            <div
+                              key={p.id}
+                              className="p-3 rounded-lg app-tag space-y-2 text-xs"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold capitalize text-inherit">
+                                  {p.trend_title}
                                 </span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-[10px] text-slate-400" suppressHydrationWarning>
+                                    {formatTime(p.published_at || p.created_at)}
+                                  </span>
+                                  {p.fb_post_url && (
+                                    <a
+                                      href={p.fb_post_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                                    >
+                                      Xem FB ↗
+                                    </a>
+                                  )}
+                                </div>
                               </div>
-                              <p className="text-base-content/80 line-clamp-2 text-[11px] leading-relaxed mb-2">
+
+                              <p className="line-clamp-2 text-xs leading-relaxed text-inherit opacity-90">
                                 {p.post_content}
                               </p>
-                              <div className="p-2 rounded bg-base-300 text-[10px] text-success font-mono line-clamp-1">
-                                💬 Auto-comment: {p.comment_content.replace(/\n/g, ' ')}
+
+                              {/* Comment bubble */}
+                              <div className="p-2 rounded bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/40 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-start gap-1.5 font-mono">
+                                <span className="shrink-0 font-bold text-emerald-600">💬 Nguồn:</span>
+                                <span className="line-clamp-1 opacity-80 text-[10px]">
+                                  {p.comment_content.replace(/\n/g, ' ')}
+                                </span>
                               </div>
                             </div>
                           ))}
@@ -523,32 +554,39 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Right: Recent Activity Log */}
-                <div className="card bg-base-100 border border-base-200 shadow-sm">
-                  <div className="card-body p-5">
-                    <div className="flex items-center justify-between pb-3 border-b border-base-200 mb-2">
-                      <h3 className="font-bold text-sm text-base-content flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-secondary" /> Dòng thời gian hoạt động
+                <div className="rounded-xl app-card shadow-xs p-4 sm:p-5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between pb-3 border-b border-[var(--app-border)] mb-3">
+                      <h3 className="font-semibold text-sm flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-indigo-500" /> {t('tab_logs')}
                       </h3>
                       <button
                         onClick={() => setActiveTab('logs')}
-                        className="btn btn-xs btn-ghost text-primary gap-1"
+                        className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
                       >
-                        Xem toàn bộ log <ArrowRight className="w-3 h-3" />
+                        {t('view_all')} <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
 
                     {logs.length === 0 ? (
-                      <div className="p-8 text-center text-xs text-base-content/50">Chưa có nhật ký hoạt động nào.</div>
+                      <div className="py-8 text-center text-xs text-slate-400">{t('no_logs_title')}</div>
                     ) : (
-                      <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                      <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
                         {logs.slice(0, 6).map((l) => (
-                          <div key={l.id} className="flex items-start gap-2.5 text-xs p-2 rounded-lg bg-base-200/50 border border-base-200">
-                            <span className="badge badge-neutral badge-xs font-mono shrink-0">
+                          <div
+                            key={l.id}
+                            className="flex items-start gap-2.5 p-2 rounded-lg app-tag text-xs"
+                          >
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-500 shrink-0">
                               {l.action}
                             </span>
                             <div className="flex-1 min-w-0">
-                              <p className="text-base-content text-[11px] truncate">{l.message}</p>
-                              <span className="text-[10px] text-base-content/50" suppressHydrationWarning>{formatTime(l.created_at)}</span>
+                              <p className="text-[11px] truncate text-inherit">
+                                {l.message}
+                              </p>
+                              <span className="text-[10px] text-slate-400 font-mono" suppressHydrationWarning>
+                                {formatTime(l.created_at)}
+                              </span>
                             </div>
                           </div>
                         ))}
@@ -559,6 +597,8 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
+
+
 
           {activeTab === 'trends' && (
             <TrendsTab
@@ -597,8 +637,8 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation Bar (Native iOS Glass Dock) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 border-t border-slate-800/80 backdrop-blur-2xl px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-[0_-8px_30px_rgba(0,0,0,0.5)] select-none">
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 border-t border-slate-200 dark:border-slate-800 backdrop-blur-xl px-2 py-1.5 flex items-center justify-around shadow-lg">
         {tabItems.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -606,32 +646,19 @@ export default function DashboardPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-0.5 transition-all outline-none focus:outline-none active:scale-90 relative ${
-                isActive ? 'text-indigo-400' : 'text-slate-400 hover:text-slate-200'
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                isActive ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
               }`}
             >
-              <div className="relative flex items-center justify-center">
-                <Icon
-                  className={`w-5 h-5 transition-transform duration-200 ${
-                    isActive ? 'scale-110 text-indigo-400 drop-shadow-[0_0_8px_rgba(129,140,248,0.5)]' : 'text-slate-400'
-                  }`}
-                />
+              <div className="relative">
+                <Icon className="w-4 h-4" />
                 {tab.count !== undefined && tab.count > 0 && (
-                  <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-gradient-to-r from-indigo-500 to-indigo-600 text-[9px] font-black text-white flex items-center justify-center shadow-md border border-slate-950">
+                  <span className="absolute -top-1.5 -right-2 px-1 min-w-[14px] h-3.5 rounded-full bg-indigo-600 text-[9px] font-bold text-white flex items-center justify-center">
                     {tab.count > 99 ? '99+' : tab.count}
                   </span>
                 )}
               </div>
-              <span
-                className={`text-[10px] mt-1 tracking-tight truncate max-w-[62px] transition-colors ${
-                  isActive ? 'font-bold text-white' : 'font-medium text-slate-400'
-                }`}
-              >
-                {tab.label}
-              </span>
-              {isActive && (
-                <span className="w-4 h-0.5 rounded-full bg-gradient-to-r from-indigo-400 to-emerald-400 mt-0.5 shadow-sm" />
-              )}
+              <span className="text-[10px] mt-0.5 truncate max-w-[56px]">{tab.label}</span>
             </button>
           );
         })}

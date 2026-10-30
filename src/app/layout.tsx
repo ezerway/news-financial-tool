@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Figtree, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import PwaManager from '@/components/PwaManager';
+import { I18nThemeProvider } from '@/context/I18nThemeContext';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const figtree = Figtree({
+  variable: '--font-figtree',
   subsets: ['latin'],
 });
 
@@ -46,10 +47,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" data-theme="night" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full`}>
+    <html lang="vi" data-theme="dark" suppressHydrationWarning className={`${figtree.variable} ${geistMono.variable} h-full dark`}>
       <body className="min-h-full antialiased font-sans flex flex-col">
-        {children}
-        <PwaManager />
+        <I18nThemeProvider>
+          {children}
+          <PwaManager />
+        </I18nThemeProvider>
       </body>
     </html>
   );

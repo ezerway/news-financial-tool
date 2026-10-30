@@ -12,7 +12,11 @@
     "cron-daemon": "tsx scripts/cron-daemon.ts"
   },
   "dependencies": {
+    "@astryxdesign/cli": "^0.7.4",
+    "@astryxdesign/core": "^0.7.4",
+    "@astryxdesign/theme-neutral": "^0.7.4",
     "@google/genai": "^2.31.0",
+    "@stylexjs/stylex": "^0.19.1",
     "adm-zip": "^0.6.1",
     "better-sqlite3": "^13.0.3",
     "cheerio": "^1.2.0",
@@ -34,7 +38,6 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/xml2js": "^0.4.14",
-    "daisyui": "^5.7.50",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "tailwindcss": "^4",

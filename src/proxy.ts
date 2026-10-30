@@ -8,6 +8,7 @@ export async function proxy(req: NextRequest) {
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api/auth/login') ||
+    pathname.startsWith('/api/auth/logout') ||
     pathname.startsWith('/api/auth/session') ||
     pathname === '/favicon.ico' ||
     pathname === '/manifest.json' ||
@@ -26,6 +27,20 @@ export async function proxy(req: NextRequest) {
 
   // 3. If accessing /login
   if (pathname === '/login') {
+    // If explicitly logging out via query param, always allow login page and wipe cookie
+    if (req.nextUrl.searchParams.has('logout')) {
+      const res = NextResponse.next();
+      res.cookies.delete(AUTH_COOKIE_NAME);
+      res.cookies.set({
+        name: AUTH_COOKIE_NAME,
+        value: '',
+        path: '/',
+        maxAge: 0,
+        expires: new Date(0),
+      });
+      return res;
+    }
+
     if (isAuthenticated) {
       // Already logged in, redirect to dashboard
       return NextResponse.redirect(new URL('/', req.url));

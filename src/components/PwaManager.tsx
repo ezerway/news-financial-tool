@@ -15,9 +15,14 @@ export default function PwaManager() {
   const [showIosPrompt, setShowIosPrompt] = useState(false);
   const [showGeneralGuide, setShowGeneralGuide] = useState(false);
   const [installed, setInstalled] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(true);
 
   useEffect(() => {
+    // Check if user previously dismissed banner
+    if (typeof window !== 'undefined') {
+      const isDismissed = localStorage.getItem('trendpulse_pwa_dismissed') === 'true';
+      setDismissed(isDismissed);
+    }
     // 1. Register Service Worker
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
       const registerSW = async () => {
@@ -114,18 +119,18 @@ export default function PwaManager() {
       <>
         {/* iOS Safari Instruction Modal */}
         {showIosPrompt && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
-            <div className="w-full max-w-sm p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl text-center space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center mx-auto">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in">
+            <div className="w-full max-w-sm p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl text-center space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center mx-auto">
                 <Smartphone className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Cài đặt trên iPhone/iPad (Safari)</h3>
-                <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Cài đặt trên iPhone/iPad (Safari)</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
                   Để dùng TrendPulse như ứng dụng độc lập trên màn hình chính:
                 </p>
               </div>
-              <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-left text-xs text-slate-300 space-y-3">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-left text-xs text-slate-700 dark:text-slate-300 space-y-3">
                 <div className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5">
                     1
@@ -155,18 +160,18 @@ export default function PwaManager() {
 
         {/* Android / Desktop Chrome Instruction Modal */}
         {showGeneralGuide && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
-            <div className="w-full max-w-sm p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl text-center space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center mx-auto">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in">
+            <div className="w-full max-w-sm p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl text-center space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center mx-auto">
                 <Monitor className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Cài đặt ứng dụng TrendPulse</h3>
-                <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Cài đặt ứng dụng TrendPulse</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
                   Cách cài đặt trực tiếp từ trình duyệt của bạn:
                 </p>
               </div>
-              <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-left text-xs text-slate-300 space-y-3">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-left text-xs text-slate-700 dark:text-slate-300 space-y-3">
                 <div className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5">
                     1
@@ -199,22 +204,22 @@ export default function PwaManager() {
 
   return (
     <>
-      {/* Floating Bottom / Mobile Install Banner */}
-      <div className="fixed bottom-20 md:bottom-5 right-3 left-3 md:left-auto md:w-96 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
-        <div className="p-3 sm:p-4 rounded-2xl bg-slate-900/95 border border-indigo-500/40 backdrop-blur-xl shadow-2xl shadow-indigo-950/60 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-emerald-400 flex items-center justify-center shrink-0 shadow-md">
-              <Smartphone className="w-5 h-5 text-white" />
+      {/* Floating Bottom / Mobile Install Banner (Mobile only, hidden on desktop) */}
+      <div className="md:hidden fixed bottom-20 right-3 left-3 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-indigo-500/30 backdrop-blur-xl shadow-xl dark:shadow-2xl flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-emerald-400 flex items-center justify-center shrink-0 shadow-md">
+              <Smartphone className="w-4 h-4 text-white" />
             </div>
             <div className="text-left min-w-0">
-              <div className="text-xs font-bold text-white flex items-center gap-1.5">
+              <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                 <span className="truncate">Cài đặt TrendPulse</span>
-                <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 shrink-0">
                   PWA
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 truncate">
-                Mượt mà như App gốc trên Mobile
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                Mượt mà như App trên điện thoại
               </p>
             </div>
           </div>
@@ -222,14 +227,19 @@ export default function PwaManager() {
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={handleInstallClick}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition active:scale-95 whitespace-nowrap"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white !text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition active:scale-95 whitespace-nowrap"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>Cài đặt</span>
+              <Download className="w-3.5 h-3.5 text-white" />
+              <span className="text-white">Cài đặt</span>
             </button>
             <button
-              onClick={() => setDismissed(true)}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('trendpulse_pwa_dismissed', 'true');
+                }
+                setDismissed(true);
+              }}
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
               title="Đóng"
             >
               <X className="w-4 h-4" />
