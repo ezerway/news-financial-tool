@@ -102,7 +102,7 @@ export default function Header({
   ];
 
   return (
-    <header className="sticky top-0 z-40 app-card border-t-0 border-x-0 backdrop-blur-xl shadow-xs transition-colors duration-150">
+    <header className="sticky top-0 z-40 app-card border-t-0 border-x-0 backdrop-blur-xl shadow-xs transition-colors duration-150 pt-safe">
       {/* Top Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="h-14 sm:h-16 flex items-center justify-between gap-3">
@@ -305,7 +305,7 @@ export default function Header({
 
       {/* Custom Logout Confirmation Modal */}
       {showLogoutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150 pt-safe pb-safe">
           <div
             className="w-full max-w-sm rounded-2xl app-card shadow-2xl p-5 border border-[var(--app-border)] space-y-4 animate-in zoom-in-95 duration-150"
             role="dialog"

@@ -127,21 +127,20 @@ export default function PostsTab({
             return (
               <div
                 key={post.id}
-                className="p-4 sm:p-5 rounded-xl app-card shadow-xs space-y-3.5"
+                className="p-4 sm:p-5 rounded-xl app-card shadow-xs space-y-3.5 overflow-hidden"
               >
                 {/* Header Row: Title, Created Date, Status */}
                 <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[var(--app-border)]">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-base text-inherit capitalize">
+                  <div className="flex items-center gap-2 min-w-0 max-w-full">
+                    <span className="font-bold text-base text-inherit capitalize truncate max-w-[200px] sm:max-w-none">
                       {post.trend_title}
                     </span>
-                    <span className="text-xs text-slate-400" suppressHydrationWarning>
+                    <span className="text-xs text-slate-400 shrink-0" suppressHydrationWarning>
                       • {formatDateTime(post.created_at)}
                     </span>
                   </div>
 
-
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     {post.status === 'published' && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
                         <CheckCircle className="w-3 h-3 text-emerald-500" /> {t('filter_published')}
@@ -185,7 +184,7 @@ export default function PostsTab({
                         rows={7}
                         value={editPostContent}
                         onChange={(e) => setEditPostContent(e.target.value)}
-                        className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-indigo-500 font-mono leading-relaxed resize-y"
+                        className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-indigo-500 font-mono leading-relaxed resize-y max-w-full"
                       />
                     </div>
 
@@ -198,14 +197,14 @@ export default function PostsTab({
                         rows={4}
                         value={editCommentContent}
                         onChange={(e) => setEditCommentContent(e.target.value)}
-                        className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-indigo-500 font-mono leading-relaxed resize-y"
+                        className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-indigo-500 font-mono leading-relaxed resize-y max-w-full"
                       />
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {/* Post Copy */}
-                    <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-slate-950/70 border border-slate-100 dark:border-slate-800 text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap">
+                    <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-slate-950/70 border border-slate-100 dark:border-slate-800 text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words">
                       <div className={!isExpanded ? 'line-clamp-4' : ''}>
                         {post.post_content}
                       </div>
@@ -248,17 +247,17 @@ export default function PostsTab({
                 )}
 
                 {/* Footer Toolbar */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-[var(--app-border)] text-xs">
                   {/* Left: Meta links */}
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 shrink-0">
                     {post.fb_post_url && (
                       <a
                         href={post.fb_post_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+                        className="inline-flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-semibold hover:underline"
                       >
-                        <FacebookIcon className="w-3.5 h-3.5" />
+                        <FacebookIcon className="w-3.5 h-3.5 shrink-0" />
                         <span>{t('open_fb')} ↗</span>
                       </a>
                     )}
@@ -267,34 +266,34 @@ export default function PostsTab({
                       <button
                         type="button"
                         onClick={() => setPreviewScreenshot(post.screenshot_path || null)}
-                        className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+                        className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
                       >
-                        <ImageIcon className="w-3.5 h-3.5 text-indigo-500" />
+                        <ImageIcon className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                         <span>{t('screenshot')}</span>
                       </button>
                     )}
                   </div>
 
                   {/* Right: Actions */}
-                  <div className="flex items-center gap-2 ml-auto">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto sm:ml-auto justify-start sm:justify-end">
                     {isEditing ? (
-                      <>
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                         <button
                           type="button"
                           onClick={() => setEditingId(null)}
-                          className="btn btn-sm btn-ghost"
+                          className="btn btn-sm btn-ghost flex-1 sm:flex-initial"
                         >
                           {t('btn_cancel')}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleSaveEdit(post.id)}
-                          className="btn btn-sm btn-emerald"
+                          className="btn btn-sm btn-emerald flex-1 sm:flex-initial"
                         >
                           <Save className="w-3.5 h-3.5" />
                           <span>{t('btn_save')}</span>
                         </button>
-                      </>
+                      </div>
                     ) : (
                       <>
                         <button
@@ -322,27 +321,15 @@ export default function PostsTab({
                         )}
 
                         {post.status !== 'published' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => onPublish(post.id, true)}
-                              disabled={isPublishing || isCommenting}
-                              className="btn btn-sm btn-secondary"
-                            >
-                              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                              <span>{t('test_run')}</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => onPublish(post.id, false)}
-                              disabled={isPublishing || isCommenting}
-                              className="btn btn-sm btn-primary"
-                            >
-                              <Send className={`w-3.5 h-3.5 ${isPublishing ? 'animate-spin' : ''}`} />
-                              <span>{isPublishing ? t('filter_publishing') : t('publish_now')}</span>
-                            </button>
-                          </>
+                          <button
+                            type="button"
+                            onClick={() => onPublish(post.id, true)}
+                            disabled={isPublishing || isCommenting}
+                            className="btn btn-sm btn-secondary"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                            <span>{t('test_run')}</span>
+                          </button>
                         )}
 
                         {/* Delete confirmation */}
@@ -382,6 +369,19 @@ export default function PostsTab({
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
+
+                        {/* Primary Publish CTA */}
+                        {post.status !== 'published' && (
+                          <button
+                            type="button"
+                            onClick={() => onPublish(post.id, false)}
+                            disabled={isPublishing || isCommenting}
+                            className="btn btn-sm btn-primary w-full sm:w-auto justify-center order-last sm:order-none"
+                          >
+                            <Send className={`w-3.5 h-3.5 ${isPublishing ? 'animate-spin' : ''}`} />
+                            <span>{isPublishing ? t('filter_publishing') : t('publish_now')}</span>
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
@@ -394,7 +394,7 @@ export default function PostsTab({
 
       {/* Screenshot Preview Modal */}
       {previewScreenshot && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs pt-safe pb-safe">
           <div className="relative max-w-4xl w-full bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden p-4 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
@@ -421,7 +421,7 @@ export default function PostsTab({
 
       {/* Comment Modal */}
       {commentModalPost && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs pt-safe pb-safe">
           <div className="relative max-w-lg w-full bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden p-5 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
