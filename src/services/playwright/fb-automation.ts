@@ -11,23 +11,108 @@ if (!fs.existsSync(SCREENSHOTS_DIR)) {
   fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 }
 
+const VIDEOS_DIR = path.join(process.cwd(), 'storage', 'videos');
+if (!fs.existsSync(VIDEOS_DIR)) {
+  fs.mkdirSync(VIDEOS_DIR, { recursive: true });
+}
+
 export interface PublishResult {
   success: boolean;
   postId: string;
   fbPostUrl?: string;
   commentSuccess?: boolean;
   screenshotPath?: string;
+  videoPath?: string;
   error?: string;
 }
 
 /**
- * Automatically dismiss any blocking popups such as WhatsApp button upsell ("Make it easier to contact you"),
- * messaging button prompts, or audience review dialogs that prevent posting.
+ * Automatically handle Facebook "Your profiles & Pages" modal.
+ * Triggered when switching profile or when Facebook prompts to choose identity.
  */
-async function dismissBlockingPagePopups(page: any): Promise<boolean> {
+export async function handleProfileSwitcherModal(page: any, targetPageName?: string): Promise<boolean> {
+  try {
+    const dialogs = page.locator('div[role="dialog"]');
+    const dialogCount = await dialogs.count();
+    if (dialogCount === 0) return false;
+
+    for (let i = 0; i < dialogCount; i++) {
+      const dialog = dialogs.nth(i);
+      if (!(await dialog.isVisible().catch(() => false))) continue;
+
+      const dialogText = await dialog.innerText().catch(() => '');
+      const isProfileSwitcher =
+        dialogText.includes('Your profiles & Pages') ||
+        dialogText.includes('Trang cá nhân & Trang của bạn') ||
+        dialogText.includes('Switch to interact on this post') ||
+        dialogText.includes('Chuyển để tương tác') ||
+        dialogText.includes('Search profiles and Pages') ||
+        dialogText.includes('Tìm kiếm trang cá nhân và Trang') ||
+        dialogText.includes('Switch profile') ||
+        dialogText.includes('Chuyển trang cá nhân');
+
+      if (!isProfileSwitcher) continue;
+
+      logActivity('INFO', 'AUTH', '[Bypass] Phát hiện modal "Your profiles & Pages". Đang xử lý...');
+
+      const pageName = targetPageName || getSetting('fb_page_name', '') || 'Financial News';
+
+      // 1. If target page is listed, click it to ensure active identity is the Fanpage
+      if (pageName) {
+        const pageOption = dialog.locator(
+          `div[role="radio"]:has-text("${pageName}"), ` +
+          `div[role="button"]:has-text("${pageName}"), ` +
+          `div:has-text("${pageName}")`
+        ).last();
+
+        if ((await pageOption.count()) > 0 && (await pageOption.isVisible().catch(() => false))) {
+          logActivity('INFO', 'AUTH', `[Bypass] Đang chọn "${pageName}" trong modal Profiles & Pages...`);
+          await pageOption.click().catch(() => { });
+          await page.waitForTimeout(2000);
+        }
+      }
+
+      // 2. Close the modal by clicking the 'X' button or pressing Escape
+      const closeButtons = dialog.locator(
+        'div[aria-label="Close"], ' +
+        'div[aria-label="Đóng"], ' +
+        'button[aria-label*="Close"], ' +
+        'button[aria-label*="Đóng"], ' +
+        'div[role="button"][aria-label*="Close"], ' +
+        'div[role="button"][aria-label*="Đóng"]'
+      );
+
+      if ((await closeButtons.count()) > 0 && (await closeButtons.first().isVisible().catch(() => false))) {
+        logActivity('INFO', 'AUTH', '[Bypass] Bấm nút Đóng (X) trên modal "Your profiles & Pages"...');
+        await closeButtons.first().click().catch(() => { });
+      } else {
+        logActivity('INFO', 'AUTH', '[Bypass] Nhấn Escape để đóng modal "Your profiles & Pages"...');
+        await page.keyboard.press('Escape');
+      }
+
+      await page.waitForTimeout(1500);
+      return true;
+    }
+  } catch (err: any) {
+    logActivity('WARN', 'AUTH', `Lỗi khi xử lý modal Profiles & Pages: ${err.message}`);
+  }
+  return false;
+}
+
+/**
+ * Automatically dismiss any blocking popups such as WhatsApp button upsell ("Make it easier to contact you"),
+ * messaging button prompts, profile switcher dialogs, or audience review dialogs that prevent posting.
+ */
+async function dismissBlockingPagePopups(page: any, targetPageName?: string): Promise<boolean> {
   let dismissed = false;
 
-  // 1. If "Leave Page?" / "Rời khỏi trang?" dialog appears, ALWAYS click "Keep editing" to stay in the composer
+  // 1. Check for "Your profiles & Pages" modal
+  try {
+    const profileHandled = await handleProfileSwitcherModal(page, targetPageName);
+    if (profileHandled) dismissed = true;
+  } catch { }
+
+  // 2. If "Leave Page?" / "Rời khỏi trang?" dialog appears, ALWAYS click "Keep editing" to stay in the composer
   try {
     const keepEditingBtn = page
       .locator(
@@ -43,32 +128,74 @@ async function dismissBlockingPagePopups(page: any): Promise<boolean> {
       await page.waitForTimeout(1000);
       return true;
     }
-  } catch {}
+  } catch { }
 
-  // 2. Only dismiss specific WhatsApp / contact suggestion popups (DO NOT click generic Close buttons)
-  try {
-    const whatsAppPrompt = page.locator('div:has-text("Make it easier to contact you"), div:has-text("WhatsApp")');
-    if ((await whatsAppPrompt.count()) > 0 && (await whatsAppPrompt.first().isVisible({ timeout: 500 }).catch(() => false))) {
-      const notNowBtn = page
-        .locator(
-          'div:has-text("Make it easier to contact you") div[role="button"]:has-text("Not now"), ' +
-          'div:has-text("Make it easier to contact you") div[role="button"]:has-text("Lúc khác"), ' +
-          'div:has-text("WhatsApp") div[role="button"]:has-text("Not now"), ' +
-          'div:has-text("WhatsApp") div[role="button"]:has-text("Lúc khác"), ' +
-          'div:has-text("WhatsApp") div[role="button"]:has-text("Không phải bây giờ")'
-        )
-        .first();
-
-      if ((await notNowBtn.count()) > 0 && (await notNowBtn.isVisible({ timeout: 500 }).catch(() => false))) {
-        logActivity('INFO', 'PUBLISH', '[Dismiss Popup] Bấm "Not now" trên popup đề xuất WhatsApp...');
-        await notNowBtn.click({ force: true }).catch(() => {});
-        await page.waitForTimeout(1000);
-        dismissed = true;
-      }
-    }
-  } catch {}
+  // 3. Dismiss WhatsApp "Make it easier to contact you" popup
+  const whatsAppDismissed = await dismissWhatsAppPopup(page);
+  if (whatsAppDismissed) dismissed = true;
 
   return dismissed;
+}
+
+/**
+ * Specifically detect and dismiss the WhatsApp upsell popup ("Make it easier to contact you")
+ * by clicking "Not now" or the close button.
+ */
+export async function dismissWhatsAppPopup(page: any): Promise<boolean> {
+  try {
+    const whatsAppDialog = page.locator(
+      'div[role="dialog"] div[role="button"][aria-label="Add WhatsApp button"]'
+    );
+
+    if ((await whatsAppDialog.count()) > 0 && (await whatsAppDialog.first().isVisible({ timeout: 800 }).catch(() => false))) {
+      logActivity('INFO', 'PUBLISH', 'Phát hiện popup "Make it easier to contact you" (WhatsApp)...');
+
+      const notNowSelectors = [
+        'div[role="dialog"] div[role="button"][aria-label="Not now"]',
+        'div[role="dialog"] div[role="button"]:has-text("Not now")',
+        'div[role="dialog"] div[role="button"]:has-text("Lúc khác")',
+        'div[role="dialog"] div[role="button"]:has-text("Không phải bây giờ")',
+        'div[role="dialog"] button:has-text("Not now")',
+        'div[role="dialog"] button:has-text("Lúc khác")',
+        'div[role="button"]:has-text("Not now")',
+        'div[role="button"]:has-text("Lúc khác")',
+        'div[role="button"]:has-text("Không phải bây giờ")',
+        'button:has-text("Not now")',
+        'button:has-text("Lúc khác")',
+        'span:has-text("Not now")',
+        'span:has-text("Lúc khác")',
+      ];
+
+      for (const sel of notNowSelectors) {
+        const btn = page.locator(sel).first();
+        if ((await btn.count()) > 0 && (await btn.isVisible({ timeout: 800 }).catch(() => false))) {
+          logActivity('INFO', 'PUBLISH', `[Bypass Popup] Đang click nút "Not now" ("${await btn.innerText().catch(() => 'Not now')}") trên popup WhatsApp...`);
+          await btn.click({ force: true }).catch(() => { });
+          await page.waitForTimeout(1500);
+          return true;
+        }
+      }
+
+      // Nếu không tìm thấy chữ Not now, thử bấm nút đóng (X) ở góc phải
+      const closeButtons = page.locator(
+        'div[role="dialog"]:has-text("Make it easier to contact you") div[aria-label="Close"], ' +
+        'div[role="dialog"]:has-text("Make it easier to contact you") div[aria-label="Đóng"], ' +
+        'div[role="dialog"]:has-text("WhatsApp") div[aria-label="Close"], ' +
+        'div[role="dialog"]:has-text("WhatsApp") div[aria-label="Đóng"], ' +
+        'div[role="dialog"]:has-text("Make it easier to contact you") button[aria-label="Close"], ' +
+        'div[role="dialog"]:has-text("Make it easier to contact you") button[aria-label="Đóng"]'
+      );
+      if ((await closeButtons.count()) > 0 && (await closeButtons.first().isVisible({ timeout: 800 }).catch(() => false))) {
+        logActivity('INFO', 'PUBLISH', '[Bypass Popup] Đang click nút Đóng (X) trên popup WhatsApp...');
+        await closeButtons.first().click({ force: true }).catch(() => { });
+        await page.waitForTimeout(1500);
+        return true;
+      }
+    }
+  } catch (err: any) {
+    logActivity('WARN', 'PUBLISH', `Lỗi xử lý popup WhatsApp: ${err.message}`);
+  }
+  return false;
 }
 
 /**
@@ -94,7 +221,7 @@ async function handleAccountChooserOrLogin(
       .first();
     if ((await cookieConsent.count()) > 0 && (await cookieConsent.isVisible({ timeout: 1500 }).catch(() => false))) {
       logActivity('INFO', 'AUTH', '[Bypass] Bấm chấp nhận Cookie Facebook...');
-      await cookieConsent.click().catch(() => {});
+      await cookieConsent.click().catch(() => { });
       await page.waitForTimeout(2000);
     }
 
@@ -145,12 +272,12 @@ async function handleAccountChooserOrLogin(
       logActivity('SUCCESS', 'AUTH', '[Bypass] Đã kích hoạt tài khoản qua màn hình Continue, đang cập nhật session...');
       try {
         await context.storageState({ path: getSessionPath() });
-      } catch {}
+      } catch { }
 
       // If a target URL was specified (like a Fanpage) and we are currently on facebook.com home, navigate to targetUrl
       if (targetUrl && page.url() && !page.url().includes(targetUrl.replace(/^https?:\/\/(www\.)?facebook\.com\/?/, ''))) {
         logActivity('INFO', 'AUTH', `Đang điều hướng tiếp tục đến trang đích: ${targetUrl}`);
-        await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
+        await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => { });
         await page.waitForTimeout(3000);
       }
 
@@ -164,6 +291,30 @@ async function handleAccountChooserOrLogin(
   return false;
 }
 
+export function resolveTargetUrl(): { targetType: string; targetUrl: string; pageName: string } {
+  const targetType = getSetting('fb_target_type', 'page');
+  const pageName = getSetting('fb_page_name', '').trim() || 'Financial News';
+  const pageUrlSetting = getSetting('fb_page_url', '').trim();
+  const targetUrlSetting = getSetting('fb_target_url', '').trim();
+
+  const isGenericRoot = (u: string) => !u || /^https?:\/\/(www\.)?facebook\.com\/?$/i.test(u);
+
+  let targetUrl = 'https://www.facebook.com/';
+  if (targetType === 'page') {
+    if (!isGenericRoot(pageUrlSetting)) {
+      targetUrl = pageUrlSetting;
+    } else if (!isGenericRoot(targetUrlSetting)) {
+      targetUrl = targetUrlSetting;
+    } else {
+      targetUrl = pageUrlSetting || targetUrlSetting || 'https://www.facebook.com/';
+    }
+  } else {
+    targetUrl = !isGenericRoot(targetUrlSetting) ? targetUrlSetting : (!isGenericRoot(pageUrlSetting) ? pageUrlSetting : 'https://www.facebook.com/');
+  }
+
+  return { targetType, targetUrl, pageName };
+}
+
 export async function executePublishAndComment(
   post: PostItem,
   options?: { dryRun?: boolean; headless?: boolean }
@@ -171,19 +322,17 @@ export async function executePublishAndComment(
   const dryRun = options?.dryRun ?? false;
   const headless = options?.headless ?? true;
 
-  const targetType = getSetting('fb_target_type', 'page');
-  const pageUrl = (getSetting('fb_page_url', '') || getSetting('fb_target_url', '')).trim();
-  let targetUrl = getSetting('fb_target_url', 'https://www.facebook.com/').trim();
+  const { targetType, targetUrl, pageName } = resolveTargetUrl();
 
   if (targetType === 'page') {
-    if (!pageUrl) {
+    const isGenericRoot = /^https?:\/\/(www\.)?facebook\.com\/?$/i.test(targetUrl);
+    if (!targetUrl || isGenericRoot) {
       const errorMsg =
-        'Bạn đã chọn chế độ "Đăng lên Fanpage" nhưng chưa cấu hình "Đường dẫn Fanpage" trong tab Cài đặt.';
+        'Bạn đã chọn chế độ "Đăng lên Fanpage" nhưng chưa cấu hình "Đường dẫn Fanpage" hợp lệ trong tab Cài đặt.';
       db.prepare(`UPDATE posts SET status = 'failed', error_message = ? WHERE id = ?`).run(errorMsg, post.id);
       logActivity('ERROR', 'PUBLISH', errorMsg);
       return { success: false, postId: post.id, error: errorMsg };
     }
-    targetUrl = pageUrl;
   }
 
   // DEDUPLICATION GUARD: Check if post or topic was already published
@@ -199,8 +348,7 @@ export async function executePublishAndComment(
   logActivity(
     'INFO',
     'PUBLISH',
-    `Starting publish process for post ${post.id}: "${post.trend_title}" (Target: ${
-      targetType === 'page' ? 'Fanpage (' + targetUrl + ')' : 'Trang cá nhân'
+    `Starting publish process for post ${post.id}: "${post.trend_title}" (Target: ${targetType === 'page' ? 'Fanpage (' + targetUrl + ')' : 'Trang cá nhân'
     }, Mode: ${dryRun ? 'Dry Run' : 'Live'})`
   );
 
@@ -245,14 +393,21 @@ export async function executePublishAndComment(
     return { success: false, postId: post.id, error: errorMsg };
   }
 
-  let context;
+  let context: any;
+  let page: any;
+  let video: any;
   const screenshotFileName = `post_${post.id}_${Date.now()}.png`;
   const screenshotFullPath = path.join(SCREENSHOTS_DIR, screenshotFileName);
+  const videoFileName = `publish_${post.id}_${Date.now()}.webm`;
 
   try {
     context = await chromium.launchPersistentContext(getUserDataDir(), {
       headless: headless,
       viewport: { width: 1280, height: 900 },
+      recordVideo: {
+        dir: VIDEOS_DIR,
+        size: { width: 1280, height: 900 },
+      },
       userAgent:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       args: getChromiumLaunchArgs(['--disable-notifications']),
@@ -261,13 +416,14 @@ export async function executePublishAndComment(
     // Inject cookies from fb-session.json into context
     await injectSessionCookies(context);
 
-    const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
+    page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
+    video = page.video();
     page.on('crash', () => {
       logActivity('ERROR', 'PUBLISH', 'Playwright page crashed (Bộ nhớ RAM trên VPS bị cạn kiệt hoặc tiến trình bị ngắt).');
     });
 
     // Only abort actual video streaming files (avoids proxying hundreds of normal requests through DevTools Protocol)
-    await page.route(/\.(mp4|webm|avi|mov)($|\?)/i, (route) => route.abort().catch(() => {}));
+    await page.route(/\.(mp4|webm|avi|mov)($|\?)/i, (route: any) => route.abort().catch(() => { }));
 
     logActivity('INFO', 'PUBLISH', `Đang điều hướng đến trang đích Facebook: ${targetUrl}`);
     await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
@@ -279,6 +435,9 @@ export async function executePublishAndComment(
     // Step 0: Check if we are in Page mode and Facebook shows a "Switch to Page" prompt
     if (targetType === 'page') {
       logActivity('INFO', 'PUBLISH', `[Page Mode] Kiểm tra nút chuyển quyền sang Fanpage trên: ${targetUrl}`);
+      // Dismiss or select Page if "Your profiles & Pages" modal is showing
+      await handleProfileSwitcherModal(page, pageName);
+
       const switchSelectors = [
         'div[role="button"]:has-text("Chuyển ngay")',
         'div[role="button"]:has-text("Switch now")',
@@ -298,50 +457,56 @@ export async function executePublishAndComment(
           const btnText = await btn.innerText().catch(() => '');
           logActivity('INFO', 'PUBLISH', `[Page Mode] Phát hiện nút chuyển sang Fanpage ("${btnText}"), đang kích hoạt...`);
           await btn.click();
-          await page.waitForTimeout(4000);
+          await page.waitForTimeout(3000);
+          await handleProfileSwitcherModal(page, pageName);
+          await page.waitForTimeout(2000);
           break;
         }
       }
     }
 
-    // Step 1: Check for "What's on your mind?" / "Tạo bài viết" button
+    // Dismiss any blocking popups before locating post trigger
+    await dismissBlockingPagePopups(page, pageName);
+
+    // BƯỚC 1: Vào trang đích (mặc định https://www.facebook.com/financiial.news)
+    // (Đã điều hướng ở trên tới targetUrl)
+
+    // BƯỚC 2: Click vào span có text: "What's on your mind?"
+    logActivity('INFO', 'PUBLISH', '[Bước 2] Tìm và click vào thẻ "What\'s on your mind?"...');
     const postTriggerSelectors = [
-      'div[role="button"]:has-text("Bạn đang nghĩ gì")',
+      'span:has-text("What\'s on your mind?")',
+      'span:has-text("What\'s on your mind")',
+      'span:has-text("Bạn đang nghĩ gì?")',
+      'span:has-text("Bạn đang nghĩ gì")',
       'div[role="button"]:has-text("What\'s on your mind")',
-      'div[role="button"]:has-text("Tạo bài viết")',
+      'div[role="button"]:has-text("Bạn đang nghĩ gì")',
       'div[role="button"]:has-text("Create post")',
+      'div[role="button"]:has-text("Tạo bài viết")',
       'div[role="button"]:has-text("Create a post")',
       'div[role="button"]:has-text("Viết gì đó")',
-      'div[role="button"]:has-text("Write something")',
-      'div[role="button"]:has-text("Tạo bài viết trên trang")',
-      'div[role="button"]:has-text("Tạo bài đăng")',
-      'div[aria-label*="Tạo bài viết"]',
       'div[aria-label*="Create a post"]',
       'div[aria-label*="Create post"]',
-      'span:has-text("Bạn đang nghĩ gì")',
-      'span:has-text("What\'s on your mind")',
-      'span:has-text("Tạo bài viết")',
-      'span:has-text("Viết gì đó")',
-      'span:has-text("Tạo bài viết trên trang")',
+      'div[aria-label*="Tạo bài viết"]',
     ];
 
     let postTrigger = null;
     for (const selector of postTriggerSelectors) {
       const el = page.locator(selector).first();
-      if ((await el.count()) > 0 && (await el.isVisible({ timeout: 1000 }).catch(() => false))) {
+      if ((await el.count()) > 0 && (await el.isVisible({ timeout: 1500 }).catch(() => false))) {
         postTrigger = el;
         break;
       }
     }
 
     if (!postTrigger) {
-      // Try scrolling slightly down to reveal the post composer on Fanpage timeline
-      await page.evaluate(() => window.scrollBy(0, 350));
+      // Thử xử lý modal profile switcher và cuộn nhẹ trang xuống
+      await handleProfileSwitcherModal(page, pageName);
+      await page.evaluate(() => window.scrollBy(0, 300));
       await page.waitForTimeout(1500);
 
       for (const selector of postTriggerSelectors) {
         const el = page.locator(selector).first();
-        if ((await el.count()) > 0 && (await el.isVisible({ timeout: 1000 }).catch(() => false))) {
+        if ((await el.count()) > 0 && (await el.isVisible({ timeout: 1500 }).catch(() => false))) {
           postTrigger = el;
           break;
         }
@@ -350,93 +515,98 @@ export async function executePublishAndComment(
 
     if (!postTrigger) {
       throw new Error(
-        `Không tìm thấy nút tạo bài viết trên ${
-          targetType === 'page' ? 'Fanpage (' + targetUrl + ')' : 'Facebook'
+        `Không tìm thấy nút tạo bài viết "What's on your mind?" trên ${targetType === 'page' ? 'Fanpage (' + targetUrl + ')' : 'Facebook'
         }. Hãy vào tab Cài đặt -> bấm "Mở trình duyệt" để chuyển đổi sang tư cách Fanpage trước.`
       );
     }
 
-    logActivity('INFO', 'PUBLISH', 'Clicking post creation trigger...');
+    logActivity('INFO', 'PUBLISH', 'Clicking post creation trigger ("What\'s on your mind?")...');
     await postTrigger.click();
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(2500);
 
-    // Step 2: Locate the post dialog textbox
+    // BƯỚC 3: 1 modal mở ra nhập nội dung vào 1 div có contenteditable="true"
+    logActivity('INFO', 'PUBLISH', '[Bước 3] Modal tạo bài viết mở ra, tìm div có contenteditable="true" để nhập nội dung...');
     const textboxSelectors = [
-      'div[role="dialog"] div[role="textbox"]',
-      'div[aria-label*="Bạn đang nghĩ gì"][role="textbox"]',
-      'div[aria-label*="What\'s on your mind"][role="textbox"]',
-      'div[aria-label*="Tạo bài viết"][role="textbox"]',
-      'div[aria-label*="Tạo bài đăng"][role="textbox"]',
-      'div[aria-label*="Viết gì đó"][role="textbox"]',
       'div[role="dialog"] div[contenteditable="true"]',
-      'div[role="textbox"][contenteditable="true"]',
+      'div[role="dialog"] div[role="textbox"]',
+      'div[contenteditable="true"][role="textbox"]',
+      'div[aria-label*="What\'s on your mind"][role="textbox"]',
+      'div[aria-label*="Bạn đang nghĩ gì"][role="textbox"]',
+      'div[contenteditable="true"]',
     ];
 
     let textbox = null;
     for (const sel of textboxSelectors) {
       const el = page.locator(sel).first();
-      if ((await el.count()) > 0 && (await el.isVisible({ timeout: 1000 }).catch(() => false))) {
+      if ((await el.count()) > 0 && (await el.isVisible({ timeout: 1500 }).catch(() => false))) {
         textbox = el;
         break;
       }
     }
 
     if (!textbox) {
-      throw new Error('Không tìm thấy ô nhập nội dung bài viết trong modal.');
+      throw new Error('Không tìm thấy ô nhập nội dung (div contenteditable="true") trong modal.');
     }
 
-    logActivity('INFO', 'PUBLISH', 'Filling post content using keyboard events...');
+    logActivity('INFO', 'PUBLISH', 'Đang điền nội dung bài viết...');
     await textbox.click();
     await page.waitForTimeout(500);
 
-    // Fill content using insertText to properly trigger Facebook Lexical framework
+    // Điền nội dung bằng insertText tương thích Lexical editor của Facebook
     await page.keyboard.insertText(post.post_content);
     await page.waitForTimeout(2000);
 
-    // Step 2.5: Auto-dismiss blocking popups like "Make it easier to contact you" (WhatsApp prompt)
+    // Bỏ qua các popup cản trở như WhatsApp prompt nếu có
     for (let attempt = 0; attempt < 3; attempt++) {
-      const hadPopup = await dismissBlockingPagePopups(page);
+      const hadPopup = await dismissBlockingPagePopups(page, pageName);
       if (!hadPopup) break;
       await page.waitForTimeout(1000);
     }
 
-    // Step 3: Handle "Tiếp" / "Next" button in Fanpage 2-step post creation wizard
+    // BƯỚC 4: Ấn Next, sau đó ấn Post
+    logActivity('INFO', 'PUBLISH', '[Bước 4] Kiểm tra nút Next và nút Post để xuất bản bài viết...');
+
+    // 4a. Tìm nút Next (nếu có trong wizard tạo bài của Fanpage)
     const nextBtnSelectors = [
-      'div[role="dialog"] div[role="button"]:has-text("Tiếp")',
       'div[role="dialog"] div[role="button"]:has-text("Next")',
-      'div[role="button"]:has-text("Tiếp")',
+      'div[role="dialog"] div[role="button"]:has-text("Tiếp")',
+      'div[role="dialog"] button:has-text("Next")',
+      'div[role="dialog"] button:has-text("Tiếp")',
       'div[role="button"]:has-text("Next")',
+      'div[role="button"]:has-text("Tiếp")',
     ];
 
     for (const nsel of nextBtnSelectors) {
       const nBtn = page.locator(nsel).first();
-      if ((await nBtn.count()) > 0 && (await nBtn.isVisible({ timeout: 1000 }).catch(() => false))) {
-        // Wait until Next button is enabled
+      if ((await nBtn.count()) > 0 && (await nBtn.isVisible({ timeout: 1500 }).catch(() => false))) {
         for (let w = 0; w < 5; w++) {
           const isDisabled = (await nBtn.getAttribute('aria-disabled')) === 'true';
           if (!isDisabled) break;
-          await page.waitForTimeout(1000);
+          await page.waitForTimeout(800);
         }
-        logActivity('INFO', 'PUBLISH', 'Phát hiện bước chuyển tiếp, đang bấm nút "Tiếp" (Next)...');
+        logActivity('INFO', 'PUBLISH', 'Phát hiện bước chuyển tiếp, đang bấm nút "Next" / "Tiếp"...');
         await nBtn.click().catch(() => nBtn.click({ force: true }));
-        await page.waitForTimeout(3000);
+        await page.waitForTimeout(2500);
         break;
       }
     }
 
-    // Check again for popup after wizard transitions
-    await dismissBlockingPagePopups(page);
+    await dismissBlockingPagePopups(page, pageName);
 
-    // Step 4: Click Submit / Đăng (Post) button
+    // 4b. Tìm nút Post
     const submitBtnSelectors = [
-      'div[role="dialog"] div[role="button"]:has-text("Đăng")',
+      'div[role="dialog"] div[aria-label="Post"]',
+      'div[role="dialog"] div[aria-label="Đăng"]',
       'div[role="dialog"] div[role="button"]:has-text("Post")',
-      'div[role="dialog"] button:has-text("Đăng")',
+      'div[role="dialog"] div[role="button"]:has-text("Đăng")',
       'div[role="dialog"] button:has-text("Post")',
-      'div[role="button"]:has-text("Đăng")',
+      'div[role="dialog"] button:has-text("Đăng")',
+      'div[aria-label="Post"]',
+      'div[aria-label="Đăng"]',
       'div[role="button"]:has-text("Post")',
-      'button:has-text("Đăng")',
+      'div[role="button"]:has-text("Đăng")',
       'button:has-text("Post")',
+      'button:has-text("Đăng")',
     ];
 
     let submitBtn = null;
@@ -448,14 +618,16 @@ export async function executePublishAndComment(
         if (await el.isVisible().catch(() => false)) {
           const txt = (await el.innerText().catch(() => '')).trim();
           const ariaLabel = (await el.getAttribute('aria-label').catch(() => '')) || '';
+          const cleanTxt = txt.replace(/\s+/g, ' ').trim();
 
           if (
-            txt === 'Post' ||
-            txt === 'Đăng' ||
-            txt === 'Share' ||
-            txt === 'Chia sẻ' ||
+            cleanTxt === 'Post' ||
+            cleanTxt === 'Đăng' ||
+            cleanTxt === 'Share' ||
+            cleanTxt === 'Chia sẻ' ||
             ariaLabel === 'Post' ||
-            ariaLabel === 'Đăng'
+            ariaLabel === 'Đăng' ||
+            (cleanTxt.startsWith('Post') && cleanTxt.length < 15)
           ) {
             submitBtn = el;
             break;
@@ -469,63 +641,154 @@ export async function executePublishAndComment(
       throw new Error('Không tìm thấy nút Đăng (Post) hợp lệ trên giao diện Facebook.');
     }
 
-    // Wait until submit button is enabled
-    for (let w = 0; w < 5; w++) {
+    // Chờ nút submit được kích hoạt (enabled)
+    for (let w = 0; w < 6; w++) {
       const isDisabled =
         (await submitBtn.getAttribute('aria-disabled')) === 'true' ||
         (await submitBtn.getAttribute('disabled')) !== null;
       if (!isDisabled) break;
       logActivity('INFO', 'PUBLISH', 'Nút Đăng đang chờ xử lý (disabled), kiểm tra popup cản trở...');
-      await dismissBlockingPagePopups(page);
+      await dismissBlockingPagePopups(page, pageName);
       await page.waitForTimeout(1000);
     }
 
     logActivity('INFO', 'PUBLISH', `Kích hoạt nút Đăng (Post) lên ${targetType === 'page' ? 'Fanpage' : 'Facebook'}...`);
     await submitBtn.click().catch(() => submitBtn.click({ force: true }));
 
-    // CRITICAL VERIFICATION: Ensure the composer textbox actually hides/detaches
-    try {
-      await textbox.waitFor({ state: 'hidden', timeout: 20000 });
-      logActivity('SUCCESS', 'PUBLISH', 'Trình tạo bài viết đã đóng thành công (bài viết đã được xuất bản).');
-    } catch {
-      // If still open, retry clicking Post once or dismiss blocking prompt
-      if (await textbox.isVisible().catch(() => false)) {
-        logActivity('WARN', 'PUBLISH', 'Hộp thoại chưa đóng, thử xử lý popup và bấm Đăng lại...');
-        await dismissBlockingPagePopups(page);
-        if (await submitBtn.isVisible().catch(() => false)) {
+    // Giám sát tiến trình đăng bài (bắt popup WhatsApp "Make it easier to contact you" khi nút đang xoay)
+    logActivity('INFO', 'PUBLISH', 'Đang giám sát tiến trình xuất bản và tự động xử lý popup WhatsApp ("Make it easier to contact you")...');
+
+    let publishCompleted = false;
+    const maxWaitSeconds = 35;
+    const startPublishWait = Date.now();
+
+    while (Date.now() - startPublishWait < maxWaitSeconds * 1000) {
+      await page.waitForTimeout(1000);
+
+      // 1. Kiểm tra và bấm "Not now" ngay khi popup WhatsApp xuất hiện
+      const dismissedWhatsApp = await dismissWhatsAppPopup(page);
+      if (dismissedWhatsApp) {
+        logActivity('SUCCESS', 'PUBLISH', 'Đã bấm "Not now" trên popup WhatsApp thành công!');
+        await page.waitForTimeout(2000);
+      }
+
+      // 2. Kiểm tra nếu nút Post vẫn còn hiển thị và enabled (cần bấm lại sau khi đóng popup)
+      const isPostBtnVisible = await submitBtn.isVisible().catch(() => false);
+      if (isPostBtnVisible) {
+        const isDisabled =
+          (await submitBtn.getAttribute('aria-disabled')) === 'true' ||
+          (await submitBtn.getAttribute('disabled')) !== null;
+        if (!isDisabled) {
+          logActivity('INFO', 'PUBLISH', 'Nút Post vẫn còn hiển thị sau khi đóng popup, đang kích hoạt lại nút Post...');
           await submitBtn.click().catch(() => submitBtn.click({ force: true }));
-          await textbox.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
+          await page.waitForTimeout(2000);
         }
+      }
+
+      // 3. Kiểm tra xem tất cả các dialog tạo bài viết đã đóng hoàn toàn chưa
+      const dialogs = page.locator('div[role="dialog"]');
+      const dialogCount = await dialogs.count();
+      let hasComposerOpen = false;
+
+      for (let i = 0; i < dialogCount; i++) {
+        const dlg = dialogs.nth(i);
+        if (await dlg.isVisible().catch(() => false)) {
+          const txt = await dlg.innerText().catch(() => '');
+          if (
+            txt.includes('Create post') ||
+            txt.includes('Tạo bài viết') ||
+            txt.includes('Post settings') ||
+            txt.includes('Make it easier to contact you') ||
+            txt.includes('Add a WhatsApp button') ||
+            txt.includes('WhatsApp')
+          ) {
+            hasComposerOpen = true;
+            break;
+          }
+        }
+      }
+
+      if (!hasComposerOpen) {
+        logActivity('SUCCESS', 'PUBLISH', 'Modal tạo bài viết và popup WhatsApp đã đóng hoàn toàn (bài viết đã được xuất bản).');
+        publishCompleted = true;
+        break;
       }
     }
 
-    // Strict guard: if textbox is still visible, ABORT before comment step
-    if (await textbox.isVisible().catch(() => false)) {
-      throw new Error(
-        'Không thể xuất bản bài viết: Hộp thoại tạo bài viết vẫn chưa đóng sau khi bấm Đăng (Post). Dừng lại để tránh bước comment bị ghi đè lên bài viết.'
-      );
+    if (!publishCompleted) {
+      // Thử xử lý lần cuối nếu popup vẫn còn
+      await dismissWhatsAppPopup(page);
+      await page.waitForTimeout(2000);
     }
 
-    await page.waitForTimeout(3000);
+    // Đợi thêm 3.5 giây để máy chủ Facebook cập nhật vào feeds trước khi chuyển trang
+    await page.waitForTimeout(3500);
 
-    // Step 4.5: Navigate to Most Recent Feeds (sk=h_chr) to get the exact Post URL
-    logActivity('INFO', 'PUBLISH', 'Đang truy cập trang Feeds gần đây nhất (sk=h_chr) để lấy đường dẫn chính xác của bài viết vừa đăng...');
+    // BƯỚC 5: Sau khi post thành công, vào https://www.facebook.com/?filter=all&sk=h_chr tìm bài đã post
+    logActivity('INFO', 'PUBLISH', '[Bước 5] Điều hướng đến https://www.facebook.com/?filter=all&sk=h_chr để tìm bài viết vừa post...');
     let exactPostUrl = targetUrl;
 
     try {
-      await page.goto('https://www.facebook.com/?filter=all&sk=h_chr', { waitUntil: 'domcontentloaded', timeout: 40000 });
-      await page.waitForTimeout(3000);
+      await page.goto('https://www.facebook.com/?filter=all&sk=h_chr', { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await page.waitForTimeout(3500);
 
-      // Find the timestamp link (contains __tn__=%2CO%2CP-R) of the top post
-      const timeLink = page.locator('a[href*="__tn__=%2CO%2CP-R"]').first();
-      if ((await timeLink.count()) > 0 && (await timeLink.isVisible({ timeout: 5000 }).catch(() => false))) {
-        logActivity('INFO', 'PUBLISH', 'Phát hiện bài đăng mới nhất trên feed, mở để lấy URL trực tiếp...');
-        await Promise.all([
-          page.waitForNavigation({ timeout: 15000 }).catch(() => {}),
-          timeLink.click(),
-        ]);
-        await page.waitForTimeout(2000);
+      await handleAccountChooserOrLogin(page, context);
+      await handleProfileSwitcherModal(page, pageName);
 
+      // Tìm URL bài viết trên feed gần đây nhất
+      const firstFeedPostLink = page.locator(
+        'a[href*="__tn__=%2CO%2CP-R"]'
+      ).first();
+
+      if ((await firstFeedPostLink.count()) > 0 && (await firstFeedPostLink.isVisible({ timeout: 4000 }).catch(() => false))) {
+        const href = await firstFeedPostLink.getAttribute('href');
+        if (href) {
+          exactPostUrl = href.startsWith('http') ? href.split('?')[0] : `https://www.facebook.com${href.split('?')[0]}`;
+          logActivity('SUCCESS', 'PUBLISH', `Đã tìm thấy link bài viết: ${exactPostUrl}`);
+        }
+      }
+    } catch (feedNavErr: any) {
+      logActivity('WARN', 'PUBLISH', `Lỗi khi tải feed https://www.facebook.com/?filter=all&sk=h_chr: ${feedNavErr.message}`);
+    }
+
+    // BƯỚC 6: Để bình luận, click vào thẻ có [role="button"][aria-label*="Comment on"], 1 modal mở ra
+    logActivity('INFO', 'COMMENT', '[Bước 6] Tìm và click thẻ [role="button"][aria-label*="Comment on"] để mở modal bình luận...');
+    let commentSuccess = false;
+
+    try {
+      await handleProfileSwitcherModal(page, pageName);
+
+      const commentButtonSelectors = ['[role="button"][aria-label*="Comment on"]'];
+
+      let commentBtn = null;
+      for (const sel of commentButtonSelectors) {
+        const el = page.locator(sel).first();
+        if ((await el.count()) > 0 && (await el.isVisible({ timeout: 2500 }).catch(() => false))) {
+          commentBtn = el;
+          break;
+        }
+      }
+
+      if (!commentBtn) {
+        // Cuộn nhẹ xuống một chút để nút hiển thị
+        await page.evaluate(() => window.scrollBy(0, 350));
+        await page.waitForTimeout(1500);
+
+        for (const sel of commentButtonSelectors) {
+          const el = page.locator(sel).first();
+          if ((await el.count()) > 0 && (await el.isVisible({ timeout: 2500 }).catch(() => false))) {
+            commentBtn = el;
+            break;
+          }
+        }
+      }
+
+      if (commentBtn) {
+        logActivity('INFO', 'COMMENT', 'Bấm vào thẻ [role="button"][aria-label*="Comment on"] để mở modal bình luận...');
+        await commentBtn.click();
+        await page.waitForTimeout(2500);
+
+        // Kiểm tra xem URL trên trình duyệt có cập nhật sang link bài viết trực tiếp không
         const currentUrl = page.url();
         if (
           currentUrl &&
@@ -535,50 +798,38 @@ export async function executePublishAndComment(
             currentUrl.includes('/permalink'))
         ) {
           exactPostUrl = currentUrl.split('?')[0];
-          logActivity('SUCCESS', 'PUBLISH', `Đã lấy thành công URL chính xác của bài viết: ${exactPostUrl}`);
+          logActivity('SUCCESS', 'PUBLISH', `URL chính xác của bài viết từ modal: ${exactPostUrl}`);
         }
       } else {
-        logActivity('INFO', 'PUBLISH', 'Chưa tìm thấy trên sk=h_chr, chuyển về timeline Fanpage...');
-        await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
-        await page.waitForTimeout(2000);
+        logActivity('WARN', 'COMMENT', 'Không tìm thấy thẻ [role="button"][aria-label*="Comment on"] trên feed.');
       }
-    } catch (feedNavErr: any) {
-      logActivity('WARN', 'PUBLISH', `Lỗi khi lấy URL bài viết qua feed: ${feedNavErr.message}`);
-    }
 
-    // Step 5: Auto-comment source links on the published post
-    logActivity('INFO', 'COMMENT', 'Tìm kiếm ô bình luận trên bài viết vừa đăng để gửi link nguồn...');
-    let commentSuccess = false;
+      // BƯỚC 7: Nhập bình luận vào thẻ có contenteditable="true" trong modal
+      logActivity('INFO', 'COMMENT', '[Bước 7] Nhập bình luận vào thẻ contenteditable="true" trong modal...');
+      await handleProfileSwitcherModal(page, pageName);
 
-    try {
-      // Scroll slightly down to make comment section visible if needed
-      await page.evaluate(() => window.scrollBy(0, 450));
-      await page.waitForTimeout(2000);
-
-      // Selectors for comment input on Facebook post
-      const commentInputSelectors = [
-        'div[aria-label*="Comment as"][role="textbox"]',
-        'div[aria-label*="Bình luận dưới tên"][role="textbox"]',
+      const modalCommentInputSelectors = [
+        'div[role="dialog"] div[contenteditable="true"]',
+        'div[role="dialog"] div[role="textbox"]',
+        'div[role="dialog"] div[aria-label*="Viết bình luận"]',
+        'div[role="dialog"] div[aria-label*="Write a comment"]',
+        'div[role="dialog"] div[aria-label*="Bình luận"]',
         'div[aria-label*="Viết bình luận"][role="textbox"]',
         'div[aria-label*="Write a comment"][role="textbox"]',
-        'div[aria-placeholder*="Comment as"][role="textbox"]',
-        'div[aria-placeholder*="Bình luận dưới tên"][role="textbox"]',
-        'div[aria-placeholder*="Viết bình luận"][role="textbox"]',
-        'div[aria-placeholder*="Write a comment"][role="textbox"]',
-        'div[data-lexical-editor="true"][role="textbox"]',
-        'form div[role="textbox"]',
+        'div[contenteditable="true"][role="textbox"]',
+        'div[contenteditable="true"]',
       ];
 
       let commentBox = null;
-      for (const sel of commentInputSelectors) {
+      for (const sel of modalCommentInputSelectors) {
         const els = page.locator(sel);
         const count = await els.count();
         for (let i = 0; i < count; i++) {
           const el = els.nth(i);
-          if (await el.isVisible().catch(() => false)) {
-            // Only exclude if it is inside the post creation modal (Create post / Tạo bài viết)
-            const isInsideComposer = await el
-              .evaluate((node) => {
+          if (await el.isVisible({ timeout: 1000 }).catch(() => false)) {
+            // Không chọn nhầm modal tạo bài viết
+            const isComposer = await el
+              .evaluate((node: any) => {
                 const dialog = node.closest('div[role="dialog"]');
                 if (!dialog) return false;
                 const txt = (dialog as HTMLElement).innerText || dialog.textContent || '';
@@ -586,7 +837,7 @@ export async function executePublishAndComment(
               })
               .catch(() => false);
 
-            if (!isInsideComposer) {
+            if (!isComposer) {
               commentBox = el;
               break;
             }
@@ -595,53 +846,87 @@ export async function executePublishAndComment(
         if (commentBox) break;
       }
 
-      // If comment box is collapsed, try clicking the "Comment" / "Bình luận" action button on the post
-      if (!commentBox) {
-        const commentTrigger = page
-          .locator(
-            'div[role="article"] div[role="button"]:has-text("Comment"), ' +
-            'div[role="article"] div[role="button"]:has-text("Bình luận"), ' +
-            'div[role="button"]:has-text("Comment"), ' +
-            'div[role="button"]:has-text("Bình luận")'
-          )
-          .first();
-        if ((await commentTrigger.count()) > 0 && (await commentTrigger.isVisible().catch(() => false))) {
-          await commentTrigger.click();
-          await page.waitForTimeout(1500);
-
-          for (const sel of commentInputSelectors) {
-            const el = page.locator(sel).first();
-            if ((await el.count()) > 0 && (await el.isVisible().catch(() => false))) {
-              commentBox = el;
-              break;
-            }
-          }
-        }
-      }
-
       if (commentBox) {
         await commentBox.click();
         await page.waitForTimeout(600);
         await page.keyboard.insertText(post.comment_content);
-        await page.waitForTimeout(1000);
-        await page.keyboard.press('Enter');
-        await page.waitForTimeout(3000);
-        commentSuccess = true;
+        await page.waitForTimeout(1500);
+
+        // BƯỚC 8: Click vào element aria-label="Post comment"
+        logActivity('INFO', 'COMMENT', '[Bước 8] Tìm và click element aria-label="Post comment"...');
+        const postCommentBtnSelectors = [
+          '[aria-label="Post comment"]',
+          'div[role="dialog"] [aria-label="Post comment"]',
+          'div[aria-label="Post comment"]',
+          'button[aria-label="Post comment"]',
+          '[aria-label*="Post comment" i]',
+          '[aria-label="Đăng bình luận"]',
+          'div[role="dialog"] [aria-label="Đăng bình luận"]',
+          'div[aria-label="Đăng bình luận"]',
+          'button[aria-label="Đăng bình luận"]',
+          '[aria-label*="Bình luận" i]',
+        ];
+
+        let postCommentBtn = null;
+        for (const sel of postCommentBtnSelectors) {
+          const el = page.locator(sel).first();
+          if ((await el.count()) > 0 && (await el.isVisible({ timeout: 2000 }).catch(() => false))) {
+            postCommentBtn = el;
+            break;
+          }
+        }
+
+        if (postCommentBtn) {
+          logActivity('INFO', 'COMMENT', 'Phát hiện nút aria-label="Post comment", đang bấm gửi bình luận...');
+          await postCommentBtn.click();
+          await page.waitForTimeout(3000);
+          commentSuccess = true;
+        } else {
+          logActivity('INFO', 'COMMENT', 'Không thấy nút aria-label="Post comment", gửi bằng phím Enter...');
+          await page.keyboard.press('Enter');
+          await page.waitForTimeout(3000);
+          commentSuccess = true;
+        }
+
         logActivity('SUCCESS', 'COMMENT', `Đã tự động gửi bình luận nguồn tin thành công cho bài viết ${post.id}`);
       } else {
-        logActivity('WARN', 'COMMENT', 'Không tìm thấy ô bình luận trên timeline, nhưng bài viết đã được đăng thành công.');
+        logActivity('WARN', 'COMMENT', 'Không tìm thấy thẻ contenteditable="true" trong modal bình luận.');
       }
     } catch (commentErr: any) {
       logActivity('WARN', 'COMMENT', `Bước auto-comment gặp sự cố: ${commentErr.message}`);
     }
 
     // Step 6: Save audit screenshot
-    await page.screenshot({ path: screenshotFullPath, fullPage: false });
+    await page.screenshot({ path: screenshotFullPath, fullPage: false }).catch(() => { });
 
-    // Update database with exact post URL
+    // Close page to complete video recording
+    if (page && !page.isClosed()) {
+      await page.close().catch(() => { });
+    }
+
+    // Yêu cầu: Chỉ lưu video của bài post bị lỗi. Bài đăng thành công thì xóa video tạm để tiết kiệm dung lượng.
+    if (video) {
+      try {
+        await video.delete().catch(() => { });
+      } catch {}
+    }
+
+    if (context) {
+      await context.close().catch(() => { });
+    }
+
+    // Nếu bài viết trước đó từng lỗi và có video_path cũ, xóa file video cũ đi
+    if (post.video_path) {
+      try {
+        const oldVidPath = path.join(VIDEOS_DIR, path.basename(post.video_path));
+        if (fs.existsSync(oldVidPath)) fs.unlinkSync(oldVidPath);
+      } catch {}
+    }
+
+    // Update database with exact post URL and video_path = NULL (vì thành công không cần giữ video)
     db.prepare(`
       UPDATE posts 
-      SET status = 'published', published_at = CURRENT_TIMESTAMP, screenshot_path = ?, fb_post_url = ?, error_message = NULL
+      SET status = 'published', published_at = CURRENT_TIMESTAMP, screenshot_path = ?, video_path = NULL, fb_post_url = ?, error_message = NULL
       WHERE id = ?
     `).run(screenshotFileName, exactPostUrl, post.id);
 
@@ -649,39 +934,54 @@ export async function executePublishAndComment(
 
     logActivity('SUCCESS', 'PUBLISH', `Post ${post.id} successfully published to ${targetType === 'page' ? 'Fanpage' : 'Facebook'}!`);
 
-    await context.close();
-
     return {
       success: true,
       postId: post.id,
       fbPostUrl: exactPostUrl,
       commentSuccess,
       screenshotPath: screenshotFileName,
+      videoPath: undefined,
     };
   } catch (err: any) {
     const errorMsg = err.message || 'Lỗi không xác định khi đăng bài';
     logActivity('ERROR', 'PUBLISH', `Failed to publish post ${post.id}: ${errorMsg}`);
 
-    // Try to capture error screenshot if page is still alive
+    let savedVideoFileName: string | undefined = undefined;
     if (context) {
       try {
-        const p = context.pages()[0];
-        if (p) await p.screenshot({ path: screenshotFullPath });
-      } catch (_) {}
-      await context.close();
+        const p = page || context.pages()[0];
+        if (p && !p.isClosed()) {
+          await p.screenshot({ path: screenshotFullPath }).catch(() => { });
+          await p.close().catch(() => { });
+        }
+      } catch (_) { }
+
+      if (video) {
+        try {
+          const finalVideoPath = path.join(VIDEOS_DIR, videoFileName);
+          await video.saveAs(finalVideoPath);
+          savedVideoFileName = videoFileName;
+          logActivity('INFO', 'PUBLISH', `[Video] Đã lưu video ghi lại quá trình đăng (lỗi): ${videoFileName}`);
+        } catch (vErr: any) {
+          logActivity('WARN', 'PUBLISH', `Lỗi lưu video lỗi: ${vErr.message}`);
+        }
+      }
+
+      await context.close().catch(() => { });
     }
 
     db.prepare(`
       UPDATE posts 
-      SET status = 'failed', error_message = ?, screenshot_path = ?
+      SET status = 'failed', error_message = ?, screenshot_path = ?, video_path = ?
       WHERE id = ?
-    `).run(errorMsg, screenshotFileName, post.id);
+    `).run(errorMsg, screenshotFileName, savedVideoFileName || null, post.id);
 
     return {
       success: false,
       postId: post.id,
       error: errorMsg,
       screenshotPath: screenshotFileName,
+      videoPath: savedVideoFileName,
     };
   }
 }
@@ -692,32 +992,39 @@ export async function executePublishAndComment(
 export async function executeCommentOnly(
   post: PostItem,
   options?: { postUrl?: string; headless?: boolean }
-): Promise<{ success: boolean; error?: string; screenshotPath?: string }> {
+): Promise<{ success: boolean; error?: string; screenshotPath?: string; videoPath?: string }> {
   if (!isSessionAvailable()) {
     throw new Error('Chưa thiết lập session Facebook. Vui lòng kết nối tài khoản Facebook trước.');
   }
 
   const headless = options?.headless ?? true;
-  const pageUrl = (getSetting('fb_page_url', '') || getSetting('fb_target_url', '')).trim();
+  const { targetType, targetUrl: defaultTargetUrl, pageName } = resolveTargetUrl();
   const directPostUrl = (options?.postUrl || post.fb_post_url || '').trim();
 
-  // If specific post URL is provided and looks like a post, go directly to it. Otherwise go to Fanpage URL.
+  // If specific post URL is provided and looks like a post, go directly to it. Otherwise go to target URL.
   const isDirectPost =
     directPostUrl &&
     (directPostUrl.includes('/posts/') ||
       directPostUrl.includes('story_fbid') ||
       directPostUrl.includes('/permalink') ||
       directPostUrl.includes('/photo'));
-  const targetUrl = isDirectPost ? directPostUrl : pageUrl || 'https://www.facebook.com/';
+  const targetUrl = isDirectPost ? directPostUrl : defaultTargetUrl;
 
   const screenshotFileName = `comment_${post.id}_${Date.now()}.png`;
   const screenshotFullPath = path.join(SCREENSHOTS_DIR, screenshotFileName);
+  const videoFileName = `comment_${post.id}_${Date.now()}.webm`;
 
-  let context;
+  let context: any;
+  let page: any;
+  let video: any;
   try {
     context = await chromium.launchPersistentContext(getUserDataDir(), {
       headless: headless,
       viewport: { width: 1280, height: 900 },
+      recordVideo: {
+        dir: VIDEOS_DIR,
+        size: { width: 1280, height: 900 },
+      },
       userAgent:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       args: getChromiumLaunchArgs(['--disable-notifications']),
@@ -726,13 +1033,14 @@ export async function executeCommentOnly(
     // Inject cookies from fb-session.json into context
     await injectSessionCookies(context);
 
-    const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
+    page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
+    video = page.video();
     page.on('crash', () => {
       logActivity('ERROR', 'COMMENT', 'Playwright page crashed (Bộ nhớ RAM trên VPS bị cạn kiệt hoặc tiến trình bị ngắt).');
     });
 
     // Only abort actual video streaming files (avoids proxying hundreds of normal requests through DevTools Protocol)
-    await page.route(/\.(mp4|webm|avi|mov)($|\?)/i, (route) => route.abort().catch(() => {}));
+    await page.route(/\.(mp4|webm|avi|mov)($|\?)/i, (route: any) => route.abort().catch(() => { }));
 
     let resolvedPostUrl = targetUrl;
     if (!isDirectPost) {
@@ -743,64 +1051,98 @@ export async function executeCommentOnly(
 
         // Bypass Account Chooser / Continue splash screen if present
         await handleAccountChooserOrLogin(page, context);
+        await handleProfileSwitcherModal(page, pageName);
 
-        const timeLink = page.locator('a[href*="__tn__=%2CO%2CP-R"]').first();
+        const timeLink = page.locator('a[href*="__tn__=%2CO%2CP-R"], div[role="feed"] a[href*="/posts/"], div[role="feed"] a[href*="story_fbid"]').first();
         if ((await timeLink.count()) > 0 && (await timeLink.isVisible({ timeout: 5000 }).catch(() => false))) {
-          await Promise.all([
-            page.waitForNavigation({ timeout: 15000 }).catch(() => {}),
-            timeLink.click(),
-          ]);
-          await page.waitForTimeout(2000);
-          const curr = page.url();
-          if (
-            curr &&
-            (curr.includes('/posts/') ||
-              curr.includes('story_fbid') ||
-              curr.includes('/photo') ||
-              curr.includes('/permalink'))
-          ) {
-            resolvedPostUrl = curr.split('?')[0];
-            logActivity('INFO', 'COMMENT', `[Comment Only] Đã mở link bài viết trực tiếp: ${resolvedPostUrl}`);
+          const href = await timeLink.getAttribute('href');
+          if (href) {
+            resolvedPostUrl = href.startsWith('http') ? href.split('?')[0] : `https://www.facebook.com${href.split('?')[0]}`;
+            logActivity('INFO', 'COMMENT', `[Comment Only] Đã tìm thấy link bài viết: ${resolvedPostUrl}`);
           }
-        } else {
-          logActivity('INFO', 'COMMENT', `[Comment Only] Điều hướng về Fanpage: ${targetUrl}`);
-          await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 40000 });
-          await page.waitForTimeout(2500);
-          await page.evaluate(() => window.scrollBy(0, 500));
         }
       } catch (err: any) {
-        logActivity('WARN', 'COMMENT', `[Comment Only] Lỗi tìm bài qua feeds: ${err.message}, mở timeline...`);
-        await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
+        logActivity('WARN', 'COMMENT', `[Comment Only] Lỗi tìm bài qua feeds: ${err.message}`);
       }
     } else {
       logActivity('INFO', 'COMMENT', `[Comment Only] Điều hướng trực tiếp đến bài viết: ${targetUrl}`);
       await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
       await page.waitForTimeout(3000);
+      await handleProfileSwitcherModal(page, pageName);
     }
 
-    const commentInputSelectors = [
-      'div[aria-label*="Comment as"][role="textbox"]',
-      'div[aria-label*="Bình luận dưới tên"][role="textbox"]',
+    // Click data-ad-rendering-role="comment_button" để mở modal bình luận
+    const commentBtnSelectors = [
+      '[data-ad-rendering-role="comment_button"]',
+      'div[data-ad-rendering-role="comment_button"]',
+      'div[role="feed"] div[role="article"] [data-ad-rendering-role="comment_button"]',
+      'div[role="article"] div[role="button"]:has-text("Comment")',
+      'div[role="article"] div[role="button"]:has-text("Bình luận")',
+      'div[role="button"]:has-text("Comment")',
+      'div[role="button"]:has-text("Bình luận")',
+    ];
+
+    let commentBtn = null;
+    for (const sel of commentBtnSelectors) {
+      const el = page.locator(sel).first();
+      if ((await el.count()) > 0 && (await el.isVisible({ timeout: 2500 }).catch(() => false))) {
+        commentBtn = el;
+        break;
+      }
+    }
+
+    if (!commentBtn) {
+      await page.evaluate(() => window.scrollBy(0, 350));
+      await page.waitForTimeout(1500);
+
+      for (const sel of commentBtnSelectors) {
+        const el = page.locator(sel).first();
+        if ((await el.count()) > 0 && (await el.isVisible({ timeout: 2500 }).catch(() => false))) {
+          commentBtn = el;
+          break;
+        }
+      }
+    }
+
+    if (commentBtn) {
+      logActivity('INFO', 'COMMENT', '[Comment Only] Bấm thẻ comment_button để mở modal bình luận...');
+      await commentBtn.click();
+      await page.waitForTimeout(2500);
+
+      const currentUrl = page.url();
+      if (
+        currentUrl &&
+        (currentUrl.includes('/posts/') ||
+          currentUrl.includes('story_fbid') ||
+          currentUrl.includes('/photo') ||
+          currentUrl.includes('/permalink'))
+      ) {
+        resolvedPostUrl = currentUrl.split('?')[0];
+      }
+    }
+
+    // Tìm thẻ contenteditable="true" trong modal
+    const modalCommentInputSelectors = [
+      'div[role="dialog"] div[contenteditable="true"]',
+      'div[role="dialog"] div[role="textbox"]',
+      'div[role="dialog"] div[aria-label*="Viết bình luận"]',
+      'div[role="dialog"] div[aria-label*="Write a comment"]',
+      'div[role="dialog"] div[aria-label*="Bình luận"]',
       'div[aria-label*="Viết bình luận"][role="textbox"]',
       'div[aria-label*="Write a comment"][role="textbox"]',
-      'div[aria-placeholder*="Comment as"][role="textbox"]',
-      'div[aria-placeholder*="Bình luận dưới tên"][role="textbox"]',
-      'div[aria-placeholder*="Viết bình luận"][role="textbox"]',
-      'div[aria-placeholder*="Write a comment"][role="textbox"]',
-      'div[data-lexical-editor="true"][role="textbox"]',
-      'form div[role="textbox"]',
+      'div[contenteditable="true"][role="textbox"]',
+      'div[contenteditable="true"]',
     ];
 
     let commentBox = null;
-    for (const sel of commentInputSelectors) {
+    for (const sel of modalCommentInputSelectors) {
       const els = page.locator(sel);
       const count = await els.count();
       for (let i = 0; i < count; i++) {
         const el = els.nth(i);
-        if (await el.isVisible().catch(() => false)) {
-          // Only exclude if inside a composer modal (Create post / Tạo bài viết)
-          const isInsideComposer = await el
-            .evaluate((node) => {
+        if (await el.isVisible({ timeout: 1000 }).catch(() => false)) {
+          const isComposer = await el
+            .evaluate((node: any) => {
               const dialog = node.closest('div[role="dialog"]');
               if (!dialog) return false;
               const txt = (dialog as HTMLElement).innerText || dialog.textContent || '';
@@ -808,7 +1150,7 @@ export async function executeCommentOnly(
             })
             .catch(() => false);
 
-          if (!isInsideComposer) {
+          if (!isComposer) {
             commentBox = el;
             break;
           }
@@ -817,35 +1159,9 @@ export async function executeCommentOnly(
       if (commentBox) break;
     }
 
-    // If comment box is collapsed, click "Comment" / "Bình luận" button on the first post
-    if (!commentBox) {
-      const commentTrigger = page
-        .locator(
-          'div[role="article"] div[role="button"]:has-text("Comment"), ' +
-          'div[role="article"] div[role="button"]:has-text("Bình luận"), ' +
-          'div[role="button"]:has-text("Comment"), ' +
-          'div[role="button"]:has-text("Bình luận")'
-        )
-        .first();
-
-      if ((await commentTrigger.count()) > 0 && (await commentTrigger.isVisible().catch(() => false))) {
-        logActivity('INFO', 'COMMENT', '[Comment Only] Nhấn nút "Bình luận" để mở ô nhập...');
-        await commentTrigger.click();
-        await page.waitForTimeout(1500);
-
-        for (const sel of commentInputSelectors) {
-          const el = page.locator(sel).first();
-          if ((await el.count()) > 0 && (await el.isVisible().catch(() => false))) {
-            commentBox = el;
-            break;
-          }
-        }
-      }
-    }
-
     if (!commentBox) {
       throw new Error(
-        'Không tìm thấy ô nhập bình luận trên bài viết. Hãy kiểm tra xem bạn đã chuyển sang tư cách Fanpage hoặc bài viết có cho phép bình luận không.'
+        'Không tìm thấy ô nhập bình luận (contenteditable="true") trong modal. Hãy kiểm tra xem bạn đã chuyển sang tư cách Fanpage hoặc bài viết có cho phép bình luận không.'
       );
     }
 
@@ -853,11 +1169,57 @@ export async function executeCommentOnly(
     await commentBox.click();
     await page.waitForTimeout(600);
     await page.keyboard.insertText(post.comment_content);
-    await page.waitForTimeout(1000);
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(3500);
+    await page.waitForTimeout(1500);
 
-    await page.screenshot({ path: screenshotFullPath, fullPage: false });
+    // Click nút aria-label="Post comment"
+    const postCommentBtnSelectors = [
+      '[aria-label="Post comment"]',
+      'div[role="dialog"] [aria-label="Post comment"]',
+      'div[aria-label="Post comment"]',
+      'button[aria-label="Post comment"]',
+      '[aria-label*="Post comment" i]',
+      '[aria-label="Đăng bình luận"]',
+      'div[role="dialog"] [aria-label="Đăng bình luận"]',
+      'div[aria-label="Đăng bình luận"]',
+      'button[aria-label="Đăng bình luận"]',
+      '[aria-label*="Bình luận" i]',
+    ];
+
+    let postCommentBtn = null;
+    for (const sel of postCommentBtnSelectors) {
+      const el = page.locator(sel).first();
+      if ((await el.count()) > 0 && (await el.isVisible({ timeout: 2000 }).catch(() => false))) {
+        postCommentBtn = el;
+        break;
+      }
+    }
+
+    if (postCommentBtn) {
+      logActivity('INFO', 'COMMENT', '[Comment Only] Bấm nút aria-label="Post comment"...');
+      await postCommentBtn.click();
+      await page.waitForTimeout(3000);
+    } else {
+      logActivity('INFO', 'COMMENT', '[Comment Only] Không thấy nút aria-label="Post comment", gửi bằng phím Enter...');
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(3000);
+    }
+
+    await page.screenshot({ path: screenshotFullPath, fullPage: false }).catch(() => { });
+
+    let savedVideoFileName: string | undefined = undefined;
+    if (page && !page.isClosed()) {
+      await page.close().catch(() => { });
+    }
+
+    if (video) {
+      try {
+        await video.delete().catch(() => { });
+      } catch {}
+    }
+
+    if (context) {
+      await context.close().catch(() => { });
+    }
 
     // Mark post comment status in db and update fb_post_url with exact link
     db.prepare(`UPDATE posts SET comment_id = 'commented', screenshot_path = ?, fb_post_url = ?, error_message = NULL WHERE id = ?`).run(
@@ -867,18 +1229,35 @@ export async function executeCommentOnly(
     );
     logActivity('SUCCESS', 'COMMENT', `[Comment Only] Đã gửi bình luận nguồn thành công cho bài viết ${post.id}`);
 
-    await context.close();
     return { success: true, screenshotPath: screenshotFileName };
   } catch (err: any) {
+    let savedVideoFileName: string | undefined = undefined;
     if (context) {
       try {
-        const p = context.pages()[0];
-        if (p) await p.screenshot({ path: screenshotFullPath });
-      } catch (_) {}
-      await context.close();
+        const p = page || context.pages()[0];
+        if (p && !p.isClosed()) {
+          await p.screenshot({ path: screenshotFullPath }).catch(() => { });
+          await p.close().catch(() => { });
+        }
+      } catch (_) { }
+
+      if (video) {
+        try {
+          const finalVideoPath = path.join(VIDEOS_DIR, videoFileName);
+          await video.saveAs(finalVideoPath);
+          savedVideoFileName = videoFileName;
+        } catch (_) { }
+      }
+
+      await context.close().catch(() => { });
     }
+
+    if (savedVideoFileName) {
+      db.prepare(`UPDATE posts SET video_path = ? WHERE id = ?`).run(savedVideoFileName, post.id);
+    }
+
     logActivity('ERROR', 'COMMENT', `[Comment Only] Thất bại: ${err.message}`);
-    return { success: false, error: err.message, screenshotPath: screenshotFileName };
+    return { success: false, error: err.message, screenshotPath: screenshotFileName, videoPath: savedVideoFileName };
   }
 }
 

@@ -57,7 +57,10 @@ export async function checkFacebookLoginStatus(): Promise<{
   pageName?: string;
 }> {
   const targetType = getSetting('fb_target_type', 'page');
-  const pageUrl = (getSetting('fb_page_url', '') || getSetting('fb_target_url', '')).trim();
+  const pageUrlSetting = getSetting('fb_page_url', '').trim();
+  const targetUrlSetting = getSetting('fb_target_url', '').trim();
+  const isGenericRoot = (u: string) => !u || /^https?:\/\/(www\.)?facebook\.com\/?$/i.test(u);
+  const pageUrl = !isGenericRoot(pageUrlSetting) ? pageUrlSetting : (!isGenericRoot(targetUrlSetting) ? targetUrlSetting : (pageUrlSetting || targetUrlSetting));
   const pageName = getSetting('fb_page_name', '');
 
   if (!fs.existsSync(SESSION_FILE)) {
@@ -153,7 +156,11 @@ export async function launchInteractiveLogin(initialUrl?: string): Promise<strin
   await injectSessionCookies(browser);
 
   const page = browser.pages().length > 0 ? browser.pages()[0] : await browser.newPage();
-  const target = initialUrl || getSetting('fb_page_url') || 'https://www.facebook.com/';
+  const pageUrlSetting = getSetting('fb_page_url', '').trim();
+  const targetUrlSetting = getSetting('fb_target_url', '').trim();
+  const isGenericRoot = (u: string) => !u || /^https?:\/\/(www\.)?facebook\.com\/?$/i.test(u);
+  const effectivePageUrl = !isGenericRoot(pageUrlSetting) ? pageUrlSetting : (!isGenericRoot(targetUrlSetting) ? targetUrlSetting : '');
+  const target = initialUrl || effectivePageUrl || 'https://www.facebook.com/';
   logActivity('INFO', 'AUTH', `Đang mở Facebook tại: ${target}. Bạn có thể đăng nhập hoặc chuyển đổi sang Fanpage cần đăng bài.`);
   await page.goto(target, { waitUntil: 'domcontentloaded' }).catch(() => {});
 

@@ -11,7 +11,7 @@ import FacebookConnectModal from '@/components/FacebookConnectModal';
 import { TrendItem, PostItem, ActivityLog } from '@/types';
 import { formatTime } from '@/lib/date';
 import { useI18n } from '@/context/I18nThemeContext';
-import { Toast } from '@astryxdesign/core/Toast';
+import { ToastContainer, ToastItem, ToastType } from '@/components/Toast';
 import {
   TrendingUp,
   FileText,
@@ -45,14 +45,18 @@ export default function DashboardPage() {
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [commentingId, setCommentingId] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isFbModalOpen, setIsFbModalOpen] = useState(false);
   const [fbTargetUrlForModal, setFbTargetUrlForModal] = useState<string | undefined>(undefined);
 
-  const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
-    setToastMessage({ text, type });
-    setTimeout(() => setToastMessage(null), 4000);
-  };
+  const showToast = useCallback((text: string, type: ToastType = 'info', title?: string) => {
+    const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    setToasts((prev) => [...prev.slice(-3), { id, text, type, title }]);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   // Fetch all dashboard data
   const fetchData = useCallback(async (silent = false) => {
@@ -397,25 +401,8 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen flex flex-col transition-colors duration-150" style={{ backgroundColor: 'var(--app-bg)', color: 'var(--app-text)' }}>
-      {/* Astryx Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
-          <Toast
-            body={
-              <div className="flex items-center gap-2">
-                {toastMessage.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
-                {toastMessage.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />}
-                {toastMessage.type === 'info' && <Info className="w-4 h-4 text-indigo-500 shrink-0" />}
-                <span className="text-xs font-semibold">{toastMessage.text}</span>
-              </div>
-            }
-            type={toastMessage.type === 'error' ? 'error' : 'info'}
-            isAutoHide={true}
-            autoHideDuration={4000}
-            onDismiss={() => setToastMessage(null)}
-          />
-        </div>
-      )}
+      {/* Modern Luxury Toast Notification Container */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {/* Header with Integrated Tab Navigation */}
       <Header

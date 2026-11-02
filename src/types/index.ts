@@ -31,6 +31,7 @@ export interface PostItem {
   comment_id?: string | null;
   error_message?: string | null;
   screenshot_path?: string | null;
+  video_path?: string | null;
   scheduled_at?: string | null;
   published_at?: string | null;
   created_at?: string;

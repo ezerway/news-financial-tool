@@ -17,6 +17,8 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  Video,
+  Download,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import { formatDateTime } from '@/lib/date';
@@ -47,6 +49,7 @@ export default function PostsTab({
   const [editPostContent, setEditPostContent] = useState('');
   const [editCommentContent, setEditCommentContent] = useState('');
   const [previewScreenshot, setPreviewScreenshot] = useState<string | null>(null);
+  const [previewVideo, setPreviewVideo] = useState<string | null>(null);
   const [commentModalPost, setCommentModalPost] = useState<PostItem | null>(null);
   const [customPostUrl, setCustomPostUrl] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -272,6 +275,18 @@ export default function PostsTab({
                         <span>{t('screenshot')}</span>
                       </button>
                     )}
+
+                    {post.video_path && (
+                      <button
+                        type="button"
+                        onClick={() => setPreviewVideo(post.video_path || null)}
+                        className="inline-flex items-center gap-1.5 text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 font-semibold cursor-pointer"
+                        title="Xem video quay lại toàn bộ quá trình thực tế"
+                      >
+                        <Video className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                        <span>Video quá trình</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* Right: Actions */}
@@ -414,6 +429,45 @@ export default function PostsTab({
                 alt="Audit Screenshot"
                 className="max-w-full h-auto rounded-lg border border-slate-800"
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Video Preview Modal */}
+      {previewVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs pt-safe pb-safe">
+          <div className="relative max-w-4xl w-full bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden p-5 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                <Video className="w-4 h-4 text-rose-400" /> Video quay lại toàn bộ quá trình thực tế Playwright
+              </h3>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/api/videos/${previewVideo}`}
+                  download={previewVideo}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Tải video</span>
+                </a>
+                <button
+                  onClick={() => setPreviewVideo(null)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="mt-3 max-h-[75vh] overflow-hidden rounded-xl bg-slate-950 p-2 flex items-center justify-center">
+              <video
+                controls
+                autoPlay
+                src={`/api/videos/${previewVideo}`}
+                className="max-w-full max-h-[70vh] rounded-lg border border-slate-800 shadow-md"
+              >
+                Trình duyệt không hỗ trợ phát trực tiếp video định dạng webm. Vui lòng bấm &quot;Tải video&quot; để xem trên máy.
+              </video>
             </div>
           </div>
         </div>

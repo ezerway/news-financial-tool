@@ -45,4 +45,5 @@ storage/*.db*
 storage/*.json
 storage/browser-profile/
 storage/screenshots/
+storage/videos/
 

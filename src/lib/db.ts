@@ -40,6 +40,7 @@ export function initSchema(database: Database.Database) {
       comment_id TEXT,
       error_message TEXT,
       screenshot_path TEXT,
+      video_path TEXT,
       scheduled_at DATETIME,
       published_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -61,6 +62,11 @@ export function initSchema(database: Database.Database) {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // Safe migration for video_path if table already exists
+  try {
+    database.exec(`ALTER TABLE posts ADD COLUMN video_path TEXT`);
+  } catch {}
 
   // Insert default settings if not exists
   const defaultSettings: Record<string, string> = {
