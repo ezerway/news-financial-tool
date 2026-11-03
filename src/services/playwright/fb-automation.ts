@@ -523,7 +523,7 @@ export async function executePublishAndComment(
 
     logActivity('INFO', 'PUBLISH', 'Clicking post creation trigger ("Create post")...');
     await postTrigger.click();
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(5000);
 
     // BƯỚC 3: 1 modal mở ra nhập nội dung vào 1 div có contenteditable="true"
     logActivity('INFO', 'PUBLISH', '[Bước 3] Modal tạo bài viết mở ra, tìm div có contenteditable="true" để nhập nội dung...');
