@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "fb:login": "tsx scripts/fb-login.ts",
+    "fb:post-reel": "tsx scripts/post-reel.ts",
+    "post-reel": "tsx scripts/post-reel.ts",
     "auto-cycle": "tsx scripts/auto-cycle.ts",
     "cron-daemon": "tsx scripts/cron-daemon.ts"
   },

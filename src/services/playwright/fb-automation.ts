@@ -555,6 +555,34 @@ export async function executePublishAndComment(
 
     // Điền nội dung bằng insertText tương thích Lexical editor của Facebook
     await page.keyboard.insertText(post.post_content);
+
+    // Kiểm tra và dismiss [aria-label="Mentions suggestions"] nếu xuất hiện
+    logActivity('INFO', 'PUBLISH', 'Kiểm tra popup [aria-label="Mentions suggestions"]...');
+    const mentionsSuggestions = page.locator('[aria-label="Mentions suggestions"]');
+    try {
+      const isMentionsVisible = await mentionsSuggestions
+        .first()
+        .isVisible({ timeout: 1500 })
+        .catch(() => false);
+
+      if (isMentionsVisible) {
+        logActivity('INFO', 'PUBLISH', 'Phát hiện [aria-label="Mentions suggestions"], đang đóng popup gợi ý...');
+        // Nhấn phím Escape để đóng popup suggestions mà không mất text đã nhập
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(600);
+
+        // Nếu vẫn còn hiển thị, thử nhấn Escape lần nữa
+        if (await mentionsSuggestions.first().isVisible({ timeout: 500 }).catch(() => false)) {
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(500);
+        }
+
+        await mentionsSuggestions.first().waitFor({ state: 'hidden', timeout: 5000 }).catch(() => { });
+        logActivity('INFO', 'PUBLISH', 'Đã đóng popup Mentions suggestions thành công.');
+      }
+    } catch {
+      // Bỏ qua nếu không có popup
+    }
     await page.waitForTimeout(2000);
 
     // Bỏ qua các popup cản trở như WhatsApp prompt nếu có
@@ -1261,4 +1289,7 @@ export async function executeCommentOnly(
     return { success: false, error: err.message, screenshotPath: screenshotFileName, videoPath: savedVideoFileName };
   }
 }
+
+export { uploadFacebookReel, type PostReelOptions, type PostReelResult } from './fb-reel';
+
 
