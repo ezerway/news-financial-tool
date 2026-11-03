@@ -329,6 +329,24 @@ export default function DashboardPage() {
     }
   };
 
+  // Delete all failed posts
+  const handleDeleteAllFailedPosts = async () => {
+    try {
+      const res = await fetch('/api/posts?status=failed', { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        showToast(`Đã xóa ${data.count || 0} bài viết lỗi và các tệp liên quan!`, 'success');
+        await fetchData();
+      } else {
+        showToast(`Lỗi xóa: ${data.error || 'Không thể xóa các bài viết lỗi'}`, 'error');
+        await fetchData();
+      }
+    } catch (err: any) {
+      showToast(`Lỗi xóa: ${err.message}`, 'error');
+      await fetchData();
+    }
+  };
+
   // Run full cycle
   const handleRunCycle = async (dryRun: boolean) => {
     setIsRunningCycle(true);
@@ -605,6 +623,7 @@ export default function DashboardPage() {
               onComment={handleCommentOnly}
               onUpdate={handleUpdatePost}
               onDelete={handleDeletePost}
+              onDeleteAllFailed={handleDeleteAllFailedPosts}
               publishingId={publishingId}
               commentingId={commentingId}
             />

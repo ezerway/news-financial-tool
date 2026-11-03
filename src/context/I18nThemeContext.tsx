@@ -101,6 +101,9 @@ export const translations = {
     published_success_badge: 'Đã xuất bản trên Facebook',
     view_post_button: 'Xem bài đăng',
     error_prefix: 'Lỗi:',
+    delete_all_failed: 'Xóa tất cả bài lỗi',
+    delete_all_failed_confirm: 'Xóa tất cả bài lỗi?',
+    delete_all_btn: 'Xóa hết',
 
     // Logs Tab
     log_level_all: 'Tất cả',
@@ -244,6 +247,9 @@ export const translations = {
     published_success_badge: 'Published on Facebook',
     view_post_button: 'View Post',
     error_prefix: 'Error:',
+    delete_all_failed: 'Delete all failed',
+    delete_all_failed_confirm: 'Delete all failed posts?',
+    delete_all_btn: 'Delete all',
 
     // Logs Tab
     log_level_all: 'All',

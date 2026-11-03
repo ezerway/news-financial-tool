@@ -30,6 +30,7 @@ interface PostsTabProps {
   onComment?: (postId: string, postUrl?: string) => Promise<void>;
   onUpdate: (postId: string, postContent: string, commentContent: string) => Promise<void>;
   onDelete: (postId: string) => Promise<void>;
+  onDeleteAllFailed?: () => Promise<void>;
   publishingId: string | null;
   commentingId?: string | null;
 }
@@ -40,6 +41,7 @@ export default function PostsTab({
   onComment,
   onUpdate,
   onDelete,
+  onDeleteAllFailed,
   publishingId,
   commentingId,
 }: PostsTabProps) {
@@ -54,6 +56,8 @@ export default function PostsTab({
   const [customPostUrl, setCustomPostUrl] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+  const [confirmDeleteAllFailed, setConfirmDeleteAllFailed] = useState(false);
+  const [isDeletingAllFailed, setIsDeletingAllFailed] = useState(false);
   const [expandedPosts, setExpandedPosts] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (id: string) => {
@@ -78,38 +82,88 @@ export default function PostsTab({
 
   return (
     <div className="space-y-4">
-      {/* Status Filter Tabs */}
-      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar p-1 rounded-xl app-card text-xs">
-        {(['all', 'draft', 'published', 'failed'] as const).map((st) => {
-          const count = st === 'all' ? posts.length : posts.filter((p) => p.status === st).length;
-          const labels = {
-            all: t('filter_all'),
-            draft: t('filter_draft'),
-            published: t('filter_published'),
-            failed: t('filter_failed'),
-          };
-          const isActive = filter === st;
-          return (
-            <button
-              key={st}
-              onClick={() => setFilter(st)}
-              className={`btn btn-sm ${
-                isActive
-                  ? 'btn-primary'
-                  : 'btn-ghost text-slate-500'
-              }`}
-            >
-              <span>{labels[st]}</span>
-              <span
-                className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-                  isActive ? 'bg-black/20 text-white' : 'app-tag'
+      {/* Status Filter Tabs & Action Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar p-1 rounded-xl app-card text-xs">
+          {(['all', 'draft', 'published', 'failed'] as const).map((st) => {
+            const count = st === 'all' ? posts.length : posts.filter((p) => p.status === st).length;
+            const labels = {
+              all: t('filter_all'),
+              draft: t('filter_draft'),
+              published: t('filter_published'),
+              failed: t('filter_failed'),
+            };
+            const isActive = filter === st;
+            return (
+              <button
+                key={st}
+                onClick={() => {
+                  setFilter(st);
+                  setConfirmDeleteAllFailed(false);
+                }}
+                className={`btn btn-sm ${
+                  isActive
+                    ? 'btn-primary'
+                    : 'btn-ghost text-slate-500'
                 }`}
               >
-                {count}
-              </span>
-            </button>
-          );
-        })}
+                <span>{labels[st]}</span>
+                <span
+                  className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                    isActive ? 'bg-black/20 text-white' : 'app-tag'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Delete All Failed button when viewing 'failed' filter */}
+        {filter === 'failed' && filteredPosts.length > 0 && onDeleteAllFailed && (
+          <div className="shrink-0 flex items-center gap-2">
+            {!confirmDeleteAllFailed ? (
+              <button
+                onClick={() => setConfirmDeleteAllFailed(true)}
+                disabled={isDeletingAllFailed}
+                className="btn btn-sm text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 transition-colors"
+                title="Xóa tất cả bài viết lỗi và các ảnh, video đính kèm"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{t('delete_all_failed')} ({filteredPosts.length})</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5 p-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-xs">
+                <span className="text-[11px] font-medium text-rose-700 dark:text-rose-300 px-1">
+                  {t('delete_all_failed_confirm')} ({filteredPosts.length})
+                </span>
+                <button
+                  disabled={isDeletingAllFailed}
+                  onClick={async () => {
+                    setIsDeletingAllFailed(true);
+                    try {
+                      await onDeleteAllFailed();
+                    } finally {
+                      setIsDeletingAllFailed(false);
+                      setConfirmDeleteAllFailed(false);
+                    }
+                  }}
+                  className="btn btn-sm px-2.5 py-1 text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-700 rounded shadow-xs"
+                >
+                  {isDeletingAllFailed ? '...' : t('delete_all_btn')}
+                </button>
+                <button
+                  disabled={isDeletingAllFailed}
+                  onClick={() => setConfirmDeleteAllFailed(false)}
+                  className="btn btn-ghost btn-sm px-2 py-1 text-[11px] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                >
+                  {t('btn_cancel')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Posts List */}

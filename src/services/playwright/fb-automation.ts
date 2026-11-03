@@ -468,12 +468,13 @@ export async function executePublishAndComment(
     // Dismiss any blocking popups before locating post trigger
     await dismissBlockingPagePopups(page, pageName);
 
-    // BƯỚC 1: Vào trang đích (mặc định https://www.facebook.com/financiial.news)
+    // BƯỚC 1: Vào trang đích (mặc định https://www.facebook.com/pages/?category=your_pages&ref=bookmarks)
     // (Đã điều hướng ở trên tới targetUrl)
 
-    // BƯỚC 2: Click vào span có text: "What's on your mind?"
-    logActivity('INFO', 'PUBLISH', '[Bước 2] Tìm và click vào thẻ "What\'s on your mind?"...');
+    // BƯỚC 2: Click vào span có text: "Create post"
+    logActivity('INFO', 'PUBLISH', '[Bước 2] Tìm và click vào thẻ "Create post"...');
     const postTriggerSelectors = [
+      'a[aria-label="Create post"]',
       'span:has-text("What\'s on your mind?")',
       'span:has-text("What\'s on your mind")',
       'span:has-text("Bạn đang nghĩ gì?")',
@@ -515,12 +516,12 @@ export async function executePublishAndComment(
 
     if (!postTrigger) {
       throw new Error(
-        `Không tìm thấy nút tạo bài viết "What's on your mind?" trên ${targetType === 'page' ? 'Fanpage (' + targetUrl + ')' : 'Facebook'
+        `Không tìm thấy nút tạo bài viết "Create post" trên ${targetType === 'page' ? 'Fanpage (' + targetUrl + ')' : 'Facebook'
         }. Hãy vào tab Cài đặt -> bấm "Mở trình duyệt" để chuyển đổi sang tư cách Fanpage trước.`
       );
     }
 
-    logActivity('INFO', 'PUBLISH', 'Clicking post creation trigger ("What\'s on your mind?")...');
+    logActivity('INFO', 'PUBLISH', 'Clicking post creation trigger ("Create post")...');
     await postTrigger.click();
     await page.waitForTimeout(2500);
 
@@ -908,7 +909,7 @@ export async function executePublishAndComment(
     if (video) {
       try {
         await video.delete().catch(() => { });
-      } catch {}
+      } catch { }
     }
 
     if (context) {
@@ -920,7 +921,7 @@ export async function executePublishAndComment(
       try {
         const oldVidPath = path.join(VIDEOS_DIR, path.basename(post.video_path));
         if (fs.existsSync(oldVidPath)) fs.unlinkSync(oldVidPath);
-      } catch {}
+      } catch { }
     }
 
     // Update database with exact post URL and video_path = NULL (vì thành công không cần giữ video)
@@ -1214,7 +1215,7 @@ export async function executeCommentOnly(
     if (video) {
       try {
         await video.delete().catch(() => { });
-      } catch {}
+      } catch { }
     }
 
     if (context) {
