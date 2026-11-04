@@ -3,24 +3,45 @@ import path from 'path';
 import fs from 'fs';
 import { logActivity, getSetting } from '@/lib/db';
 
-const STORAGE_DIR = path.join(process.cwd(), 'storage');
-const SESSION_FILE = path.join(STORAGE_DIR, 'fb-session.json');
-const USER_DATA_DIR = path.join(STORAGE_DIR, 'browser-profile');
-
-if (!fs.existsSync(STORAGE_DIR)) {
-  fs.mkdirSync(STORAGE_DIR, { recursive: true });
-}
-
-export function isSessionAvailable(): boolean {
-  return fs.existsSync(SESSION_FILE);
+// Dynamically evaluate storage directory to prevent Turbopack from statically bundling/tracing browser-profile
+export function getStorageDir(): string {
+  const dir = path.join(process.env.STORAGE_PATH || process.cwd(), 'storage');
+  if (!fs.existsSync(dir)) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch {}
+  }
+  return dir;
 }
 
 export function getSessionPath(): string {
-  return SESSION_FILE;
+  return path.join(getStorageDir(), 'fb-session.json');
 }
 
 export function getUserDataDir(): string {
-  return USER_DATA_DIR;
+  return path.join(getStorageDir(), 'browser-profile');
+}
+
+/**
+ * Clean up stale Chromium lock symlinks (SingletonLock, RunningChromeVersion, etc.)
+ * which can cause Turbopack / Next.js build errors or lockup subsequent launches.
+ */
+export function cleanStaleChromeLocks(userDataDir: string = getUserDataDir()): void {
+  if (!fs.existsSync(userDataDir)) return;
+  const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket', 'RunningChromeVersion'];
+  for (const file of lockFiles) {
+    const filePath = path.join(userDataDir, file);
+    try {
+      // lstatSync detects symlinks even if the target is non-existent/broken
+      if (fs.lstatSync(filePath).isSymbolicLink() || fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch {}
+  }
+}
+
+export function isSessionAvailable(): boolean {
+  return fs.existsSync(getSessionPath());
 }
 
 /**
@@ -63,7 +84,8 @@ export async function checkFacebookLoginStatus(): Promise<{
   const pageUrl = !isGenericRoot(pageUrlSetting) ? pageUrlSetting : (!isGenericRoot(targetUrlSetting) ? targetUrlSetting : (pageUrlSetting || targetUrlSetting));
   const pageName = getSetting('fb_page_name', '');
 
-  if (!fs.existsSync(SESSION_FILE)) {
+  const sessionFile = getSessionPath();
+  if (!fs.existsSync(sessionFile)) {
     return {
       loggedIn: false,
       message: 'Chưa có file phiên đăng nhập (storage/fb-session.json)',
@@ -74,7 +96,7 @@ export async function checkFacebookLoginStatus(): Promise<{
   }
 
   try {
-    const raw = fs.readFileSync(SESSION_FILE, 'utf-8');
+    const raw = fs.readFileSync(sessionFile, 'utf-8');
     const state = JSON.parse(raw);
     const cookies = state.cookies || [];
 
@@ -139,10 +161,12 @@ export async function launchInteractiveLogin(initialUrl?: string): Promise<strin
   logActivity('INFO', 'AUTH', 'Khởi chạy trình duyệt tương tác để quản lý phiên Facebook / Fanpage...');
 
   const launchArgs = getChromiumLaunchArgs();
+  const userDataDir = getUserDataDir();
+  cleanStaleChromeLocks(userDataDir);
 
   let browser;
   try {
-    browser = await chromium.launchPersistentContext(USER_DATA_DIR, {
+    browser = await chromium.launchPersistentContext(userDataDir, {
       headless: false,
       viewport: null, // Crucial for macOS / Retina to eliminate viewport redraw flickering
       args: launchArgs,
@@ -167,7 +191,7 @@ export async function launchInteractiveLogin(initialUrl?: string): Promise<strin
   // Save session state on navigation or periodically
   const saveState = async () => {
     try {
-      await browser.storageState({ path: SESSION_FILE });
+      await browser.storageState({ path: getSessionPath() });
     } catch {}
   };
 
@@ -241,7 +265,7 @@ export function saveRawFacebookCookies(cUserVal: string, xsVal: string, extraCoo
     origins: [],
   };
 
-  fs.writeFileSync(SESSION_FILE, JSON.stringify(state, null, 2), 'utf-8');
+  fs.writeFileSync(getSessionPath(), JSON.stringify(state, null, 2), 'utf-8');
   logActivity('SUCCESS', 'AUTH', `Đã lưu cookie Facebook thủ công cho tài khoản ID: ${cleanCUser}`);
   return { success: true, message: `Đã lưu phiên đăng nhập Facebook thành công cho User ID: ${cleanCUser}` };
 }
@@ -315,7 +339,7 @@ export function parseAndSaveFacebookCookies(rawInput: string): { success: boolea
     origins: originsList,
   };
 
-  fs.writeFileSync(SESSION_FILE, JSON.stringify(state, null, 2), 'utf-8');
+  fs.writeFileSync(getSessionPath(), JSON.stringify(state, null, 2), 'utf-8');
   logActivity('SUCCESS', 'AUTH', `Đã lưu thành công ${normalizedCookies.length} cookies Facebook cho User ID: ${cUserObj.value}`);
 
   return {
@@ -329,10 +353,11 @@ export function parseAndSaveFacebookCookies(rawInput: string): { success: boolea
  * Injects cookies from fb-session.json into an active Playwright browser context
  */
 export async function injectSessionCookies(context: { addCookies: (cookies: any[]) => Promise<void> }): Promise<number> {
-  if (!fs.existsSync(SESSION_FILE)) return 0;
+  const sessionFile = getSessionPath();
+  if (!fs.existsSync(sessionFile)) return 0;
 
   try {
-    const raw = fs.readFileSync(SESSION_FILE, 'utf-8');
+    const raw = fs.readFileSync(sessionFile, 'utf-8');
     const state = JSON.parse(raw);
     const cookies = state.cookies || [];
     if (!Array.isArray(cookies) || cookies.length === 0) return 0;

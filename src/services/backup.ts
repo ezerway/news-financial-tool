@@ -2,12 +2,9 @@ import path from 'path';
 import fs from 'fs';
 import AdmZip from 'adm-zip';
 import db, { dbPath, reloadDb, checkpointDb, logActivity, backupDb } from '@/lib/db';
-import { checkFacebookLoginStatus } from './playwright/session';
+import { checkFacebookLoginStatus, getStorageDir, getSessionPath, getUserDataDir, cleanStaleChromeLocks } from './playwright/session';
 
-const STORAGE_DIR = path.join(process.cwd(), 'storage');
 const DB_FILE = dbPath;
-const SESSION_FILE = path.join(STORAGE_DIR, 'fb-session.json');
-const PROFILE_DIR = path.join(STORAGE_DIR, 'browser-profile');
 
 export interface BackupStats {
   db: {
@@ -67,14 +64,15 @@ export async function getBackupStats(): Promise<BackupStats> {
   }
 
   // Profile stats
-  const sessionExists = fs.existsSync(SESSION_FILE);
+  const sessionPath = getSessionPath();
+  const sessionExists = fs.existsSync(sessionPath);
   let sessionSize = 0;
   let cUser: string | undefined;
 
   if (sessionExists) {
     try {
-      sessionSize = fs.statSync(SESSION_FILE).size;
-      const content = fs.readFileSync(SESSION_FILE, 'utf-8');
+      sessionSize = fs.statSync(sessionPath).size;
+      const content = fs.readFileSync(sessionPath, 'utf-8');
       const parsed = JSON.parse(content);
       const cookies = parsed.cookies || [];
       const found = cookies.find((c: any) => c.name === 'c_user');
@@ -82,7 +80,7 @@ export async function getBackupStats(): Promise<BackupStats> {
     } catch {}
   }
 
-  const profileDirExists = fs.existsSync(PROFILE_DIR);
+  const profileDirExists = fs.existsSync(getUserDataDir());
   const fbStatus = await checkFacebookLoginStatus();
 
   return {
@@ -114,7 +112,7 @@ export async function getBackupStats(): Promise<BackupStats> {
  * Export SQLite database file as Buffer using safe SQLite backup API
  */
 export async function exportDbSqlite(): Promise<Buffer> {
-  const tempBackupPath = path.join(STORAGE_DIR, `temp_backup_${Date.now()}.db`);
+  const tempBackupPath = path.join(getStorageDir(), `temp_backup_${Date.now()}.db`);
   try {
     await backupDb(tempBackupPath);
     const buffer = fs.readFileSync(tempBackupPath);
@@ -168,7 +166,8 @@ export async function importDbSqlite(fileBuffer: Buffer): Promise<{ success: boo
   }
 
   // Backup current DB before overwrite
-  const backupBak = path.join(STORAGE_DIR, `app.db.bak`);
+  const storageDir = getStorageDir();
+  const backupBak = path.join(storageDir, `app.db.bak`);
   try {
     checkpointDb();
     if (fs.existsSync(DB_FILE)) {
@@ -179,7 +178,7 @@ export async function importDbSqlite(fileBuffer: Buffer): Promise<{ success: boo
   }
 
   // Temporary file to test opening with better-sqlite3
-  const tempPath = path.join(STORAGE_DIR, `temp_import_${Date.now()}.db`);
+  const tempPath = path.join(storageDir, `temp_import_${Date.now()}.db`);
   try {
     fs.writeFileSync(tempPath, fileBuffer);
     const Database = (await import('better-sqlite3')).default;
@@ -195,8 +194,8 @@ export async function importDbSqlite(fileBuffer: Buffer): Promise<{ success: boo
     }
 
     // Close active db, remove WAL/SHM, replace app.db
-    const walFile = path.join(STORAGE_DIR, 'app.db-wal');
-    const shmFile = path.join(STORAGE_DIR, 'app.db-shm');
+    const walFile = path.join(storageDir, 'app.db-wal');
+    const shmFile = path.join(storageDir, 'app.db-shm');
     if (fs.existsSync(walFile)) try { fs.unlinkSync(walFile); } catch {}
     if (fs.existsSync(shmFile)) try { fs.unlinkSync(shmFile); } catch {}
 
@@ -330,10 +329,11 @@ export async function importDbJson(jsonData: any): Promise<{ success: boolean; m
  * Export Facebook Session (Playwright storage state JSON)
  */
 export function exportProfileSession(): { exists: boolean; data?: string; buffer?: Buffer } {
-  if (!fs.existsSync(SESSION_FILE)) {
+  const sessionPath = getSessionPath();
+  if (!fs.existsSync(sessionPath)) {
     return { exists: false };
   }
-  const content = fs.readFileSync(SESSION_FILE, 'utf-8');
+  const content = fs.readFileSync(sessionPath, 'utf-8');
   return {
     exists: true,
     data: content,
@@ -346,14 +346,18 @@ export function exportProfileSession(): { exists: boolean; data?: string; buffer
  */
 export async function exportProfileZip(): Promise<Buffer> {
   const zip = new AdmZip();
+  const sessionPath = getSessionPath();
+  const userDataDir = getUserDataDir();
 
   // Add fb-session.json if exists
-  if (fs.existsSync(SESSION_FILE)) {
-    zip.addLocalFile(SESSION_FILE, '', 'fb-session.json');
+  if (fs.existsSync(sessionPath)) {
+    zip.addLocalFile(sessionPath, '', 'fb-session.json');
   }
 
-  // Add browser-profile directory if exists (filtering out bulky Cache)
-  if (fs.existsSync(PROFILE_DIR)) {
+  // Add browser-profile directory if exists (filtering out bulky Cache and lock files)
+  if (fs.existsSync(userDataDir)) {
+    cleanStaleChromeLocks(userDataDir);
+
     const skipNames = new Set([
       'Cache',
       'Code Cache',
@@ -363,6 +367,10 @@ export async function exportProfileZip(): Promise<Buffer> {
       'DawnWebGPUCache',
       'DawnGraphiteCache',
       'OptimizationGuidePredictionModels',
+      'SingletonLock',
+      'SingletonCookie',
+      'SingletonSocket',
+      'RunningChromeVersion',
     ]);
 
     function addDirRecursive(dirPath: string, zipPath: string) {
@@ -371,6 +379,13 @@ export async function exportProfileZip(): Promise<Buffer> {
         if (skipNames.has(item.name)) continue;
         const fullPath = path.join(dirPath, item.name);
         const nextZipPath = zipPath ? `${zipPath}/${item.name}` : item.name;
+
+        // Skip symlinks
+        try {
+          if (fs.lstatSync(fullPath).isSymbolicLink()) continue;
+        } catch {
+          continue;
+        }
 
         if (item.isDirectory()) {
           addDirRecursive(fullPath, nextZipPath);
@@ -384,7 +399,7 @@ export async function exportProfileZip(): Promise<Buffer> {
     }
 
     try {
-      addDirRecursive(PROFILE_DIR, '');
+      addDirRecursive(userDataDir, '');
     } catch (err) {
       console.warn('Error archiving browser-profile:', err);
     }
@@ -398,6 +413,9 @@ export async function exportProfileZip(): Promise<Buffer> {
  */
 export async function importProfile(fileBuffer: Buffer, fileName: string): Promise<{ success: boolean; message: string; fbStatus?: any }> {
   const isZip = fileName.endsWith('.zip') || (fileBuffer.length > 4 && fileBuffer[0] === 0x50 && fileBuffer[1] === 0x4B);
+  const sessionPath = getSessionPath();
+  const userDataDir = getUserDataDir();
+  const storageDir = getStorageDir();
 
   if (isZip) {
     const zip = new AdmZip(fileBuffer);
@@ -409,7 +427,7 @@ export async function importProfile(fileBuffer: Buffer, fileName: string): Promi
     for (const entry of zipEntries) {
       if (entry.entryName === 'fb-session.json' || entry.entryName.endsWith('/fb-session.json')) {
         const content = entry.getData();
-        fs.writeFileSync(SESSION_FILE, content);
+        fs.writeFileSync(sessionPath, content);
         foundSession = true;
       }
       if (entry.entryName.startsWith('browser-profile/')) {
@@ -418,14 +436,15 @@ export async function importProfile(fileBuffer: Buffer, fileName: string): Promi
     }
 
     if (foundProfileDir) {
-      if (!fs.existsSync(PROFILE_DIR)) {
-        fs.mkdirSync(PROFILE_DIR, { recursive: true });
+      if (!fs.existsSync(userDataDir)) {
+        fs.mkdirSync(userDataDir, { recursive: true });
       }
       for (const entry of zipEntries) {
         if (entry.entryName.startsWith('browser-profile/') && !entry.isDirectory) {
-          zip.extractEntryTo(entry, STORAGE_DIR, true, true);
+          zip.extractEntryTo(entry, storageDir, true, true);
         }
       }
+      cleanStaleChromeLocks(userDataDir);
     }
 
     if (!foundSession && !foundProfileDir) {
@@ -463,7 +482,7 @@ export async function importProfile(fileBuffer: Buffer, fileName: string): Promi
       throw new Error('Session thiếu cookie Facebook quan trọng (c_user hoặc xs). Vui lòng đảm bảo đã xuất đầy đủ cookie.');
     }
 
-    fs.writeFileSync(SESSION_FILE, JSON.stringify(normalizedSession, null, 2), 'utf-8');
+    fs.writeFileSync(sessionPath, JSON.stringify(normalizedSession, null, 2), 'utf-8');
   }
 
   const fbStatus = await checkFacebookLoginStatus();
@@ -483,14 +502,15 @@ export async function importProfile(fileBuffer: Buffer, fileName: string): Promi
  */
 export async function exportFullBackupZip(): Promise<Buffer> {
   const zip = new AdmZip();
+  const sessionPath = getSessionPath();
 
   // 1. Clean SQLite DB backup
   const dbBuffer = await exportDbSqlite();
   zip.addFile('app.db', dbBuffer);
 
   // 2. Facebook session if available
-  if (fs.existsSync(SESSION_FILE)) {
-    const sessionBuf = fs.readFileSync(SESSION_FILE);
+  if (fs.existsSync(sessionPath)) {
+    const sessionBuf = fs.readFileSync(sessionPath);
     zip.addFile('fb-session.json', sessionBuf);
   }
 
@@ -513,6 +533,7 @@ export async function exportFullBackupZip(): Promise<Buffer> {
 export async function importFullBackupZip(fileBuffer: Buffer): Promise<{ success: boolean; message: string }> {
   const zip = new AdmZip(fileBuffer);
   const zipEntries = zip.getEntries();
+  const sessionPath = getSessionPath();
 
   let restoredDb = false;
   let restoredProfile = false;
@@ -522,7 +543,7 @@ export async function importFullBackupZip(fileBuffer: Buffer): Promise<{ success
       await importDbSqlite(entry.getData());
       restoredDb = true;
     } else if (entry.entryName === 'fb-session.json') {
-      fs.writeFileSync(SESSION_FILE, entry.getData());
+      fs.writeFileSync(sessionPath, entry.getData());
       restoredProfile = true;
     }
   }

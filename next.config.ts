@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   allowedDevOrigins: ['*.ezerway.com'],
   serverExternalPackages: ['better-sqlite3', 'adm-zip', 'playwright'],
+  outputFileTracingExcludes: {
+    '*': ['storage/**'],
+  },
   turbopack: {
     rules: {
       "*.css": {
