@@ -5,7 +5,9 @@ import { logActivity, getSetting } from '@/lib/db';
 
 // Dynamically evaluate storage directory to prevent Turbopack from statically bundling/tracing browser-profile
 export function getStorageDir(): string {
-  const dir = path.join(process.env.STORAGE_PATH || process.cwd(), 'storage');
+  const getCwd = () => process.cwd();
+  const folder = ['sto', 'rage'].join('');
+  const dir = process.env.STORAGE_PATH || path.join(getCwd(), folder);
   if (!fs.existsSync(dir)) {
     try {
       fs.mkdirSync(dir, { recursive: true });
@@ -15,11 +17,13 @@ export function getStorageDir(): string {
 }
 
 export function getSessionPath(): string {
-  return path.join(getStorageDir(), 'fb-session.json');
+  const file = ['fb', 'session.json'].join('-');
+  return path.join(getStorageDir(), file);
 }
 
 export function getUserDataDir(): string {
-  return path.join(getStorageDir(), 'browser-profile');
+  const profileDir = ['browser', 'profile'].join('-');
+  return path.join(getStorageDir(), profileDir);
 }
 
 /**
