@@ -62,7 +62,7 @@ export async function findExactNewsSources(
           const decoded = params.get('uddg');
           if (decoded) link = decodeURIComponent(decoded);
         }
-      } catch {}
+      } catch { }
 
       if (
         link &&
@@ -163,7 +163,7 @@ export function saveTrendsToDatabase(trends: TrendItem[], geo: string): number {
  */
 export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[]> {
   const targetGeo = geo === 'all' ? 'VN' : geo;
-  const targetUrl = `https://trends.google.com/trending?category=3&geo=${encodeURIComponent(targetGeo)}&hl=en-US`;
+  const targetUrl = `https://trends.google.com/trending?category=3&hours=4&geo=${encodeURIComponent(targetGeo)}&hl=en-US`;
   logActivity('INFO', 'CRAWL', `[Google Trends Finance] Đang mở danh mục Kinh doanh & Tài chính (category=3) cho ${targetGeo}: ${targetUrl}`);
 
   const browser = await chromium.launch({
@@ -262,7 +262,7 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
             if (!source) {
               try {
                 source = new URL(a.href).hostname.replace(/^www\./, '');
-              } catch {}
+              } catch { }
             }
             return {
               title,
@@ -311,7 +311,7 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
     logActivity('ERROR', 'CRAWL', `[Google Trends Finance] Lỗi khi cào dữ liệu: ${err.message}`);
     throw err;
   } finally {
-    await browser.close().catch(() => {});
+    await browser.close().catch(() => { });
   }
 }
 
