@@ -303,18 +303,32 @@ export default function DashboardPage() {
   };
 
   // Publish handler
-  const handlePublish = async (postId: string, dryRun: boolean) => {
+  const handlePublish = async (postId: string, dryRun: boolean, force = false) => {
     setPublishingId(postId);
-    showToast(dryRun ? 'Đang chạy mô phỏng Playwright (Dry Run)...' : 'Đang mở Playwright để đăng bài & auto-comment...', 'info');
+    showToast(
+      dryRun
+        ? 'Đang chạy mô phỏng Playwright (Dry Run)...'
+        : force
+        ? 'Đang đăng lại bài viết lên Facebook...'
+        : 'Đang mở Playwright để đăng bài & auto-comment...',
+      'info'
+    );
     try {
       const res = await fetch('/api/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postId, dryRun }),
+        body: JSON.stringify({ postId, dryRun, force }),
       });
       const data = await res.json();
       if (data.success) {
-        showToast(dryRun ? 'Chạy thử mô phỏng thành công!' : 'Đã xuất bản bài viết và bình luận nguồn thành công!', 'success');
+        showToast(
+          dryRun
+            ? 'Chạy thử mô phỏng thành công!'
+            : force
+            ? 'Đã đăng lại bài viết lên Facebook thành công!'
+            : 'Đã xuất bản bài viết và bình luận nguồn thành công!',
+          'success'
+        );
         await fetchData();
       } else {
         showToast(`Lỗi xuất bản: ${data.error || data.result?.error}`, 'error');

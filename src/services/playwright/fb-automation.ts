@@ -317,9 +317,10 @@ export function resolveTargetUrl(): { targetType: string; targetUrl: string; pag
 
 export async function executePublishAndComment(
   post: PostItem,
-  options?: { dryRun?: boolean; headless?: boolean }
+  options?: { dryRun?: boolean; headless?: boolean; force?: boolean }
 ): Promise<PublishResult> {
   const dryRun = options?.dryRun ?? false;
+  const force = options?.force ?? false;
   const headless = resolveHeadless(options?.headless ?? true);
 
   const { targetType, targetUrl, pageName } = resolveTargetUrl();
@@ -335,8 +336,8 @@ export async function executePublishAndComment(
     }
   }
 
-  // DEDUPLICATION GUARD: Check if post or topic was already published
-  if (!dryRun) {
+  // DEDUPLICATION GUARD: Check if post or topic was already published (bypass if force is true)
+  if (!dryRun && !force) {
     const dupCheck = checkDuplicatePublish(post);
     if (dupCheck.isDuplicate) {
       const errorMsg = `Hủy đăng bài để tránh trùng lặp: ${dupCheck.reason}`;

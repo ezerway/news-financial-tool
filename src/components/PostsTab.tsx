@@ -19,6 +19,7 @@ import {
   ChevronUp,
   Video,
   Download,
+  RotateCcw,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import Pagination from './Pagination';
@@ -27,7 +28,7 @@ import { useI18n } from '@/context/I18nThemeContext';
 
 interface PostsTabProps {
   posts: PostItem[];
-  onPublish: (postId: string, dryRun: boolean) => Promise<void>;
+  onPublish: (postId: string, dryRun: boolean, force?: boolean) => Promise<void>;
   onComment?: (postId: string, postUrl?: string) => Promise<void>;
   onUpdate: (postId: string, postContent: string, commentContent: string) => Promise<void>;
   onDelete: (postId: string) => Promise<void>;
@@ -447,16 +448,37 @@ export default function PostsTab({
                           </button>
                         )}
 
-                        {/* Primary Publish CTA */}
-                        {post.status !== 'published' && (
+                        {/* Publish / Republish CTA */}
+                        {post.status === 'published' ? (
                           <button
                             type="button"
-                            onClick={() => onPublish(post.id, false)}
+                            onClick={() => onPublish(post.id, false, true)}
+                            disabled={isPublishing || isCommenting}
+                            className="btn btn-sm btn-secondary text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:border-indigo-400 dark:hover:border-indigo-600 w-full sm:w-auto justify-center order-last sm:order-none"
+                            title={lang === 'vi' ? 'Đăng lại bài viết này lên Facebook' : 'Republish this post to Facebook'}
+                          >
+                            <RotateCcw className={`w-3.5 h-3.5 ${isPublishing ? 'animate-spin' : ''}`} />
+                            <span>
+                              {isPublishing
+                                ? (lang === 'vi' ? 'Đang đăng lại...' : 'Republishing...')
+                                : (t('btn_republish') || 'Đăng lại')}
+                            </span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onPublish(post.id, false, post.status === 'failed')}
                             disabled={isPublishing || isCommenting}
                             className="btn btn-sm btn-primary w-full sm:w-auto justify-center order-last sm:order-none"
                           >
                             <Send className={`w-3.5 h-3.5 ${isPublishing ? 'animate-spin' : ''}`} />
-                            <span>{isPublishing ? t('filter_publishing') : t('publish_now')}</span>
+                            <span>
+                              {isPublishing
+                                ? t('filter_publishing')
+                                : post.status === 'failed'
+                                ? (lang === 'vi' ? 'Đăng lại (Thử lại)' : 'Retry publish')
+                                : t('publish_now')}
+                            </span>
                           </button>
                         )}
                       </>
