@@ -205,10 +205,10 @@ export async function publishReelById(
             published_at = CURRENT_TIMESTAMP,
             fb_post_url = ?,
             screenshot_path = NULL,
-            debug_video_path = NULL,
+            debug_video_path = ?,
             error_message = NULL
         WHERE id = ?
-      `).run(result.reelUrl || null, id);
+      `).run(result.reelUrl || null, result.debugVideoPath || null, id);
 
       logActivity(
         'SUCCESS',

@@ -188,10 +188,10 @@ async function main() {
             published_at = CURRENT_TIMESTAMP,
             fb_post_url = ?,
             screenshot_path = NULL,
-            debug_video_path = NULL,
+            debug_video_path = ?,
             error_message = NULL
         WHERE id = ?
-      `).run(result.reelUrl || null, reel.id);
+      `).run(result.reelUrl || null, result.debugVideoPath || null, reel.id);
 
       logActivity(
         'SUCCESS',
@@ -205,6 +205,9 @@ async function main() {
       console.log('🎉 THÀNH CÔNG: ' + result.message);
       if (result.reelUrl) {
         console.log('🔗 Link Reel: ' + result.reelUrl);
+      }
+      if (result.debugVideoPath) {
+        console.log('🎥 Video ghi lại quá trình đăng (Dev Mode): ' + result.debugVideoPath);
       }
       console.log(`📊 Bản ghi bảng reels [${reel.id}] đã được cập nhật: status = 'published'`);
       console.log('======================================================\n');

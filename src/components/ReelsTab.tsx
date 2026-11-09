@@ -658,6 +658,19 @@ export default function ReelsTab({
                         <span>{t('view_reel_button')}</span>
                       </a>
                     )}
+
+                    {/* Video quay lại quá trình đăng (Dev Mode hoặc Lưu vết) */}
+                    {reel.debug_video_path && reel.status !== 'failed' && (
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDebugVideo(reel.debug_video_path || null)}
+                        className="btn btn-sm btn-ghost text-xs text-rose-600 dark:text-rose-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                        title={t('debug_video_title')}
+                      >
+                        <Video className="w-3.5 h-3.5 text-rose-500" />
+                        <span>{t('debug_video')}</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* Delete Button with Confirmation */}

@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import path from 'path';
 import fs from 'fs';
-import db, { logActivity, getSetting, resolveHeadless } from '@/lib/db';
+import db, { logActivity, getSetting, resolveHeadless, isDeveloperMode } from '@/lib/db';
 import { PostItem } from '@/types';
 import { isSessionAvailable, getUserDataDir, injectSessionCookies, getSessionPath, getChromiumLaunchArgs } from './session';
 import { checkDuplicatePublish, markTrendAsPublished } from '../dedup';
@@ -733,31 +733,44 @@ export async function executePublishAndComment(
       await page.close().catch(() => { });
     }
 
-    // Yêu cầu: Chỉ lưu video của bài post bị lỗi. Bài đăng thành công thì xóa video tạm để tiết kiệm dung lượng.
+    const isDevMode = isDeveloperMode();
+    let savedVideoFileName: string | undefined = undefined;
+
+    // Khi bật developer mode: lưu tất cả video quá trình post (kể cả thành công)
+    // Khi chưa bật developer mode: chỉ lưu video bài post bị lỗi, bài thành công thì xóa video tạm để tiết kiệm dung lượng
     if (video) {
       try {
-        await video.delete().catch(() => { });
-      } catch { }
+        if (isDevMode) {
+          const finalVideoPath = path.join(VIDEOS_DIR, videoFileName);
+          await video.saveAs(finalVideoPath);
+          savedVideoFileName = videoFileName;
+          logActivity('INFO', 'PUBLISH', `[Dev Mode] Đã lưu video quá trình đăng thành công: ${videoFileName}`);
+        } else {
+          await video.delete().catch(() => { });
+        }
+      } catch (vErr: any) {
+        logActivity('WARN', 'PUBLISH', `Lỗi xử lý video đăng bài: ${vErr.message}`);
+      }
     }
 
     if (context) {
       await context.close().catch(() => { });
     }
 
-    // Nếu bài viết trước đó từng lỗi và có video_path cũ, xóa file video cũ đi
-    if (post.video_path) {
+    // Nếu bài viết trước đó từng lỗi và có video_path cũ (và khác video mới tạo), xóa file video cũ đi
+    if (post.video_path && post.video_path !== savedVideoFileName) {
       try {
         const oldVidPath = path.join(VIDEOS_DIR, path.basename(post.video_path));
         if (fs.existsSync(oldVidPath)) fs.unlinkSync(oldVidPath);
       } catch { }
     }
 
-    // Update database with exact post URL and video_path = NULL (vì thành công không cần giữ video)
+    // Update database with exact post URL and video_path (lưu video_path nếu developer mode bật)
     db.prepare(`
       UPDATE posts 
-      SET status = 'published', published_at = CURRENT_TIMESTAMP, screenshot_path = ?, video_path = NULL, fb_post_url = ?, error_message = NULL
+      SET status = 'published', published_at = CURRENT_TIMESTAMP, screenshot_path = ?, video_path = ?, fb_post_url = ?, error_message = NULL
       WHERE id = ?
-    `).run(screenshotFileName, exactPostUrl, post.id);
+    `).run(screenshotFileName, savedVideoFileName || null, exactPostUrl, post.id);
 
     markTrendAsPublished({ trend_id: post.trend_id, trend_title: post.trend_title });
 
@@ -769,7 +782,7 @@ export async function executePublishAndComment(
       fbPostUrl: exactPostUrl,
       commentSuccess,
       screenshotPath: screenshotFileName,
-      videoPath: undefined,
+      videoPath: savedVideoFileName,
     };
   } catch (err: any) {
     const errorMsg = err.message || 'Lỗi không xác định khi đăng bài';
@@ -918,10 +931,20 @@ export async function executeCommentOnly(
       await page.close().catch(() => { });
     }
 
+    const isDevMode = isDeveloperMode();
     if (video) {
       try {
-        await video.delete().catch(() => { });
-      } catch { }
+        if (isDevMode) {
+          const finalVideoPath = path.join(VIDEOS_DIR, videoFileName);
+          await video.saveAs(finalVideoPath);
+          savedVideoFileName = videoFileName;
+          logActivity('INFO', 'COMMENT', `[Dev Mode] Đã lưu video quá trình bình luận thành công: ${videoFileName}`);
+        } else {
+          await video.delete().catch(() => { });
+        }
+      } catch (vErr: any) {
+        logActivity('WARN', 'COMMENT', `Lỗi xử lý video bình luận: ${vErr.message}`);
+      }
     }
 
     if (context) {
@@ -929,14 +952,15 @@ export async function executeCommentOnly(
     }
 
     // Mark post comment status in db and update fb_post_url with exact link
-    db.prepare(`UPDATE posts SET comment_id = 'commented', screenshot_path = ?, fb_post_url = ?, error_message = NULL WHERE id = ?`).run(
+    db.prepare(`UPDATE posts SET comment_id = 'commented', screenshot_path = ?, video_path = COALESCE(?, video_path), fb_post_url = ?, error_message = NULL WHERE id = ?`).run(
       screenshotFileName,
+      savedVideoFileName || null,
       resolvedPostUrl,
       post.id
     );
     logActivity('SUCCESS', 'COMMENT', `[Comment Only] Đã gửi bình luận nguồn thành công cho bài viết ${post.id}`);
 
-    return { success: true, screenshotPath: screenshotFileName };
+    return { success: true, screenshotPath: screenshotFileName, videoPath: savedVideoFileName };
   } catch (err: any) {
     let savedVideoFileName: string | undefined = undefined;
     if (context) {

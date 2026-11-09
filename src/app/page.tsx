@@ -803,14 +803,18 @@ export default function DashboardPage() {
           {activeTab === 'trends' && (
             <TrendsTab
               trends={trends}
+              posts={posts}
               onCrawl={handleCrawl}
               onGenerate={handleGenerate}
               onFindSources={handleFindSources}
               onRetryAndPublish={handleRetryAndPublish}
+              onPublishPost={handlePublish}
+              onNavigateToPostsTab={() => setActiveTab('posts')}
               isCrawling={isCrawling}
               generatingId={generatingId}
               retryingId={retryingId}
               isRetryingAll={isRetryingAll}
+              publishingId={publishingId}
             />
           )}
 

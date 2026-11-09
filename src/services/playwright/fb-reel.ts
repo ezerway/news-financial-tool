@@ -9,7 +9,7 @@ import {
   injectSessionCookies,
 } from './session';
 import { dismissWhatsAppPopup } from './fb-automation';
-import { logActivity, resolveHeadless } from '@/lib/db';
+import { logActivity, resolveHeadless, isDeveloperMode } from '@/lib/db';
 import { replaceDateWildcards } from '@/lib/date';
 
 export interface PostReelOptions {
@@ -490,6 +490,8 @@ export async function uploadFacebookReel(
       // Ignore
     }
 
+    let savedSuccessVideoFileName: string | undefined = undefined;
+
     if (keepOpen && !headless) {
       notify('Giữ trình duyệt mở để bạn theo dõi trạng thái hoàn tất của Reel...');
     } else {
@@ -497,10 +499,21 @@ export async function uploadFacebookReel(
       if (page && !page.isClosed()) {
         await page.close().catch(() => { });
       }
-      // Reel đăng thành công: xóa video tạm để tiết kiệm dung lượng ổ cứng
+
+      const isDevMode = isDeveloperMode();
+
+      // Khi bật developer mode: lưu lại toàn bộ video quá trình đăng Reel thành công
+      // Khi chưa bật: xóa video tạm để tiết kiệm dung lượng ổ cứng
       if (video) {
         try {
-          await video.delete().catch(() => { });
+          if (isDevMode) {
+            const finalVideoPath = path.join(VIDEOS_DIR, videoFileName);
+            await video.saveAs(finalVideoPath);
+            savedSuccessVideoFileName = videoFileName;
+            notify(`[Dev Mode] Đã lưu video quá trình đăng Reel thành công: ${videoFileName}`, 'SUCCESS');
+          } else {
+            await video.delete().catch(() => { });
+          }
         } catch { }
       }
     }
@@ -512,6 +525,7 @@ export async function uploadFacebookReel(
         : 'Đã xuất bản Reel Facebook thành công!',
       filePath: resolvedPath,
       reelUrl,
+      debugVideoPath: savedSuccessVideoFileName,
     };
   } catch (error: any) {
     const errMsg = error?.message || String(error);

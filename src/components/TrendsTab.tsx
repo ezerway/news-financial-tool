@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { TrendItem } from '@/types';
+import { TrendItem, PostItem } from '@/types';
 import {
   TrendingUp,
   Sparkles,
@@ -15,32 +15,43 @@ import {
   Link2,
   Zap,
   AlertTriangle,
+  Eye,
+  FileText,
 } from 'lucide-react';
 import Pagination from './Pagination';
+import TrendPostModal from './TrendPostModal';
 import { useI18n } from '@/context/I18nThemeContext';
 
 interface TrendsTabProps {
   trends: TrendItem[];
+  posts?: PostItem[];
   onCrawl: (geo: string) => Promise<void>;
   onGenerate: (trendId: string) => Promise<void>;
   onFindSources?: (trendId: string) => Promise<void>;
   onRetryAndPublish?: (trendId?: string, allMissing?: boolean) => Promise<void>;
+  onPublishPost?: (postId: string, dryRun: boolean, force?: boolean) => Promise<void>;
+  onNavigateToPostsTab?: (postId?: string) => void;
   isCrawling: boolean;
   generatingId: string | null;
   retryingId?: string | null;
   isRetryingAll?: boolean;
+  publishingId?: string | null;
 }
 
 export default function TrendsTab({
   trends,
+  posts = [],
   onCrawl,
   onGenerate,
   onFindSources,
   onRetryAndPublish,
+  onPublishPost,
+  onNavigateToPostsTab,
   isCrawling,
   generatingId,
   retryingId,
   isRetryingAll,
+  publishingId,
 }: TrendsTabProps) {
   const { t, lang } = useI18n();
   const [search, setSearch] = useState('');
@@ -50,9 +61,22 @@ export default function TrendsTab({
   const [searchingSourceId, setSearchingSourceId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
+  const [viewingTrend, setViewingTrend] = useState<TrendItem | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedTrendIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Helper tìm bài viết tương ứng với xu hướng
+  const findPostForTrend = (tr: TrendItem): PostItem | null => {
+    if (!posts || posts.length === 0) return null;
+    return (
+      posts.find(
+        (p) =>
+          p.trend_id === tr.id ||
+          p.trend_title?.trim().toLowerCase() === tr.title?.trim().toLowerCase()
+      ) || null
+    );
   };
 
   // Helper kiểm tra bài báo nguồn thực tế
@@ -245,6 +269,7 @@ export default function TrendsTab({
               const isTrulyPublished = trend.status === 'published' && hasSourceLinks;
               const isFalsePublished = trend.status === 'published' && !hasSourceLinks;
               const isExpanded = !!expandedTrendIds[trend.id];
+              const post = findPostForTrend(trend);
 
               return (
                 <div
@@ -266,31 +291,62 @@ export default function TrendsTab({
                     {/* Title & Tags */}
                     <div className="min-w-0 flex-1 space-y-1.5">
                       <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                        <span className="font-bold text-sm sm:text-base text-inherit capitalize leading-snug">
-                          {trend.title}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setViewingTrend(trend)}
+                          className="font-bold text-sm sm:text-base text-inherit capitalize leading-snug hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors inline-flex items-center gap-1.5 group text-left cursor-pointer"
+                          title={lang === 'vi' ? 'Bấm để xem bài viết của xu hướng này' : 'Click to view post for this trend'}
+                        >
+                          <span>{trend.title}</span>
+                          <Eye className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100 text-indigo-500 transition-opacity shrink-0" />
+                        </button>
 
-                        {/* Status badge */}
+                        {/* Status badge - Clickable to view post */}
                         {isTrulyPublished && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                          <button
+                            type="button"
+                            onClick={() => setViewingTrend(trend)}
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition cursor-pointer"
+                            title={lang === 'vi' ? 'Bấm để xem bài viết đã đăng' : 'Click to view published post'}
+                          >
                             <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
                             <span>{lang === 'vi' ? 'Đã đăng Fanpage' : 'Published'}</span>
-                          </span>
+                          </button>
                         )}
                         {isFalsePublished && (
-                          <span
-                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800"
+                          <button
+                            type="button"
+                            onClick={() => setViewingTrend(trend)}
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition cursor-pointer"
                             title="Chưa có link nguồn báo chí, thực tế chưa thể đăng bài"
                           >
                             <AlertTriangle className="w-2.5 h-2.5 text-amber-500" />
                             <span>{t('missing_sources_badge')} ({t('not_published_hint')})</span>
-                          </span>
+                          </button>
                         )}
                         {!isTrulyPublished && !isFalsePublished && trend.status === 'drafted' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/60 px-2 py-0.5 rounded-md border border-cyan-200 dark:border-cyan-800">
+                          <button
+                            type="button"
+                            onClick={() => setViewingTrend(trend)}
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/60 px-2 py-0.5 rounded-md border border-cyan-200 dark:border-cyan-800 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 transition cursor-pointer"
+                            title={lang === 'vi' ? 'Bấm để xem bản thảo bài viết' : 'Click to view draft post'}
+                          >
                             <FileEdit className="w-2.5 h-2.5 text-cyan-500" />
                             <span>{lang === 'vi' ? 'Bản thảo sẵn' : 'Draft Ready'}</span>
-                          </span>
+                          </button>
+                        )}
+
+                        {/* Quick View Post Action Pill if post exists */}
+                        {post && (
+                          <button
+                            type="button"
+                            onClick={() => setViewingTrend(trend)}
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-800 transition cursor-pointer shadow-2xs"
+                            title={lang === 'vi' ? 'Xem bài viết của xu hướng này' : 'View post for this trend'}
+                          >
+                            <Eye className="w-3 h-3 text-indigo-500" />
+                            <span>{lang === 'vi' ? 'Xem bài viết' : 'View Post'}</span>
+                          </button>
                         )}
                       </div>
 
@@ -343,10 +399,15 @@ export default function TrendsTab({
                   {/* Right: Actions (Full-width on mobile, top-aligned on desktop) */}
                   <div className="w-full sm:w-auto shrink-0 sm:self-start pt-1 sm:pt-0">
                     {isTrulyPublished ? (
-                      <span className="w-full sm:w-auto h-9 sm:h-8 px-3 rounded-lg text-xs font-semibold text-emerald-600 dark:text-emerald-400 inline-flex items-center justify-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800">
+                      <button
+                        type="button"
+                        onClick={() => setViewingTrend(trend)}
+                        className="w-full sm:w-auto h-9 sm:h-8 px-3 rounded-lg text-xs font-semibold text-emerald-600 dark:text-emerald-400 inline-flex items-center justify-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition cursor-pointer"
+                        title={lang === 'vi' ? 'Bấm để xem bài viết' : 'Click to view post'}
+                      >
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>{t('status_published')}</span>
-                      </span>
+                        <span>{t('status_published')} • {lang === 'vi' ? 'Xem bài' : 'View'}</span>
+                      </button>
                     ) : hasSourceLinks ? (
                       <button
                         onClick={() => onGenerate(trend.id)}
@@ -443,6 +504,20 @@ export default function TrendsTab({
           />
         </div>
       )}
+
+      {/* Modal View bài viết của xu hướng */}
+      <TrendPostModal
+        isOpen={!!viewingTrend}
+        onClose={() => setViewingTrend(null)}
+        trend={viewingTrend}
+        post={viewingTrend ? findPostForTrend(viewingTrend) : null}
+        onGenerate={onGenerate}
+        onRetryAndPublish={onRetryAndPublish}
+        onPublishPost={onPublishPost}
+        onNavigateToPostsTab={onNavigateToPostsTab}
+        isGenerating={!!generatingId && viewingTrend?.id === generatingId}
+        isPublishing={!!publishingId && (findPostForTrend(viewingTrend!)?.id === publishingId)}
+      />
     </div>
   );
 }
