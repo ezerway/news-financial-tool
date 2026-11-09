@@ -681,7 +681,7 @@ export async function executePublishAndComment(
     // Giám sát tiến trình đăng bài
     logActivity('INFO', 'PUBLISH', 'Đang giám sát tiến trình xuất bản và tự động xử lý popup...');
 
-    for (let w = 0; w < 16; w++) {
+    for (let w = 0; w < 6; w++) {
       await dismissBlockingPagePopups(page, pageName);
       await page.waitForTimeout(1000);
     }
