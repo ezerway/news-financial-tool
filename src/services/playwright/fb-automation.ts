@@ -148,7 +148,8 @@ async function dismissBlockingPagePopups(page: any, targetPageName?: string): Pr
 export async function dismissSpeakWithPeoplePopup(page: any): Promise<boolean> {
   try {
     const speakDialog = page.locator(
-      'div[role="dialog"] button:has-text("Add Button")'
+      'div[role="dialog"] div[role="button"][aria-label="Add Button"]',
+      '[arial-label="Add Button"]',
     );
 
     if ((await speakDialog.count()) > 0 && (await speakDialog.first().isVisible({ timeout: 800 }).catch(() => false))) {
