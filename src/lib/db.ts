@@ -10,8 +10,15 @@ if (!fs.existsSync(storageDir)) {
 export const dbPath = path.join(storageDir, 'app.db');
 
 export function initSchema(database: Database.Database) {
-  // Enable WAL mode for high concurrency & performance
-  database.pragma('journal_mode = WAL');
+  // Set busy timeout to prevent concurrency lock errors on multi-process / external drive
+  database.pragma('busy_timeout = 10000');
+  // Use TRUNCATE or DELETE journal mode to avoid mmap / POSIX shm corruption and disk I/O errors on external / FAT / exFAT drives
+  try {
+    database.pragma('journal_mode = TRUNCATE');
+  } catch {
+    database.pragma('journal_mode = DELETE');
+  }
+  database.pragma('synchronous = NORMAL');
 
   // Initialize schema
   database.exec(`
@@ -61,11 +68,37 @@ export function initSchema(database: Database.Database) {
       value TEXT NOT NULL,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS reels (
+      id TEXT PRIMARY KEY,
+      video_path TEXT NOT NULL,
+      video_filename TEXT,
+      caption TEXT,
+      status TEXT DEFAULT 'draft',
+      scheduled_at DATETIME,
+      published_at DATETIME,
+      fb_post_url TEXT,
+      screenshot_path TEXT,
+      debug_video_path TEXT,
+      error_message TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_reels_status_scheduled ON reels(status, scheduled_at);
   `);
 
-  // Safe migration for video_path if table already exists
+  // Safe migration for video_path, fb_post_url, screenshot_path, debug_video_path if tables already exist
   try {
     database.exec(`ALTER TABLE posts ADD COLUMN video_path TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN fb_post_url TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN screenshot_path TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN debug_video_path TEXT`);
   } catch {}
 
   // Insert default settings if not exists
@@ -87,10 +120,94 @@ export function initSchema(database: Database.Database) {
   for (const [key, value] of Object.entries(defaultSettings)) {
     insertSettingStmt.run(key, value);
   }
+
+  // Tự động kiểm tra và đồng bộ trạng thái xu hướng không hợp lệ
+  repairInconsistentTrendStatuses(database);
 }
 
-let activeDb: Database.Database = new Database(dbPath);
-initSchema(activeDb);
+export function repairInconsistentTrendStatuses(database: Database.Database) {
+  try {
+    // Tìm các xu hướng bị đánh dấu là 'published' nhưng thực tế chưa có link nguồn báo chí hợp lệ
+    const publishedTrends = database.prepare(`
+      SELECT id, title, articles_json FROM trends 
+      WHERE status = 'published'
+    `).all() as { id: string; title: string; articles_json?: string }[];
+
+    let fixedCount = 0;
+    for (const t of publishedTrends) {
+      let hasValidSources = false;
+      try {
+        const parsed = JSON.parse(t.articles_json || '[]');
+        hasValidSources = Array.isArray(parsed) && parsed.some((a: any) => a.url && !a.url.includes('google.com'));
+      } catch {}
+
+      if (!hasValidSources) {
+        database.prepare(`UPDATE trends SET status = 'discovered' WHERE id = ?`).run(t.id);
+        fixedCount++;
+      }
+    }
+
+    if (fixedCount > 0) {
+      console.log(`[DB Auto-Repair] Đã phát hiện và sửa trạng thái cho ${fixedCount} xu hướng chưa có source link nhưng bị báo là 'published'.`);
+    }
+  } catch (err: any) {
+    console.error('Error repairing inconsistent trend statuses:', err.message);
+  }
+}
+
+function createDatabaseConnection(): Database.Database {
+  try {
+    const db = new Database(dbPath, { timeout: 10000 });
+    initSchema(db);
+    return db;
+  } catch (err: any) {
+    console.error('Lỗi khi mở SQLite database:', err.message);
+
+    // If corrupted or malformed (WAL/SHM desync on external drive)
+    if (err.message?.includes('malformed') || err.message?.includes('corrupt')) {
+      console.warn('Phát hiện SQLite database malformed, đang tự động phục hồi...');
+
+      const walFile = path.join(storageDir, 'app.db-wal');
+      const shmFile = path.join(storageDir, 'app.db-shm');
+
+      // 1. Remove stale WAL & SHM files
+      if (fs.existsSync(walFile)) {
+        try { fs.unlinkSync(walFile); } catch {}
+      }
+      if (fs.existsSync(shmFile)) {
+        try { fs.unlinkSync(shmFile); } catch {}
+      }
+
+      // 2. Try reopening
+      try {
+        const retryDb = new Database(dbPath, { timeout: 10000 });
+        const check = retryDb.pragma('integrity_check') as any[];
+        if (check?.[0]?.integrity_check === 'ok') {
+          console.log('Phục hồi thành công sau khi dọn dẹp WAL/SHM!');
+          initSchema(retryDb);
+          return retryDb;
+        }
+      } catch (retryErr: any) {
+        console.error('Thử lại sau khi xóa WAL/SHM thất bại:', retryErr.message);
+      }
+
+      // 3. If still malformed, preserve backup of corrupted db and create fresh database
+      const corruptBackup = path.join(storageDir, `app_corrupted_${Date.now()}.db`);
+      try {
+        fs.renameSync(dbPath, corruptBackup);
+        console.warn(`Đã lưu bản sao database hỏng tại: ${corruptBackup}`);
+      } catch {}
+
+      const freshDb = new Database(dbPath, { timeout: 10000 });
+      initSchema(freshDb);
+      return freshDb;
+    }
+
+    throw err;
+  }
+}
+
+let activeDb: Database.Database = createDatabaseConnection();
 
 export function checkpointDb(): void {
   try {
@@ -108,8 +225,7 @@ export function reloadDb(): void {
   } catch (err) {
     console.error('Error closing active db:', err);
   }
-  activeDb = new Database(dbPath);
-  initSchema(activeDb);
+  activeDb = createDatabaseConnection();
 }
 
 export async function backupDb(destPath: string): Promise<void> {

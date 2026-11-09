@@ -113,8 +113,15 @@ export function saveTrendsToDatabase(trends: TrendItem[], geo: string): number {
     VALUES (@id, @title, @geo, @approx_traffic, @pub_date, @articles_json, @category, @status)
     ON CONFLICT(id) DO UPDATE SET
       approx_traffic = excluded.approx_traffic,
-      articles_json = excluded.articles_json,
+      articles_json = CASE 
+        WHEN excluded.articles_json IS NOT NULL AND excluded.articles_json != '[]' THEN excluded.articles_json
+        ELSE trends.articles_json
+      END,
       status = CASE 
+        WHEN (
+          (excluded.articles_json IS NULL OR excluded.articles_json = '[]') AND 
+          (trends.articles_json IS NULL OR trends.articles_json = '[]')
+        ) AND (trends.status = 'published' OR excluded.status = 'published') THEN 'discovered'
         WHEN trends.status IN ('drafted', 'published') THEN trends.status 
         ELSE excluded.status 
       END
@@ -223,7 +230,7 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
       await page.waitForTimeout(1000);
 
       // Extract real news publisher links under section "In the news"
-      const articles: NewsArticle[] = await page.evaluate(() => {
+      let articles: NewsArticle[] = await page.evaluate(() => {
         const allEls = Array.from(document.querySelectorAll('*'));
         const newsHeader = allEls.find((el) => {
           const text = (el.textContent || '').trim().toLowerCase();
@@ -275,19 +282,42 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
         return links;
       });
 
+      // Nếu drawer Google Trends không trích xuất được bài báo nào, tự động tìm kiếm nguồn tin chính thống qua DuckDuckGo
+      if (articles.length === 0) {
+        try {
+          articles = await findExactNewsSources(rowData.title, targetGeo, 3);
+        } catch { }
+      }
+
       const normalizedTitle = rowData.title.trim().toLowerCase();
       const id = 'trend_' + crypto.createHash('md5').update(`${targetGeo}_${normalizedTitle}`).digest('hex').substring(0, 12);
+      const hasValidSources = articles.some((a) => a.url && !a.url.includes('google.com'));
 
       // Check whether this trend already has a post or is already published/drafted
       const dupCheck = findDuplicatePost({ id, title: rowData.title, articles }, existingPosts);
       let initialStatus: 'discovered' | 'drafted' | 'published' = 'discovered';
 
       if (dupCheck.isDuplicate && dupCheck.matchedPost) {
-        initialStatus = dupCheck.matchedPost.status === 'published' ? 'published' : 'drafted';
+        // Chỉ đánh dấu là published nếu có nguồn tin hợp lệ và khớp chính xác ID/tiêu đề (không áp dụng cho keyword_similarity ngẫu nhiên)
+        if (hasValidSources && dupCheck.matchedPost.status === 'published' && dupCheck.matchType !== 'keyword_similarity') {
+          initialStatus = 'published';
+        } else if (dupCheck.matchedPost.status === 'draft') {
+          initialStatus = 'drafted';
+        }
       } else {
-        const existingRow = db.prepare('SELECT status FROM trends WHERE id = ?').get(id) as { status: string } | undefined;
+        const existingRow = db.prepare('SELECT status, articles_json FROM trends WHERE id = ?').get(id) as { status: string; articles_json?: string } | undefined;
         if (existingRow && existingRow.status !== 'discovered') {
-          initialStatus = existingRow.status as any;
+          let hasExistingSources = false;
+          try {
+            const parsed = JSON.parse(existingRow.articles_json || '[]');
+            hasExistingSources = Array.isArray(parsed) && parsed.some((a: any) => a.url && !a.url.includes('google.com'));
+          } catch { }
+
+          if (existingRow.status === 'published' && (!hasValidSources && !hasExistingSources)) {
+            initialStatus = 'discovered';
+          } else {
+            initialStatus = existingRow.status as any;
+          }
         }
       }
 

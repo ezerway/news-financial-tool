@@ -7,8 +7,7 @@ import {
   Check,
   Sparkles,
   Sliders,
-  Megaphone,
-  User,
+  ExternalLink,
   Smartphone,
   Download,
   Lock,
@@ -63,19 +62,50 @@ export default function SettingsTab({
   const [showKey, setShowKey] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isOpeningBrowser, setIsOpeningBrowser] = useState(false);
+  const [browserMsg, setBrowserMsg] = useState<string | null>(null);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsSaving(true);
-    await onSaveSettings(form);
+    await onSaveSettings({
+      ...form,
+      fb_target_type: 'page',
+      fb_target_url: form.fb_page_url || form.fb_target_url || 'https://www.facebook.com/',
+    });
     setIsSaving(false);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   };
 
+  const handleOpenFanpageBrowser = async () => {
+    setIsOpeningBrowser(true);
+    setBrowserMsg(null);
+    try {
+      const target = form.fb_page_url?.trim() || undefined;
+      const res = await fetch('/api/fb-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: target }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBrowserMsg(lang === 'vi' ? 'Trình duyệt đang được mở...' : 'Browser is opening...');
+        setTimeout(() => setBrowserMsg(null), 6000);
+        if (onRefreshData) onRefreshData();
+      } else {
+        onConnectFb(target);
+      }
+    } catch {
+      onConnectFb(form.fb_page_url?.trim() || undefined);
+    } finally {
+      setIsOpeningBrowser(false);
+    }
+  };
+
   const sections = [
     { id: 'all', label: lang === 'vi' ? 'Tất cả' : 'All', icon: Layers },
-    { id: 'facebook', label: 'Facebook', icon: Megaphone },
+    { id: 'facebook', label: 'Facebook', icon: FacebookIcon },
     { id: 'ai', label: 'Gemini AI', icon: Sparkles },
     { id: 'security', label: lang === 'vi' ? 'Bảo mật' : 'Security', icon: Lock },
     { id: 'backup', label: lang === 'vi' ? 'Sao lưu' : 'Backup', icon: HardDrive },
@@ -132,126 +162,7 @@ export default function SettingsTab({
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
-        {/* SECTION 1: FACEBOOK TARGET & FANPAGE */}
-        {(activeSection === 'all' || activeSection === 'facebook') && (
-          <div className="p-4 sm:p-6 rounded-2xl app-card shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 sm:pb-4 border-b border-[var(--app-border)]">
-              <div className="flex items-center gap-2.5 sm:gap-3.5">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-50 dark:bg-blue-600/15 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30 flex items-center justify-center shadow-xs shrink-0">
-                  <Megaphone className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-bold text-inherit">{t('settings_target_title')}</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{t('settings_target_desc')}</p>
-                </div>
-              </div>
-
-              <span className="self-start sm:self-auto px-2.5 py-0.5 rounded-full text-xs font-semibold app-tag shrink-0">
-                {form.fb_target_type === 'page'
-                  ? (lang === 'vi' ? '📢 Fanpage' : '📢 Fanpage')
-                  : (lang === 'vi' ? '👤 Trang cá nhân' : '👤 Profile')}
-              </span>
-            </div>
-
-            {/* Target Type Selector Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4">
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, fb_target_type: 'page' })}
-                className={`p-3.5 sm:p-4 rounded-xl border text-left transition-all relative ${
-                  form.fb_target_type === 'page'
-                    ? 'bg-blue-50/50 dark:bg-blue-950/40 border-blue-500 ring-1 ring-blue-500/30'
-                    : 'app-tag hover:border-slate-400'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1 sm:mb-2">
-                  <span className="flex items-center gap-2 text-xs sm:text-sm font-bold text-inherit">
-                    <Megaphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 dark:text-blue-400" /> {t('target_page_btn')}
-                  </span>
-                  {form.fb_target_type === 'page' && (
-                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  {t('target_page_desc')}
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, fb_target_type: 'profile' })}
-                className={`p-3.5 sm:p-4 rounded-xl border text-left transition-all relative ${
-                  form.fb_target_type === 'profile'
-                    ? 'bg-indigo-50/50 dark:bg-indigo-950/40 border-indigo-500 ring-1 ring-indigo-500/30'
-                    : 'app-tag hover:border-slate-400'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1 sm:mb-2">
-                  <span className="flex items-center gap-2 text-xs sm:text-sm font-bold text-inherit">
-                    <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-indigo-400" /> {t('target_profile_btn')}
-                  </span>
-                  {form.fb_target_type === 'profile' && (
-                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  {t('target_profile_desc')}
-                </p>
-              </button>
-            </div>
-
-            {/* Fanpage Details Config */}
-            {form.fb_target_type === 'page' && (
-              <div className="p-4 rounded-xl app-tag space-y-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-inherit mb-1 flex items-center justify-between">
-                    <span>{lang === 'vi' ? 'Đường dẫn Fanpage URL *' : 'Fanpage URL *'}</span>
-                    <span className="text-[10px] text-blue-500 font-semibold">{lang === 'vi' ? 'Bắt buộc' : 'Required'}</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={form.fb_page_url}
-                    onChange={(e) => setForm({ ...form, fb_page_url: e.target.value })}
-                    placeholder="https://www.facebook.com/ten-fanpage-cua-ban"
-                    className="w-full h-9 px-3 app-input rounded-lg text-xs font-mono placeholder-slate-400 focus:outline-hidden focus:border-indigo-500"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    💡 {lang === 'vi' ? 'Dán link Fanpage bạn làm quản trị viên (Ví dụ: https://www.facebook.com/tintuc247)' : 'Paste your Fanpage link where you are admin'}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-inherit mb-1">
-                    {lang === 'vi' ? 'Tên Fanpage (Gợi nhớ)' : 'Fanpage Display Name'}
-                  </label>
-                  <input
-                    type="text"
-                    value={form.fb_page_name}
-                    onChange={(e) => setForm({ ...form, fb_page_name: e.target.value })}
-                    placeholder="Ví dụ: Tin Tức Tài Chính 247"
-                    className="w-full h-9 px-3 app-input rounded-lg text-xs placeholder-slate-400 focus:outline-hidden focus:border-indigo-500"
-                  />
-                </div>
-
-                <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onConnectFb(form.fb_page_url || undefined)}
-                    className="btn btn-md btn-primary"
-                  >
-                    <FacebookIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span>{lang === 'vi' ? 'Mở Fanpage kiểm tra quyền' : 'Open Fanpage to Verify'}</span>
-                  </button>
-                  <span className="text-[10px] text-slate-400">
-                    {lang === 'vi' ? '(Mở trình duyệt để chuyển quyền Page)' : '(Opens browser to switch Page mode)'}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* SECTION 2: FACEBOOK SESSION */}
+        {/* SECTION: FACEBOOK FANPAGE */}
         {(activeSection === 'all' || activeSection === 'facebook') && (
           <div className="p-4 sm:p-6 rounded-2xl app-card shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 sm:pb-4 border-b border-[var(--app-border)]">
@@ -260,12 +171,8 @@ export default function SettingsTab({
                   <FacebookIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-bold text-inherit">
-                    {lang === 'vi' ? 'Phiên đăng nhập Facebook' : 'Facebook Session'}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {lang === 'vi' ? 'Playwright Persistent Session tự động đăng bài an toàn.' : 'Persistent Session for automated posting.'}
-                  </p>
+                  <h3 className="text-sm sm:text-base font-bold text-inherit">{t('settings_target_title')}</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t('settings_target_desc')}</p>
                 </div>
               </div>
 
@@ -276,27 +183,62 @@ export default function SettingsTab({
               </div>
             </div>
 
-            <div className="space-y-3">
-              <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 flex-wrap">
-                <span>{lang === 'vi' ? 'Trạng thái:' : 'Status:'}</span>
-                <span className="font-mono text-inherit font-semibold app-tag px-2 py-0.5 rounded">
-                  {fbStatus.message}
-                </span>
-              </p>
-
-              <div className="p-3 rounded-xl app-tag text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                💡 {lang === 'vi' ? 'Bấm nút bên dưới để mở cửa sổ trình duyệt Chromium đăng nhập tài khoản Facebook có quyền Fanpage. Hệ thống sẽ lưu phiên vĩnh viễn.' : 'Click below to open Chromium browser and log in with your Facebook account.'}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-inherit mb-1 flex items-center justify-between">
+                  <span>{lang === 'vi' ? 'Đường dẫn Fanpage URL *' : 'Fanpage URL *'}</span>
+                  <span className="text-[10px] text-blue-500 font-semibold">{lang === 'vi' ? 'Bắt buộc' : 'Required'}</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.fb_page_url}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm({ ...form, fb_page_url: val, fb_target_url: val });
+                  }}
+                  placeholder="https://www.facebook.com/ten-fanpage-cua-ban"
+                  className="w-full h-9 px-3 app-input rounded-lg text-xs font-mono placeholder-slate-400 focus:outline-hidden focus:border-indigo-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  💡 {lang === 'vi' ? 'Dán link Fanpage bạn làm quản trị viên (Ví dụ: https://www.facebook.com/tintuc247)' : 'Paste your Fanpage link where you are admin'}
+                </p>
               </div>
 
-              <div className="pt-1">
+              <div className="pt-1 flex flex-wrap items-center gap-2.5">
                 <button
                   type="button"
-                  onClick={() => onConnectFb(form.fb_target_type === 'page' && form.fb_page_url ? form.fb_page_url : undefined)}
+                  onClick={handleOpenFanpageBrowser}
+                  disabled={isOpeningBrowser}
                   className="btn btn-md btn-primary"
                 >
-                  <FacebookIcon className="w-4 h-4" />
-                  <span>{lang === 'vi' ? 'Mở trình duyệt quản lý Facebook' : 'Open Facebook Browser'}</span>
+                  <FacebookIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span>
+                    {isOpeningBrowser
+                      ? (lang === 'vi' ? 'Đang mở trình duyệt...' : 'Opening browser...')
+                      : (lang === 'vi' ? 'Mở trình duyệt Fanpage' : 'Open Fanpage Browser')}
+                  </span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => onConnectFb(form.fb_page_url || undefined)}
+                  className="btn btn-md btn-ghost text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  title={lang === 'vi' ? 'Nhập cookie c_user/xs hoặc tải file session' : 'Import cookies or session file'}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>{lang === 'vi' ? 'Tuỳ chọn phiên (Cookie / File)' : 'Session Options (Cookie/File)'}</span>
+                </button>
+
+                {browserMsg && (
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium animate-in fade-in">
+                    ✓ {browserMsg}
+                  </span>
+                )}
+                {!browserMsg && fbStatus.message && (
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    ({fbStatus.message})
+                  </span>
+                )}
               </div>
             </div>
           </div>

@@ -13,7 +13,7 @@ export async function generateSocialPost(trend: TrendItem, customTone?: string, 
   if (!options?.force) {
     const dup = findDuplicatePost(trend);
     if (dup.isDuplicate && dup.matchedPost) {
-      if (dup.matchedPost.status === 'published') {
+      if (dup.matchedPost.status === 'published' && dup.matchedPost.fb_post_url) {
         const err = `Xu hướng "${trend.title}" đã được xuất bản trên Facebook trước đó (${dup.matchedPost.published_at || ''}). Không thể tạo bài mới để tránh trùng lặp.`;
         logActivity('WARN', 'GENERATE', err);
         throw new Error(err);
@@ -25,6 +25,11 @@ export async function generateSocialPost(trend: TrendItem, customTone?: string, 
       );
       return dup.matchedPost;
     }
+  } else if (trend.id) {
+    // Khi người dùng yêu cầu force chạy lại / retry, xóa bài viết cũ chưa hoàn thiện của trend này để tạo bài mới tinh
+    try {
+      db.prepare(`DELETE FROM posts WHERE trend_id = ? AND status != 'published'`).run(trend.id);
+    } catch { }
   }
 
   // STRICT REQUIREMENT: Only use exact publisher source links, filter out ANY google.com / google trend URLs

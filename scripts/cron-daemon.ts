@@ -1,4 +1,5 @@
 import { runAutomationCycle } from '../src/services/auto-runner';
+import { processScheduledReels } from '../src/services/reels';
 import { logActivity, getSetting } from '../src/lib/db';
 
 function formatTime(date: Date): string {
@@ -46,6 +47,21 @@ async function startDaemon() {
   console.log(`======================================================\n`);
 
   logActivity('INFO', 'AUTO', `Cron daemon khởi động - chu kỳ chạy mỗi ${intervalMinutes} phút.`);
+
+  // Vòng lặp kiểm tra và đăng Reel đã đặt lịch mỗi 30 giây
+  setInterval(async () => {
+    try {
+      const scheduledResult = await processScheduledReels();
+      if (scheduledResult.processed > 0) {
+        console.log(`🎬 [${formatTime(new Date())}] Đã xử lý ${scheduledResult.processed} Reel theo lịch (Thành công: ${scheduledResult.successful}, Thất bại: ${scheduledResult.failed})`);
+      }
+    } catch (err: any) {
+      console.error(`❌ [${formatTime(new Date())}] Lỗi xử lý Reel hẹn giờ:`, err.message);
+    }
+  }, 30 * 1000);
+
+  // Kiểm tra lịch Reel ngay khi khởi động
+  processScheduledReels().catch(() => {});
 
   // Hàm thực thi chu kỳ và hẹn giờ cho lần kế tiếp
   const executeCycle = async (isFirstRun = false) => {

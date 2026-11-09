@@ -44,6 +44,12 @@ export default function FacebookConnectModal({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  React.useEffect(() => {
+    if (isOpen && initialTargetUrl) {
+      setActiveTab('browser');
+    }
+  }, [isOpen, initialTargetUrl]);
+
   if (!isOpen) return null;
 
   // Handle Cookie Submit (c_user & xs)

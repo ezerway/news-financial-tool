@@ -2,6 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
 
+function getMimeType(filename: string): string {
+  const ext = path.extname(filename).toLowerCase();
+  switch (ext) {
+    case '.mp4':
+      return 'video/mp4';
+    case '.webm':
+      return 'video/webm';
+    case '.mov':
+      return 'video/quicktime';
+    case '.mkv':
+      return 'video/x-matroska';
+    case '.avi':
+      return 'video/x-msvideo';
+    default:
+      return 'video/mp4';
+  }
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ filename: string }> }) {
   try {
     const { filename } = await params;
@@ -15,6 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ file
 
     const stat = fs.statSync(filePath);
     const fileSize = stat.size;
+    const contentType = getMimeType(safeFilename);
     const range = req.headers.get('range');
 
     if (range) {
@@ -39,14 +58,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ file
           'Content-Range': `bytes ${start}-${end}/${fileSize}`,
           'Accept-Ranges': 'bytes',
           'Content-Length': chunksize.toString(),
-          'Content-Type': 'video/webm',
+          'Content-Type': contentType,
         },
       });
     } else {
       const fileBuffer = fs.readFileSync(filePath);
       return new NextResponse(fileBuffer, {
         headers: {
-          'Content-Type': 'video/webm',
+          'Content-Type': contentType,
           'Content-Length': fileSize.toString(),
           'Accept-Ranges': 'bytes',
           'Cache-Control': 'public, max-age=3600',

@@ -1,0 +1,342 @@
+import path from 'path';
+import fs from 'fs';
+import db, { logActivity } from '@/lib/db';
+import { uploadFacebookReel, PostReelResult } from '@/services/playwright/fb-reel';
+import { ReelItem } from '@/types';
+
+export function getReels(status?: string): ReelItem[] {
+  let query = 'SELECT * FROM reels';
+  const params: any[] = [];
+
+  if (status && status !== 'all') {
+    query += ' WHERE status = ?';
+    params.push(status);
+  }
+
+  query += ' ORDER BY created_at DESC';
+
+  const rows = db.prepare(query).all(...params) as ReelItem[];
+  return rows;
+}
+
+export function getReelById(id: string): ReelItem | null {
+  const row = db.prepare('SELECT * FROM reels WHERE id = ?').get(id) as ReelItem | undefined;
+  return row || null;
+}
+
+export function createReel(data: {
+  video_path: string;
+  video_filename?: string | null;
+  caption?: string;
+  scheduled_at?: string | null;
+  status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
+}): ReelItem {
+  const id = `reel_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const status = data.status || (data.scheduled_at ? 'scheduled' : 'draft');
+  const videoFilename = data.video_filename || path.basename(data.video_path);
+  const caption = data.caption || '';
+  const scheduledAt = data.scheduled_at || null;
+
+  db.prepare(`
+    INSERT INTO reels (id, video_path, video_filename, caption, status, scheduled_at, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  `).run(id, data.video_path, videoFilename, caption, status, scheduledAt);
+
+  logActivity(
+    'INFO',
+    'CREATE_REEL',
+    `Đã tạo Reel mới (${status === 'scheduled' ? `Đã lên lịch lúc ${scheduledAt}` : 'Bản thảo'}): ${videoFilename}`
+  );
+
+  return getReelById(id)!;
+}
+
+export function updateReel(
+  id: string,
+  data: Partial<Pick<ReelItem, 'caption' | 'scheduled_at' | 'status' | 'video_path' | 'video_filename' | 'fb_post_url' | 'screenshot_path' | 'debug_video_path'>>
+): ReelItem | null {
+  const current = getReelById(id);
+  if (!current) return null;
+
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  if (data.caption !== undefined) {
+    updates.push('caption = ?');
+    values.push(data.caption);
+  }
+  if (data.scheduled_at !== undefined) {
+    updates.push('scheduled_at = ?');
+    values.push(data.scheduled_at);
+  }
+  if (data.status !== undefined) {
+    updates.push('status = ?');
+    values.push(data.status);
+  }
+  if (data.video_path !== undefined) {
+    updates.push('video_path = ?');
+    values.push(data.video_path);
+  }
+  if (data.video_filename !== undefined) {
+    updates.push('video_filename = ?');
+    values.push(data.video_filename);
+  }
+  if (data.fb_post_url !== undefined) {
+    updates.push('fb_post_url = ?');
+    values.push(data.fb_post_url);
+  }
+  if (data.screenshot_path !== undefined) {
+    updates.push('screenshot_path = ?');
+    values.push(data.screenshot_path);
+  }
+  if (data.debug_video_path !== undefined) {
+    updates.push('debug_video_path = ?');
+    values.push(data.debug_video_path);
+  }
+
+  if (updates.length > 0) {
+    values.push(id);
+    db.prepare(`UPDATE reels SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+  }
+
+  return getReelById(id);
+}
+
+export function deleteReel(id: string): boolean {
+  const reel = getReelById(id);
+  if (!reel) return false;
+
+  // Xóa file video nếu file nằm trong thư mục storage/videos
+  const videosDir = path.resolve(process.cwd(), 'storage', 'videos');
+  const screenshotsDir = path.resolve(process.cwd(), 'storage', 'screenshots');
+  if (reel.video_path) {
+    try {
+      const resolvedPath = path.resolve(reel.video_path);
+      if (resolvedPath.startsWith(videosDir) && fs.existsSync(resolvedPath)) {
+        fs.unlinkSync(resolvedPath);
+      }
+    } catch (err: any) {
+      console.error(`Không thể xóa file video ${reel.video_path}:`, err.message);
+    }
+  }
+
+  // Xóa file video debug lỗi nếu có
+  if (reel.debug_video_path) {
+    try {
+      const dbgPath = path.join(videosDir, path.basename(reel.debug_video_path));
+      if (fs.existsSync(dbgPath)) fs.unlinkSync(dbgPath);
+    } catch {}
+  }
+
+  // Xóa file ảnh chụp màn hình lỗi nếu có
+  if (reel.screenshot_path) {
+    try {
+      const scPath = path.join(screenshotsDir, path.basename(reel.screenshot_path));
+      if (fs.existsSync(scPath)) fs.unlinkSync(scPath);
+    } catch {}
+  }
+
+  db.prepare('DELETE FROM reels WHERE id = ?').run(id);
+  logActivity('INFO', 'DELETE_REEL', `Đã xóa Reel: ${id} (${reel.video_filename || 'video'})`);
+  return true;
+}
+
+export async function publishReelById(
+  id: string,
+  options?: { headless?: boolean }
+): Promise<PostReelResult> {
+  const reel = getReelById(id);
+  if (!reel) {
+    return {
+      success: false,
+      message: 'Không tìm thấy Reel với ID: ' + id,
+      filePath: '',
+      error: 'Reel not found',
+    };
+  }
+
+  // Atomically lock status to publishing to avoid double posting
+  const lock = db.prepare(
+    "UPDATE reels SET status = 'publishing', error_message = NULL WHERE id = ? AND status != 'publishing'"
+  ).run(id);
+
+  if (lock.changes === 0 && reel.status === 'publishing') {
+    return {
+      success: false,
+      message: 'Reel đang trong quá trình xuất bản.',
+      filePath: reel.video_path,
+      error: 'Already publishing',
+    };
+  }
+
+  logActivity('INFO', 'POST_REEL', `Bắt đầu xuất bản Reel [${id}]: ${reel.video_filename}`);
+
+  const headless = options?.headless !== undefined ? options.headless : true;
+
+  try {
+    const result = await uploadFacebookReel({
+      reelId: reel.id,
+      filePath: reel.video_path,
+      content: reel.caption || '',
+      headless,
+    });
+
+    const videosDir = path.resolve(process.cwd(), 'storage', 'videos');
+    const screenshotsDir = path.resolve(process.cwd(), 'storage', 'screenshots');
+
+    if (result.success) {
+      // Dọn dẹp video debug lỗi cũ nếu trước đó từng thất bại
+      if (reel.debug_video_path) {
+        try {
+          const oldDbgPath = path.join(videosDir, path.basename(reel.debug_video_path));
+          if (fs.existsSync(oldDbgPath)) fs.unlinkSync(oldDbgPath);
+        } catch {}
+      }
+      if (reel.screenshot_path) {
+        try {
+          const oldScPath = path.join(screenshotsDir, path.basename(reel.screenshot_path));
+          if (fs.existsSync(oldScPath)) fs.unlinkSync(oldScPath);
+        } catch {}
+      }
+
+      db.prepare(`
+        UPDATE reels
+        SET status = 'published',
+            published_at = CURRENT_TIMESTAMP,
+            fb_post_url = ?,
+            screenshot_path = NULL,
+            debug_video_path = NULL,
+            error_message = NULL
+        WHERE id = ?
+      `).run(result.reelUrl || null, id);
+
+      logActivity(
+        'SUCCESS',
+        'POST_REEL',
+        result.reelUrl
+          ? `Xuất bản Reel Facebook thành công: ${reel.video_filename} (Link: ${result.reelUrl})`
+          : `Xuất bản Reel Facebook thành công: ${reel.video_filename}`
+      );
+      return result;
+    } else {
+      const errorMsg = result.error || result.message;
+      db.prepare(`
+        UPDATE reels
+        SET status = 'failed',
+            error_message = ?,
+            screenshot_path = ?,
+            debug_video_path = ?
+        WHERE id = ?
+      `).run(errorMsg, result.screenshotPath || null, result.debugVideoPath || null, id);
+
+      logActivity('ERROR', 'POST_REEL', `Xuất bản Reel thất bại: ${errorMsg}`);
+      return result;
+    }
+  } catch (error: any) {
+    const errorMsg = error?.message || String(error);
+    db.prepare(`
+      UPDATE reels
+      SET status = 'failed',
+          error_message = ?
+      WHERE id = ?
+    `).run(errorMsg, id);
+
+    logActivity('ERROR', 'POST_REEL', `Lỗi nghiêm trọng khi xuất bản Reel: ${errorMsg}`);
+    return {
+      success: false,
+      message: 'Lỗi xuất bản: ' + errorMsg,
+      filePath: reel.video_path,
+      error: errorMsg,
+    };
+  }
+}
+
+let isProcessingScheduledReels = false;
+
+export async function processScheduledReels(): Promise<{
+  processed: number;
+  successful: number;
+  failed: number;
+}> {
+  if (isProcessingScheduledReels) {
+    return { processed: 0, successful: 0, failed: 0 };
+  }
+
+  isProcessingScheduledReels = true;
+  let processed = 0;
+  let successful = 0;
+  let failed = 0;
+
+  try {
+    const scheduledReels = db.prepare(`
+      SELECT * FROM reels
+      WHERE status = 'scheduled'
+      ORDER BY scheduled_at ASC, created_at ASC
+    `).all() as ReelItem[];
+
+    const now = Date.now();
+    const dueReels = scheduledReels.filter((reel) => {
+      if (!reel.scheduled_at) return true;
+      const scheduledTime = new Date(reel.scheduled_at).getTime();
+      return !isNaN(scheduledTime) && scheduledTime <= now;
+    });
+
+    if (dueReels.length === 0) {
+      return { processed: 0, successful: 0, failed: 0 };
+    }
+
+    logActivity(
+      'INFO',
+      'SCHEDULE_REEL',
+      `Phát hiện ${dueReels.length} Reel đã đến giờ hẹn đăng. Bắt đầu tự động xuất bản...`
+    );
+
+    for (let i = 0; i < dueReels.length; i++) {
+      const reel = dueReels[i];
+      // Atomic check & lock
+      const lockRes = db.prepare(
+        "UPDATE reels SET status = 'publishing' WHERE id = ? AND status = 'scheduled'"
+      ).run(reel.id);
+
+      if (lockRes.changes === 0) {
+        // Was picked up by another process
+        continue;
+      }
+
+      processed++;
+      const result = await publishReelById(reel.id, { headless: true });
+      if (result.success) {
+        successful++;
+      } else {
+        failed++;
+      }
+
+      // Delay between posts to protect account from spam detection
+      if (i < dueReels.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 20000));
+      }
+    }
+  } catch (err: any) {
+    console.error('[Reel Scheduler] Lỗi xử lý scheduled reels:', err);
+  } finally {
+    isProcessingScheduledReels = false;
+  }
+
+  return { processed, successful, failed };
+}
+
+// Background scheduler singleton in Node.js runtime
+declare global {
+  var __reelSchedulerStarted: boolean | undefined;
+}
+
+if (typeof window === 'undefined' && !globalThis.__reelSchedulerStarted) {
+  globalThis.__reelSchedulerStarted = true;
+  // Run check every 30 seconds
+  setInterval(() => {
+    processScheduledReels().catch((err) => {
+      console.error('[Reel Scheduler Loop Error]', err);
+    });
+  }, 30 * 1000);
+}
+

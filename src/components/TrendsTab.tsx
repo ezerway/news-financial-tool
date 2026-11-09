@@ -13,6 +13,8 @@ import {
   ChevronDown,
   ChevronUp,
   Link2,
+  Zap,
+  AlertTriangle,
 } from 'lucide-react';
 import { useI18n } from '@/context/I18nThemeContext';
 
@@ -21,8 +23,11 @@ interface TrendsTabProps {
   onCrawl: (geo: string) => Promise<void>;
   onGenerate: (trendId: string) => Promise<void>;
   onFindSources?: (trendId: string) => Promise<void>;
+  onRetryAndPublish?: (trendId?: string, allMissing?: boolean) => Promise<void>;
   isCrawling: boolean;
   generatingId: string | null;
+  retryingId?: string | null;
+  isRetryingAll?: boolean;
 }
 
 export default function TrendsTab({
@@ -30,8 +35,11 @@ export default function TrendsTab({
   onCrawl,
   onGenerate,
   onFindSources,
+  onRetryAndPublish,
   isCrawling,
   generatingId,
+  retryingId,
+  isRetryingAll,
 }: TrendsTabProps) {
   const { t, lang } = useI18n();
   const [search, setSearch] = useState('');
@@ -44,14 +52,21 @@ export default function TrendsTab({
     setExpandedTrendIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // Helper kiểm tra bài báo nguồn thực tế
+  const hasValidSources = (tr: TrendItem) =>
+    Array.isArray(tr.articles) &&
+    tr.articles.some((a) => a.url && !a.url.includes('google.com'));
+
   // Filter trends by selected country
   const geoTrends = selectedGeo === 'all' ? trends : trends.filter((tr) => tr.geo === selectedGeo);
 
   // Filter trends by status
   const statusFilteredTrends = geoTrends.filter((tr) => {
-    if (statusFilter === 'published') return tr.status === 'published';
+    const hasSrc = hasValidSources(tr);
+    // Chỉ tính là 'published' nếu thực sự có source link
+    if (statusFilter === 'published') return tr.status === 'published' && hasSrc;
     if (statusFilter === 'drafted') return tr.status === 'drafted';
-    if (statusFilter === 'unprocessed') return !tr.status || tr.status === 'discovered';
+    if (statusFilter === 'unprocessed') return !tr.status || tr.status === 'discovered' || !hasSrc;
     return true;
   });
 
@@ -75,9 +90,10 @@ export default function TrendsTab({
     }
   };
 
-  const publishedCount = geoTrends.filter((t) => t.status === 'published').length;
+  const publishedCount = geoTrends.filter((t) => t.status === 'published' && hasValidSources(t)).length;
   const draftedCount = geoTrends.filter((t) => t.status === 'drafted').length;
-  const unprocessedCount = geoTrends.filter((t) => !t.status || t.status === 'discovered').length;
+  const unprocessedCount = geoTrends.filter((t) => !t.status || t.status === 'discovered' || !hasValidSources(t)).length;
+  const missingSourcesCount = geoTrends.filter((t) => !hasValidSources(t)).length;
 
   return (
     <div className="space-y-4">
@@ -112,12 +128,27 @@ export default function TrendsTab({
 
           <button
             onClick={() => onCrawl(selectedGeo === 'all' ? 'VN' : selectedGeo)}
-            disabled={isCrawling}
+            disabled={isCrawling || isRetryingAll}
             className="btn btn-md btn-emerald flex-1 md:flex-initial justify-center shrink-0 h-9.5 sm:h-9"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isCrawling ? 'animate-spin' : ''}`} />
             <span className="whitespace-nowrap">{isCrawling ? t('crawling') : t('crawl_btn')}</span>
           </button>
+
+          {onRetryAndPublish && (
+            <button
+              onClick={() => onRetryAndPublish(undefined, true)}
+              disabled={isRetryingAll || isCrawling}
+              className="btn btn-md btn-primary flex-1 md:flex-initial justify-center shrink-0 h-9.5 sm:h-9 bg-amber-600 hover:bg-amber-700 text-white border-amber-500 shadow-xs"
+              title={lang === 'vi' ? 'Tự động tìm kiếm nguồn báo chí và đăng bài cho các trend chưa có nguồn hoặc chưa đăng thành công' : 'Find sources and publish posts for trends missing sources'}
+            >
+              <Zap className={`w-3.5 h-3.5 ${isRetryingAll ? 'animate-spin' : ''}`} />
+              <span className="whitespace-nowrap">
+                {isRetryingAll ? t('batch_retrying') : t('batch_retry_btn')}
+                {missingSourcesCount > 0 ? ` (${missingSourcesCount})` : ''}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -184,8 +215,11 @@ export default function TrendsTab({
           {filteredTrends.map((trend, index) => {
             const isGenerating = generatingId === trend.id;
             const isSearchingSource = searchingSourceId === trend.id;
+            const isRetryingThis = retryingId === trend.id;
             const validArticles = (trend.articles || []).filter((a) => a.url && !a.url.includes('google.com'));
             const hasSourceLinks = validArticles.length > 0;
+            const isTrulyPublished = trend.status === 'published' && hasSourceLinks;
+            const isFalsePublished = trend.status === 'published' && !hasSourceLinks;
             const isExpanded = !!expandedTrendIds[trend.id];
 
             return (
@@ -213,13 +247,22 @@ export default function TrendsTab({
                         </span>
 
                         {/* Status badge */}
-                        {trend.status === 'published' && (
+                        {isTrulyPublished && (
                           <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
                             <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
                             <span>{lang === 'vi' ? 'Đã đăng Fanpage' : 'Published'}</span>
                           </span>
                         )}
-                        {trend.status === 'drafted' && (
+                        {isFalsePublished && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800"
+                            title="Chưa có link nguồn báo chí, thực tế chưa thể đăng bài"
+                          >
+                            <AlertTriangle className="w-2.5 h-2.5 text-amber-500" />
+                            <span>{t('missing_sources_badge')} ({t('not_published_hint')})</span>
+                          </span>
+                        )}
+                        {!isTrulyPublished && !isFalsePublished && trend.status === 'drafted' && (
                           <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/60 px-2 py-0.5 rounded-md border border-cyan-200 dark:border-cyan-800">
                             <FileEdit className="w-2.5 h-2.5 text-cyan-500" />
                             <span>{lang === 'vi' ? 'Bản thảo sẵn' : 'Draft Ready'}</span>
@@ -275,7 +318,7 @@ export default function TrendsTab({
 
                   {/* Right: Actions (Full-width on mobile, top-aligned on desktop) */}
                   <div className="w-full sm:w-auto shrink-0 sm:self-start pt-1 sm:pt-0">
-                    {trend.status === 'published' ? (
+                    {isTrulyPublished ? (
                       <span className="w-full sm:w-auto h-9 sm:h-8 px-3 rounded-lg text-xs font-semibold text-emerald-600 dark:text-emerald-400 inline-flex items-center justify-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800">
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         <span>{t('status_published')}</span>
@@ -283,7 +326,7 @@ export default function TrendsTab({
                     ) : hasSourceLinks ? (
                       <button
                         onClick={() => onGenerate(trend.id)}
-                        disabled={isGenerating}
+                        disabled={isGenerating || isRetryingThis}
                         className="btn btn-md sm:btn-sm btn-primary w-full sm:w-auto justify-center font-semibold text-xs shadow-xs active:scale-[0.98]"
                       >
                         <Sparkles className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
@@ -296,23 +339,37 @@ export default function TrendsTab({
                         </span>
                       </button>
                     ) : (
-                      onFindSources && (
-                        <button
-                          onClick={async () => {
-                            setSearchingSourceId(trend.id);
-                            try {
-                              await onFindSources(trend.id);
-                            } finally {
-                              setSearchingSourceId(null);
-                            }
-                          }}
-                          disabled={isSearchingSource}
-                          className="btn btn-md sm:btn-sm btn-secondary w-full sm:w-auto justify-center font-semibold text-xs shadow-xs active:scale-[0.98]"
-                        >
-                          <Search className={`w-3.5 h-3.5 ${isSearchingSource ? 'animate-spin' : ''}`} />
-                          <span>{isSearchingSource ? t('searching_sources') : t('find_sources_btn')}</span>
-                        </button>
-                      )
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                        {onRetryAndPublish && (
+                          <button
+                            onClick={() => onRetryAndPublish(trend.id)}
+                            disabled={isRetryingThis || isGenerating}
+                            className="btn btn-md sm:btn-sm btn-primary flex-1 sm:flex-initial justify-center font-semibold text-xs bg-amber-600 hover:bg-amber-700 text-white border-amber-500 shadow-xs active:scale-[0.98]"
+                            title={lang === 'vi' ? 'Tự động tìm kiếm nguồn báo chí chính thống và xuất bản lên Facebook Fanpage' : 'Find sources and publish to Facebook'}
+                          >
+                            <Zap className={`w-3.5 h-3.5 ${isRetryingThis ? 'animate-spin' : ''}`} />
+                            <span>{isRetryingThis ? t('retrying_sources_and_publish') : t('find_sources_and_publish_btn')}</span>
+                          </button>
+                        )}
+                        {onFindSources && (
+                          <button
+                            onClick={async () => {
+                              setSearchingSourceId(trend.id);
+                              try {
+                                await onFindSources(trend.id);
+                              } finally {
+                                setSearchingSourceId(null);
+                              }
+                            }}
+                            disabled={isSearchingSource || isRetryingThis}
+                            className="btn btn-md sm:btn-sm btn-secondary justify-center font-semibold text-xs shadow-xs active:scale-[0.98]"
+                            title={lang === 'vi' ? 'Chỉ tìm kiếm link bài báo nguồn' : 'Only find sources'}
+                          >
+                            <Search className={`w-3.5 h-3.5 ${isSearchingSource ? 'animate-spin' : ''}`} />
+                            <span className="hidden sm:inline">{isSearchingSource ? t('searching_sources') : t('find_sources_btn')}</span>
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

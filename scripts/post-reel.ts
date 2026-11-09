@@ -3,6 +3,8 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { uploadFacebookReel } from '../src/services/playwright/fb-reel';
+import { createReel } from '../src/services/reels';
+import db, { logActivity } from '../src/lib/db';
 
 function askQuestion(rl: readline.Interface, query: string): Promise<string> {
   return new Promise((resolve) => rl.question(query, resolve));
@@ -29,11 +31,20 @@ function parseCliArgs() {
   let filePath = '';
   let content = '';
   let headless = false;
+  let scheduledAt: string | undefined;
+  let isDraft = false;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--headless') {
       headless = true;
+    } else if (arg === '--draft') {
+      isDraft = true;
+    } else if (arg.startsWith('--schedule=')) {
+      scheduledAt = arg.slice(11);
+    } else if (arg === '--schedule' || arg === '-s') {
+      scheduledAt = args[i + 1] || '';
+      i++;
     } else if (arg.startsWith('--file=')) {
       filePath = arg.slice(7);
     } else if (arg === '-f' || arg === '--file') {
@@ -49,7 +60,7 @@ function parseCliArgs() {
     }
   }
 
-  return { filePath, content, headless };
+  return { filePath, content, headless, scheduledAt, isDraft };
 }
 
 async function main() {
@@ -57,7 +68,7 @@ async function main() {
   console.log('       Facebook Reel Automation - Upload Video        ');
   console.log('======================================================\n');
 
-  const { filePath: cliPath, content: cliContent, headless } = parseCliArgs();
+  const { filePath: cliPath, content: cliContent, headless, scheduledAt, isDraft } = parseCliArgs();
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -119,8 +130,49 @@ async function main() {
   console.log(`🖥️  Chế độ hiển thị: ${headless ? 'Headless (Chạy ẩn)' : 'Có giao diện (Hiện trình duyệt)'}`);
   console.log('------------------------------------------------------\n');
 
+  // Trường hợp 1: Lưu dưới dạng Bản thảo (Draft)
+  if (isDraft) {
+    const reel = createReel({
+      video_path: selectedFilePath,
+      video_filename: path.basename(selectedFilePath),
+      caption: selectedContent,
+      status: 'draft',
+    });
+    console.log('======================================================');
+    console.log(`✅ Đã lưu Reel vào bảng reels dưới dạng Bản thảo (Draft): ID [${reel.id}]`);
+    console.log('======================================================\n');
+    rl.close();
+    process.exit(0);
+  }
+
+  // Trường hợp 2: Lên lịch đăng trong bảng reels
+  if (scheduledAt) {
+    const reel = createReel({
+      video_path: selectedFilePath,
+      video_filename: path.basename(selectedFilePath),
+      caption: selectedContent,
+      status: 'scheduled',
+      scheduled_at: scheduledAt,
+    });
+    console.log('======================================================');
+    console.log(`📅 Đã lên lịch Reel trong bảng reels: ID [${reel.id}] (Thời gian: ${scheduledAt})`);
+    console.log('======================================================\n');
+    rl.close();
+    process.exit(0);
+  }
+
+  // Trường hợp 3: Xuất bản ngay - Tạo bản ghi trong bảng reels với trạng thái 'publishing'
+  const reel = createReel({
+    video_path: selectedFilePath,
+    video_filename: path.basename(selectedFilePath),
+    caption: selectedContent,
+    status: 'publishing',
+  });
+  console.log(`🎬 Đã tạo dữ liệu trong bảng reels: ID [${reel.id}] (Trạng thái: publishing)`);
+
   try {
     const result = await uploadFacebookReel({
+      reelId: reel.id,
       filePath: selectedFilePath,
       content: selectedContent,
       headless,
@@ -128,8 +180,31 @@ async function main() {
     });
 
     if (result.success) {
+      db.prepare(`
+        UPDATE reels
+        SET status = 'published',
+            published_at = CURRENT_TIMESTAMP,
+            fb_post_url = ?,
+            screenshot_path = NULL,
+            debug_video_path = NULL,
+            error_message = NULL
+        WHERE id = ?
+      `).run(result.reelUrl || null, reel.id);
+
+      logActivity(
+        'SUCCESS',
+        'POST_REEL',
+        result.reelUrl
+          ? `Xuất bản Reel Facebook thành công qua CLI [${reel.id}]: ${reel.video_filename} (Link: ${result.reelUrl})`
+          : `Xuất bản Reel Facebook thành công qua CLI [${reel.id}]: ${reel.video_filename}`
+      );
+
       console.log('\n======================================================');
       console.log('🎉 THÀNH CÔNG: ' + result.message);
+      if (result.reelUrl) {
+        console.log('🔗 Link Reel: ' + result.reelUrl);
+      }
+      console.log(`📊 Bản ghi bảng reels [${reel.id}] đã được cập nhật: status = 'published'`);
       console.log('======================================================\n');
 
       if (!headless) {
@@ -137,10 +212,38 @@ async function main() {
         await askQuestion(rl, '👉 Nhấn Enter để đóng trình duyệt và hoàn tất...');
       }
     } else {
+      const errorMsg = result.error || result.message;
+      db.prepare(`
+        UPDATE reels
+        SET status = 'failed',
+            error_message = ?,
+            screenshot_path = ?,
+            debug_video_path = ?
+        WHERE id = ?
+      `).run(errorMsg, result.screenshotPath || null, result.debugVideoPath || null, reel.id);
+
+      logActivity('ERROR', 'POST_REEL', `Xuất bản Reel qua CLI [${reel.id}] thất bại: ${errorMsg}`);
+
       console.error('\n❌ Thất bại:', result.message);
+      if (result.screenshotPath) {
+        console.error('📸 Ảnh chụp màn hình lỗi:', result.screenshotPath);
+      }
+      if (result.debugVideoPath) {
+        console.error('🎥 Video ghi lại thao tác lỗi:', result.debugVideoPath);
+      }
+      console.error(`📊 Bản ghi bảng reels [${reel.id}] đã được cập nhật: status = 'failed'`);
     }
   } catch (err: any) {
-    console.error('\n❌ Lỗi:', err.message || err);
+    const errorMsg = err.message || String(err);
+    db.prepare(`
+      UPDATE reels
+      SET status = 'failed',
+          error_message = ?
+      WHERE id = ?
+    `).run(errorMsg, reel.id);
+
+    logActivity('ERROR', 'POST_REEL', `Lỗi nghiêm trọng khi xuất bản Reel qua CLI [${reel.id}]: ${errorMsg}`);
+    console.error('\n❌ Lỗi:', errorMsg);
   } finally {
     rl.close();
     process.exit(0);

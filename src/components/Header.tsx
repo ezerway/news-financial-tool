@@ -17,6 +17,7 @@ import {
   Radio,
   TrendingUp,
   FileText,
+  Film,
   Activity,
   Settings,
 } from 'lucide-react';
@@ -32,9 +33,9 @@ export interface HeaderProps {
   autoRefreshInterval: number;
   onChangeAutoRefresh: (seconds: number) => void;
   secondsUntilRefresh: number;
-  activeTab: 'overview' | 'trends' | 'posts' | 'logs' | 'settings';
-  onSelectTab: (tab: 'overview' | 'trends' | 'posts' | 'logs' | 'settings') => void;
-  tabCounts?: { trends?: number; posts?: number; logs?: number };
+  activeTab: 'overview' | 'trends' | 'posts' | 'reels' | 'logs' | 'settings';
+  onSelectTab: (tab: 'overview' | 'trends' | 'posts' | 'reels' | 'logs' | 'settings') => void;
+  tabCounts?: { trends?: number; posts?: number; reels?: number; logs?: number };
 }
 
 export default function Header({
@@ -89,7 +90,7 @@ export default function Header({
   }
 
   const tabs: Array<{
-    id: 'overview' | 'trends' | 'posts' | 'logs' | 'settings';
+    id: 'overview' | 'trends' | 'posts' | 'reels' | 'logs' | 'settings';
     label: string;
     icon: any;
     count?: number;
@@ -97,6 +98,7 @@ export default function Header({
     { id: 'overview', label: t('tab_overview'), icon: Sparkles },
     { id: 'trends', label: t('tab_trends'), icon: TrendingUp, count: tabCounts?.trends },
     { id: 'posts', label: t('tab_posts'), icon: FileText, count: tabCounts?.posts },
+    { id: 'reels', label: t('tab_reels'), icon: Film, count: tabCounts?.reels },
     { id: 'logs', label: t('tab_logs'), icon: Activity, count: tabCounts?.logs },
     { id: 'settings', label: t('tab_settings'), icon: Settings },
   ];

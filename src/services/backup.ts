@@ -13,6 +13,7 @@ export interface BackupStats {
     sizeFormatted: string;
     trendsCount: number;
     postsCount: number;
+    reelsCount: number;
     logsCount: number;
     settingsCount: number;
   };
@@ -51,12 +52,14 @@ export async function getBackupStats(): Promise<BackupStats> {
 
   let trendsCount = 0;
   let postsCount = 0;
+  let reelsCount = 0;
   let logsCount = 0;
   let settingsCount = 0;
 
   try {
     trendsCount = (db.prepare('SELECT COUNT(*) as count FROM trends').get() as any)?.count || 0;
     postsCount = (db.prepare('SELECT COUNT(*) as count FROM posts').get() as any)?.count || 0;
+    reelsCount = (db.prepare('SELECT COUNT(*) as count FROM reels').get() as any)?.count || 0;
     logsCount = (db.prepare('SELECT COUNT(*) as count FROM activity_logs').get() as any)?.count || 0;
     settingsCount = (db.prepare('SELECT COUNT(*) as count FROM settings').get() as any)?.count || 0;
   } catch (err) {
@@ -90,6 +93,7 @@ export async function getBackupStats(): Promise<BackupStats> {
       sizeFormatted: formatBytes(dbSize),
       trendsCount,
       postsCount,
+      reelsCount,
       logsCount,
       settingsCount,
     },
@@ -133,6 +137,7 @@ export function exportDbJson(): string {
   checkpointDb();
   const trends = db.prepare('SELECT * FROM trends').all();
   const posts = db.prepare('SELECT * FROM posts').all();
+  const reels = db.prepare('SELECT * FROM reels').all();
   const logs = db.prepare('SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 500').all();
   const settings = db.prepare('SELECT * FROM settings').all();
 
@@ -143,11 +148,13 @@ export function exportDbJson(): string {
     counts: {
       trends: trends.length,
       posts: posts.length,
+      reels: reels.length,
       logs: logs.length,
       settings: settings.length,
     },
     trends,
     posts,
+    reels,
     logs,
     settings,
   };
@@ -230,6 +237,7 @@ export async function importDbJson(jsonData: any): Promise<{ success: boolean; m
 
   let trendsCount = 0;
   let postsCount = 0;
+  let reelsCount = 0;
 
   const insertTrend = db.prepare(`
     INSERT OR REPLACE INTO trends (id, title, geo, approx_traffic, pub_date, articles_json, category, status, created_at)
@@ -239,6 +247,11 @@ export async function importDbJson(jsonData: any): Promise<{ success: boolean; m
   const insertPost = db.prepare(`
     INSERT OR REPLACE INTO posts (id, trend_id, trend_title, post_content, comment_content, source_urls, status, fb_post_url, fb_post_id, comment_id, error_message, screenshot_path, scheduled_at, published_at, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
+  `);
+
+  const insertReel = db.prepare(`
+    INSERT OR REPLACE INTO reels (id, video_path, video_filename, caption, status, scheduled_at, published_at, error_message, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
   `);
 
   const insertSetting = db.prepare(`
@@ -293,6 +306,23 @@ export async function importDbJson(jsonData: any): Promise<{ success: boolean; m
       }
     }
 
+    if (Array.isArray(jsonData.reels)) {
+      for (const r of jsonData.reels) {
+        insertReel.run(
+          r.id || 'reel_' + Date.now() + Math.random().toString(36).substring(2, 5),
+          r.video_path || '',
+          r.video_filename || null,
+          r.caption || '',
+          r.status || 'draft',
+          r.scheduled_at || null,
+          r.published_at || null,
+          r.error_message || null,
+          r.created_at || null
+        );
+        reelsCount++;
+      }
+    }
+
     if (Array.isArray(jsonData.settings)) {
       for (const s of jsonData.settings) {
         if (s.key && s.value !== undefined) {
@@ -317,11 +347,11 @@ export async function importDbJson(jsonData: any): Promise<{ success: boolean; m
 
   runImport();
 
-  logActivity('SUCCESS', 'BACKUP', `Đã nhập dữ liệu JSON: ${postsCount} bài viết, ${trendsCount} xu hướng.`);
+  logActivity('SUCCESS', 'BACKUP', `Đã nhập dữ liệu JSON: ${postsCount} bài viết, ${reelsCount} reel, ${trendsCount} xu hướng.`);
   return {
     success: true,
-    message: `Đã nhập thành công ${postsCount} bài viết và ${trendsCount} xu hướng!`,
-    counts: { trends: trendsCount, posts: postsCount },
+    message: `Đã nhập thành công ${postsCount} bài viết, ${reelsCount} reel và ${trendsCount} xu hướng!`,
+    counts: { trends: trendsCount, posts: postsCount, reels: reelsCount },
   };
 }
 

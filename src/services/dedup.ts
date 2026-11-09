@@ -269,13 +269,23 @@ export function checkDuplicatePublish(
 export function markTrendAsPublished(trendIdOrTitle: { trend_id?: string | null; trend_title: string }): void {
   try {
     if (trendIdOrTitle.trend_id) {
-      db.prepare("UPDATE trends SET status = 'published' WHERE id = ?").run(trendIdOrTitle.trend_id);
+      db.prepare(`
+        UPDATE trends 
+        SET status = 'published' 
+        WHERE id = ? 
+          AND articles_json IS NOT NULL 
+          AND articles_json != '' 
+          AND articles_json != '[]'
+      `).run(trendIdOrTitle.trend_id);
     }
     if (trendIdOrTitle.trend_title) {
       db.prepare(`
         UPDATE trends 
         SET status = 'published' 
         WHERE LOWER(TRIM(title)) = LOWER(TRIM(?))
+          AND articles_json IS NOT NULL 
+          AND articles_json != '' 
+          AND articles_json != '[]'
       `).run(trendIdOrTitle.trend_title);
     }
   } catch (err: any) {

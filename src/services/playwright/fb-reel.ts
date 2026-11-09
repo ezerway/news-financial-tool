@@ -10,8 +10,10 @@ import {
 } from './session';
 import { dismissWhatsAppPopup } from './fb-automation';
 import { logActivity } from '@/lib/db';
+import { replaceDateWildcards } from '@/lib/date';
 
 export interface PostReelOptions {
+  reelId?: string;
   filePath: string;
   content?: string;
   headless?: boolean;
@@ -25,10 +27,56 @@ export interface PostReelResult {
   message: string;
   filePath: string;
   error?: string;
+  reelUrl?: string;
+  screenshotPath?: string;
+  debugVideoPath?: string;
 }
 
 const FB_CONTENT_LIBRARY_URL =
   'https://www.facebook.com/professional_dashboard/content/content_library/';
+
+const VIDEOS_DIR = path.join(process.cwd(), 'storage', 'videos');
+const SCREENSHOTS_DIR = path.join(process.cwd(), 'storage', 'screenshots');
+
+if (!fs.existsSync(VIDEOS_DIR)) {
+  fs.mkdirSync(VIDEOS_DIR, { recursive: true });
+}
+if (!fs.existsSync(SCREENSHOTS_DIR)) {
+  fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+}
+
+function normalizeReelUrl(rawHrefOrId: string): string {
+  try {
+    const trimmed = rawHrefOrId.trim();
+    // Case 0: Pure numeric ID (từ attribute [data-video-id])
+    if (/^\d+$/.test(trimmed)) {
+      return `https://www.facebook.com/reel/${trimmed}/`;
+    }
+
+    // Case 1: Extract numeric Reel ID from /reel/123456789/
+    const reelIdMatch = trimmed.match(/\/reel\/(\d+)/i);
+    if (reelIdMatch && reelIdMatch[1]) {
+      return `https://www.facebook.com/reel/${reelIdMatch[1]}/`;
+    }
+
+    // Case 2: Full URL with query params
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      const u = new URL(trimmed);
+      u.searchParams.delete('__tn__');
+      u.searchParams.delete('__cft__[0]');
+      return u.toString();
+    }
+
+    // Case 3: Relative path
+    if (trimmed.startsWith('/')) {
+      return `https://www.facebook.com${trimmed}`;
+    }
+
+    return `https://www.facebook.com/reel/${trimmed}/`;
+  } catch {
+    return rawHrefOrId;
+  }
+}
 
 /**
  * Automate Facebook Reel posting:
@@ -41,6 +89,12 @@ export async function uploadFacebookReel(
   options: PostReelOptions
 ): Promise<PostReelResult> {
   const { filePath, content = '', headless = false, onProgress, keepOpen = false } = options;
+
+  const idTag = options.reelId ? options.reelId.replace(/[^a-zA-Z0-9_-]/g, '_') : 'standalone';
+  const timestamp = Date.now();
+  const screenshotFileName = `reel_error_${idTag}_${timestamp}.png`;
+  const screenshotFullPath = path.join(SCREENSHOTS_DIR, screenshotFileName);
+  const videoFileName = `reel_${idTag}_${timestamp}.webm`;
 
   const notify = (msg: string, level: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS' = 'INFO') => {
     console.log(`[Reel Automation] ${msg}`);
@@ -86,6 +140,7 @@ export async function uploadFacebookReel(
   let page: Page | null = null;
   let isStandaloneBrowser = false;
   let browser: any = null;
+  let video: any = null;
 
   try {
     notify('Khởi chạy trình duyệt Playwright Chromium...');
@@ -96,6 +151,10 @@ export async function uploadFacebookReel(
       context = await chromium.launchPersistentContext(getUserDataDir(), {
         headless,
         viewport: { width: 1366, height: 850 },
+        recordVideo: {
+          dir: VIDEOS_DIR,
+          size: { width: 1366, height: 850 },
+        },
         userAgent:
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         args: launchArgs,
@@ -111,6 +170,10 @@ export async function uploadFacebookReel(
       const storageState = fs.existsSync(sessionPath) ? sessionPath : undefined;
       context = await browser.newContext({
         viewport: { width: 1366, height: 850 },
+        recordVideo: {
+          dir: VIDEOS_DIR,
+          size: { width: 1366, height: 850 },
+        },
         storageState,
         userAgent:
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -125,6 +188,7 @@ export async function uploadFacebookReel(
     await injectSessionCookies(context);
 
     page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
+    video = page.video();
 
     // Step 2: Open Professional Dashboard Content Library URL
     notify(`Đang mở: ${FB_CONTENT_LIBRARY_URL}`);
@@ -139,7 +203,7 @@ export async function uploadFacebookReel(
       notify('Facebook yêu cầu đăng nhập. Vui lòng đăng nhập tài khoản trên cửa sổ trình duyệt...', 'WARN');
       // Give user time if not headless
       if (!headless) {
-        await page.waitForURL((url) => !url.toString().includes('login'), { timeout: 120000 }).catch(() => {});
+        await page.waitForURL((url) => !url.toString().includes('login'), { timeout: 120000 }).catch(() => { });
         await page.waitForTimeout(3000);
       }
     }
@@ -191,7 +255,7 @@ export async function uploadFacebookReel(
     const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 30000 });
 
     notify('Đang click [role="menuitem"] có text là "Reel"...');
-    await targetMenuItem.scrollIntoViewIfNeeded().catch(() => {});
+    await targetMenuItem.scrollIntoViewIfNeeded().catch(() => { });
     await targetMenuItem.click();
 
     notify('Đang đợi sự kiện filechooser để put file...');
@@ -205,7 +269,7 @@ export async function uploadFacebookReel(
         .first();
       if ((await uploadTrigger.count()) > 0) {
         const retryFileChooser = page.waitForEvent('filechooser', { timeout: 15000 });
-        await uploadTrigger.click({ force: true }).catch(() => {});
+        await uploadTrigger.click({ force: true }).catch(() => { });
         fileChooser = await retryFileChooser.catch(() => null);
       }
     }
@@ -223,11 +287,12 @@ export async function uploadFacebookReel(
     const editor = page.locator('[aria-label="Posts"] [contenteditable="true"]').first();
     await editor.waitFor({ state: 'visible', timeout: 45000 });
 
-    if (content && content.trim()) {
-      notify(`Đang điền nội dung bài viết (${content.length} ký tự)...`);
+    const finalContent = replaceDateWildcards(content);
+    if (finalContent && finalContent.trim()) {
+      notify(`Đang điền nội dung bài viết (${finalContent.length} ký tự, đã xử lý wildcard %%DATE%%)...`);
       await editor.click();
       await page.waitForTimeout(500);
-      await page.keyboard.insertText(content);
+      await page.keyboard.insertText(finalContent);
       await page.waitForTimeout(1000);
       notify('Đã điền nội dung bài viết thành công!');
     }
@@ -253,7 +318,7 @@ export async function uploadFacebookReel(
           await page.waitForTimeout(500);
         }
 
-        await mentionsSuggestions.first().waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+        await mentionsSuggestions.first().waitFor({ state: 'hidden', timeout: 5000 }).catch(() => { });
         notify('Đã đóng popup Mentions suggestions thành công.');
       }
     } catch {
@@ -274,7 +339,7 @@ export async function uploadFacebookReel(
     }
 
     await audioTab.waitFor({ state: 'visible', timeout: 25000 });
-    await audioTab.scrollIntoViewIfNeeded().catch(() => {});
+    await audioTab.scrollIntoViewIfNeeded().catch(() => { });
     await audioTab.click();
     notify('Đã click vào thẻ Audio.');
     await page.waitForTimeout(2000);
@@ -293,7 +358,7 @@ export async function uploadFacebookReel(
       const randomIndex = Math.floor(Math.random() * songCount);
       const targetSong = songItems.nth(randomIndex);
       notify(`Đang chọn bài hát số ${randomIndex + 1}...`);
-      await targetSong.scrollIntoViewIfNeeded().catch(() => {});
+      await targetSong.scrollIntoViewIfNeeded().catch(() => { });
       await targetSong.click();
       await page.waitForTimeout(2000);
     }
@@ -336,8 +401,84 @@ export async function uploadFacebookReel(
       await page.waitForTimeout(1000);
     }
 
-    // Wait a few seconds for Facebook to process the published reel
-    await page.waitForTimeout(5000);
+    // Bước 13: Đợi khoảng 30 giây để Facebook xử lý video và xuất bản vào bảng tin
+    notify('Đang đợi khoảng 30 giây để Facebook xử lý video và xuất bản Reel...');
+    await page.waitForTimeout(30000);
+
+    // Bước 14: Vào lại https://www.facebook.com/?filter=all&sk=h_chr để lấy link reel
+    let reelUrl: string | undefined;
+    const CHRONOLOGICAL_FEED_URL = 'https://www.facebook.com/?filter=all&sk=h_chr';
+    try {
+      notify(`Đang mở bảng tin gần đây nhất: ${CHRONOLOGICAL_FEED_URL}`);
+      await page.goto(CHRONOLOGICAL_FEED_URL, {
+        waitUntil: 'domcontentloaded',
+        timeout: 45000,
+      }).catch(() => { });
+      await page.waitForTimeout(5000);
+
+      notify('Đang tìm kiếm link Reel bằng selector: [data-video-id]');
+      const primarySelector = '[data-video-id]';
+      let reelLinkLocator = page.locator(primarySelector).first();
+      let isFound = (await reelLinkLocator.count()) > 0;
+
+      // Nếu chưa thấy ngay, cuộn nhẹ trang xuống và đợi thêm
+      if (!isFound) {
+        await page.mouse.wheel(0, 300);
+        await page.waitForTimeout(3000);
+        isFound = (await reelLinkLocator.count()) > 0;
+      }
+
+      // Thử cuộn thêm lần nữa nếu chưa thấy
+      if (!isFound) {
+        await page.mouse.wheel(0, 500);
+        await page.waitForTimeout(3000);
+        isFound = (await reelLinkLocator.count()) > 0;
+      }
+
+
+      // Ưu tiên 1: Trích xuất value của attribute [data-video-id] từ phần tử Reel tìm thấy
+      let videoId: string | null = null;
+      if (isFound) {
+        videoId = await reelLinkLocator.evaluate((el: HTMLElement) => {
+          // 1. Kiểm tra trực tiếp trên thẻ
+          const direct = el.getAttribute('data-video-id');
+          if (direct) return direct;
+
+          // 2. Kiểm tra phần tử cha hoặc container gần nhất có data-video-id
+          const ancestor = el.closest('[data-video-id]');
+          if (ancestor) return ancestor.getAttribute('data-video-id');
+
+          // 3. Kiểm tra phần tử con
+          const descendant = el.querySelector('[data-video-id]');
+          if (descendant) return descendant.getAttribute('data-video-id');
+
+          // 4. Tìm trong feed post unit
+          const postContainer = el.closest('[role="article"], [data-pagelet*="FeedUnit"], div[role="feed"] > div');
+          if (postContainer) {
+            const item = postContainer.querySelector('[data-video-id]');
+            if (item) return item.getAttribute('data-video-id');
+          }
+          return null;
+        }).catch(() => null);
+      }
+
+      // Ưu tiên 2: Nếu chưa tìm thấy videoId từ reelLinkLocator, tìm trực tiếp phần tử mang [data-video-id] trên feed
+      if (!videoId) {
+        const dataVideoLocator = page.locator('a[href*="reel"][data-video-id], [data-video-id]').first();
+        if ((await dataVideoLocator.count()) > 0) {
+          videoId = await dataVideoLocator.getAttribute('data-video-id').catch(() => null);
+        }
+      }
+
+      if (videoId) {
+        reelUrl = normalizeReelUrl(videoId);
+        notify(`Đã lấy thành công link Reel từ attr [data-video-id] (${videoId}): ${reelUrl}`, 'SUCCESS');
+      } else {
+        notify('Chưa tìm thấy link Reel trên bảng tin gần đây nhất (có thể Facebook vẫn đang xử lý nền).', 'WARN');
+      }
+    } catch (fetchErr: any) {
+      notify(`Không thể lấy link Reel sau khi đăng: ${fetchErr.message}`, 'WARN');
+    }
 
     // Save session state to keep cookies fresh
     try {
@@ -350,30 +491,57 @@ export async function uploadFacebookReel(
 
     if (keepOpen && !headless) {
       notify('Giữ trình duyệt mở để bạn theo dõi trạng thái hoàn tất của Reel...');
+    } else {
+      // Đóng page để hoàn thành ghi video
+      if (page && !page.isClosed()) {
+        await page.close().catch(() => { });
+      }
+      // Reel đăng thành công: xóa video tạm để tiết kiệm dung lượng ổ cứng
+      if (video) {
+        try {
+          await video.delete().catch(() => { });
+        } catch { }
+      }
     }
 
     return {
       success: true,
-      message: 'Đã xuất bản Reel Facebook thành công!',
+      message: reelUrl
+        ? `Đã xuất bản Reel Facebook thành công! Link: ${reelUrl}`
+        : 'Đã xuất bản Reel Facebook thành công!',
       filePath: resolvedPath,
+      reelUrl,
     };
   } catch (error: any) {
     const errMsg = error?.message || String(error);
     notify(`Lỗi trong quá trình đăng Reel: ${errMsg}`, 'ERROR');
 
-    // Take debug screenshot if page is available
+    let savedScreenshotFileName: string | undefined = undefined;
+    let savedVideoFileName: string | undefined = undefined;
+
+    // Chụp ảnh màn hình lỗi
     if (page && !page.isClosed()) {
       try {
-        const errorScreenshot = path.join(
-          process.cwd(),
-          'storage',
-          'screenshots',
-          `reel_error_${Date.now()}.png`
-        );
-        await page.screenshot({ path: errorScreenshot, fullPage: false }).catch(() => {});
-        notify(`Đã lưu ảnh chụp màn hình lỗi tại: ${errorScreenshot}`);
-      } catch {
-        // Ignore screenshot errors
+        await page.screenshot({ path: screenshotFullPath, fullPage: false }).catch(() => { });
+        savedScreenshotFileName = screenshotFileName;
+        notify(`Đã lưu ảnh chụp màn hình lỗi tại: ${screenshotFileName}`);
+      } catch (sErr: any) {
+        notify(`Không thể chụp ảnh màn hình lỗi: ${sErr.message}`, 'WARN');
+      }
+
+      // Đóng page để Playwright kết thúc luồng ghi video
+      await page.close().catch(() => { });
+    }
+
+    // Lưu video quay lại toàn bộ quá trình lỗi để debug
+    if (video) {
+      try {
+        const finalVideoPath = path.join(VIDEOS_DIR, videoFileName);
+        await video.saveAs(finalVideoPath);
+        savedVideoFileName = videoFileName;
+        notify(`[Video Debug] Đã lưu video quá trình đăng Reel lỗi: ${videoFileName}`, 'SUCCESS');
+      } catch (vErr: any) {
+        notify(`Lỗi lưu video debug: ${vErr.message}`, 'WARN');
       }
     }
 
@@ -382,12 +550,14 @@ export async function uploadFacebookReel(
       message: `Đăng Reel thất bại: ${errMsg}`,
       filePath: resolvedPath,
       error: errMsg,
+      screenshotPath: savedScreenshotFileName,
+      debugVideoPath: savedVideoFileName,
     };
   } finally {
     if (!keepOpen) {
-      if (page && !page.isClosed()) await page.close().catch(() => {});
-      if (context) await context.close().catch(() => {});
-      if (isStandaloneBrowser && browser) await browser.close().catch(() => {});
+      if (page && !page.isClosed()) await page.close().catch(() => { });
+      if (context) await context.close().catch(() => { });
+      if (isStandaloneBrowser && browser) await browser.close().catch(() => { });
     }
   }
 }

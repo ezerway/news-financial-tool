@@ -37,6 +37,21 @@ export interface PostItem {
   created_at?: string;
 }
 
+export interface ReelItem {
+  id: string;
+  video_path: string;
+  video_filename?: string | null;
+  caption: string;
+  status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
+  scheduled_at?: string | null;
+  published_at?: string | null;
+  fb_post_url?: string | null;
+  error_message?: string | null;
+  screenshot_path?: string | null;
+  debug_video_path?: string | null;
+  created_at?: string;
+}
+
 export interface ActivityLog {
   id: string;
   level: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS';

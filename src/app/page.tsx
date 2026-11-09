@@ -5,16 +5,18 @@ import Header from '@/components/Header';
 import StatsCards from '@/components/StatsCards';
 import TrendsTab from '@/components/TrendsTab';
 import PostsTab from '@/components/PostsTab';
+import ReelsTab from '@/components/ReelsTab';
 import LogsTab from '@/components/LogsTab';
 import SettingsTab from '@/components/SettingsTab';
 import FacebookConnectModal from '@/components/FacebookConnectModal';
-import { TrendItem, PostItem, ActivityLog } from '@/types';
+import { TrendItem, PostItem, ReelItem, ActivityLog } from '@/types';
 import { formatTime } from '@/lib/date';
 import { useI18n } from '@/context/I18nThemeContext';
 import { ToastContainer, ToastItem, ToastType } from '@/components/Toast';
 import {
   TrendingUp,
   FileText,
+  Film,
   Activity,
   Settings,
   Sparkles,
@@ -28,9 +30,10 @@ import {
 
 export default function DashboardPage() {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<'overview' | 'trends' | 'posts' | 'logs' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'trends' | 'posts' | 'reels' | 'logs' | 'settings'>('overview');
   const [trends, setTrends] = useState<TrendItem[]>([]);
   const [posts, setPosts] = useState<PostItem[]>([]);
+  const [reels, setReels] = useState<ReelItem[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [fbStatus, setFbStatus] = useState({
@@ -43,7 +46,10 @@ export default function DashboardPage() {
   const [isRunningCycle, setIsRunningCycle] = useState(false);
   const [isCrawling, setIsCrawling] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [isRetryingAll, setIsRetryingAll] = useState<boolean>(false);
   const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [publishingReelId, setPublishingReelId] = useState<string | null>(null);
   const [commentingId, setCommentingId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isFbModalOpen, setIsFbModalOpen] = useState(false);
@@ -62,9 +68,10 @@ export default function DashboardPage() {
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
     try {
-      const [trendsRes, postsRes, logsRes, settingsRes] = await Promise.all([
+      const [trendsRes, postsRes, reelsRes, logsRes, settingsRes] = await Promise.all([
         fetch('/api/trends'),
         fetch('/api/posts'),
+        fetch('/api/reels'),
         fetch('/api/logs?limit=50'),
         fetch('/api/settings'),
       ]);
@@ -76,6 +83,10 @@ export default function DashboardPage() {
       if (postsRes.ok) {
         const data = await postsRes.json();
         setPosts(data.posts || []);
+      }
+      if (reelsRes.ok) {
+        const data = await reelsRes.json();
+        setReels(data.reels || []);
       }
       if (logsRes.ok) {
         const data = await logsRes.json();
@@ -243,6 +254,51 @@ export default function DashboardPage() {
     }
   };
 
+  // Retry finding sources and publish handler
+  const handleRetryAndPublish = async (trendId?: string, allMissing?: boolean) => {
+    if (trendId) setRetryingId(trendId);
+    if (allMissing) setIsRetryingAll(true);
+
+    showToast(
+      allMissing
+        ? 'Đang quét và chạy lại tìm nguồn & đăng bài hàng loạt...'
+        : 'Đang tìm link báo chí nguồn và tiến hành đăng bài lên Facebook...',
+      'info'
+    );
+
+    try {
+      const res = await fetch('/api/trends/retry-publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trendId, allMissing }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (allMissing) {
+          const processed = data.result?.processed || 0;
+          const successful = data.result?.successfulCount || 0;
+          showToast(
+            `Đã hoàn thành quét: ${successful}/${processed} bài tìm nguồn và đăng thành công!`,
+            successful > 0 ? 'success' : 'warning'
+          );
+        } else {
+          showToast(
+            data.result?.message || 'Đã tìm nguồn và xuất bản bài viết thành công!',
+            data.result?.success ? 'success' : 'warning'
+          );
+        }
+        await fetchData();
+      } else {
+        showToast(data.error || 'Có lỗi xảy ra khi chạy lại', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Lỗi: ${err.message}`, 'error');
+    } finally {
+      if (trendId) setRetryingId(null);
+      if (allMissing) setIsRetryingAll(false);
+    }
+  };
+
   // Publish handler
   const handlePublish = async (postId: string, dryRun: boolean) => {
     setPublishingId(postId);
@@ -399,13 +455,106 @@ export default function DashboardPage() {
     }
   };
 
+  // Reel Handlers
+  const handleCreateReel = async (data: {
+    video_path: string;
+    video_filename?: string;
+    caption: string;
+    scheduled_at?: string | null;
+    status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
+  }) => {
+    try {
+      const res = await fetch('/api/reels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        showToast(
+          data.status === 'scheduled'
+            ? 'Đã lên lịch đăng Reel thành công!'
+            : 'Đã lưu Reel thành công!',
+          'success'
+        );
+        await fetchData(true);
+      } else {
+        showToast(`Lỗi tạo Reel: ${resData.error}`, 'error');
+      }
+    } catch (err: any) {
+      showToast(`Lỗi tạo Reel: ${err.message}`, 'error');
+    }
+  };
+
+  const handleUpdateReel = async (
+    reelId: string,
+    data: { caption?: string; scheduled_at?: string | null; status?: string }
+  ) => {
+    try {
+      const res = await fetch(`/api/reels/${reelId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        showToast('Đã cập nhật Reel thành công!', 'success');
+        await fetchData(true);
+      } else {
+        showToast(`Lỗi cập nhật: ${resData.error}`, 'error');
+      }
+    } catch (err: any) {
+      showToast(`Lỗi cập nhật: ${err.message}`, 'error');
+    }
+  };
+
+  const handleDeleteReel = async (reelId: string) => {
+    try {
+      const res = await fetch(`/api/reels/${reelId}`, { method: 'DELETE' });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        showToast('Đã xóa Reel thành công!', 'success');
+        await fetchData(true);
+      } else {
+        showToast(`Lỗi xóa: ${resData.error}`, 'error');
+      }
+    } catch (err: any) {
+      showToast(`Lỗi xóa: ${err.message}`, 'error');
+    }
+  };
+
+  const handlePublishReel = async (reelId: string) => {
+    setPublishingReelId(reelId);
+    showToast('Đang khởi chạy Playwright Chromium để đăng Reel lên Facebook...', 'info');
+    try {
+      const res = await fetch(`/api/reels/${reelId}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headless: true }),
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        showToast('Đã xuất bản Reel Facebook thành công!', 'success');
+        await fetchData(true);
+      } else {
+        showToast(`Xuất bản Reel thất bại: ${resData.error || resData.result?.message}`, 'error');
+        await fetchData(true);
+      }
+    } catch (err: any) {
+      showToast(`Lỗi xuất bản: ${err.message}`, 'error');
+      await fetchData(true);
+    } finally {
+      setPublishingReelId(null);
+    }
+  };
+
   const handleConnectFb = (url?: string) => {
     setFbTargetUrlForModal(url);
     setIsFbModalOpen(true);
   };
 
   const tabItems: Array<{
-    id: 'overview' | 'trends' | 'posts' | 'logs' | 'settings';
+    id: 'overview' | 'trends' | 'posts' | 'reels' | 'logs' | 'settings';
     label: string;
     icon: any;
     count?: number;
@@ -413,6 +562,7 @@ export default function DashboardPage() {
     { id: 'overview', label: t('tab_overview'), icon: Sparkles },
     { id: 'trends', label: t('tab_trends'), icon: TrendingUp, count: trends.length },
     { id: 'posts', label: t('tab_posts'), icon: FileText, count: posts.length },
+    { id: 'reels', label: t('tab_reels') || 'Reels', icon: Film, count: reels.length },
     { id: 'logs', label: t('tab_logs'), icon: Activity, count: logs.length },
     { id: 'settings', label: t('tab_settings'), icon: Settings },
   ];
@@ -437,6 +587,7 @@ export default function DashboardPage() {
         tabCounts={{
           trends: trends.length,
           posts: posts.length,
+          reels: reels.length,
           logs: logs.length,
         }}
       />
@@ -611,8 +762,11 @@ export default function DashboardPage() {
               onCrawl={handleCrawl}
               onGenerate={handleGenerate}
               onFindSources={handleFindSources}
+              onRetryAndPublish={handleRetryAndPublish}
               isCrawling={isCrawling}
               generatingId={generatingId}
+              retryingId={retryingId}
+              isRetryingAll={isRetryingAll}
             />
           )}
 
@@ -626,6 +780,18 @@ export default function DashboardPage() {
               onDeleteAllFailed={handleDeleteAllFailedPosts}
               publishingId={publishingId}
               commentingId={commentingId}
+            />
+          )}
+
+          {activeTab === 'reels' && (
+            <ReelsTab
+              reels={reels}
+              onRefresh={fetchData}
+              onPublishReel={handlePublishReel}
+              onDeleteReel={handleDeleteReel}
+              onUpdateReel={handleUpdateReel}
+              onCreateReel={handleCreateReel}
+              publishingReelId={publishingReelId}
             />
           )}
 

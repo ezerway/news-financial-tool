@@ -57,3 +57,26 @@ export function formatDate(
   if (!d) return '';
   return d.toLocaleDateString(undefined, options);
 }
+
+/**
+ * Formats date strictly as DD/MM/YYYY (e.g. 09/11/2026).
+ */
+export function formatDateDDMMYYYY(dateInput?: string | number | Date | null): string {
+  const d = parseDate(dateInput) || new Date();
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+/**
+ * Replaces wildcard %%DATE%% (case-insensitive) with date in DD/MM/YYYY format.
+ */
+export function replaceDateWildcards(
+  text: string,
+  dateInput?: string | number | Date | null
+): string {
+  if (!text) return '';
+  const dateFormatted = formatDateDDMMYYYY(dateInput);
+  return text.replace(/%%DATE%%/gi, dateFormatted);
+}
