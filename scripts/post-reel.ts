@@ -4,7 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import { uploadFacebookReel } from '../src/services/playwright/fb-reel';
 import { createReel } from '../src/services/reels';
-import db, { logActivity } from '../src/lib/db';
+import db, { logActivity, resolveHeadless, isDeveloperMode } from '../src/lib/db';
 
 function askQuestion(rl: readline.Interface, query: string): Promise<string> {
   return new Promise((resolve) => rl.question(query, resolve));
@@ -127,7 +127,9 @@ async function main() {
   } else {
     console.log('📝 Nội dung Reel: (Trống)');
   }
-  console.log(`🖥️  Chế độ hiển thị: ${headless ? 'Headless (Chạy ẩn)' : 'Có giao diện (Hiện trình duyệt)'}`);
+  const effectiveHeadless = resolveHeadless(headless);
+  const devNotice = isDeveloperMode() ? ' (Ghi đè bởi Developer Mode)' : '';
+  console.log(`🖥️  Chế độ hiển thị: ${effectiveHeadless ? 'Headless (Chạy ẩn)' : 'Có giao diện (Hiện trình duyệt)'}${devNotice}`);
   console.log('------------------------------------------------------\n');
 
   // Trường hợp 1: Lưu dưới dạng Bản thảo (Draft)
@@ -175,8 +177,8 @@ async function main() {
       reelId: reel.id,
       filePath: selectedFilePath,
       content: selectedContent,
-      headless,
-      keepOpen: !headless,
+      headless: effectiveHeadless,
+      keepOpen: !effectiveHeadless,
     });
 
     if (result.success) {

@@ -9,7 +9,7 @@ import {
   injectSessionCookies,
 } from './session';
 import { dismissWhatsAppPopup } from './fb-automation';
-import { logActivity } from '@/lib/db';
+import { logActivity, resolveHeadless } from '@/lib/db';
 import { replaceDateWildcards } from '@/lib/date';
 
 export interface PostReelOptions {
@@ -88,7 +88,8 @@ function normalizeReelUrl(rawHrefOrId: string): string {
 export async function uploadFacebookReel(
   options: PostReelOptions
 ): Promise<PostReelResult> {
-  const { filePath, content = '', headless = false, onProgress, keepOpen = false } = options;
+  const { filePath, content = '', headless: requestedHeadless = false, onProgress, keepOpen = false } = options;
+  const headless = resolveHeadless(requestedHeadless);
 
   const idTag = options.reelId ? options.reelId.replace(/[^a-zA-Z0-9_-]/g, '_') : 'standalone';
   const timestamp = Date.now();

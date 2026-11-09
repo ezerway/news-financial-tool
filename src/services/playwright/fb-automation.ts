@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import path from 'path';
 import fs from 'fs';
-import db, { logActivity, getSetting } from '@/lib/db';
+import db, { logActivity, getSetting, resolveHeadless } from '@/lib/db';
 import { PostItem } from '@/types';
 import { isSessionAvailable, getUserDataDir, injectSessionCookies, getSessionPath, getChromiumLaunchArgs } from './session';
 import { checkDuplicatePublish, markTrendAsPublished } from '../dedup';
@@ -320,7 +320,7 @@ export async function executePublishAndComment(
   options?: { dryRun?: boolean; headless?: boolean }
 ): Promise<PublishResult> {
   const dryRun = options?.dryRun ?? false;
-  const headless = options?.headless ?? true;
+  const headless = resolveHeadless(options?.headless ?? true);
 
   const { targetType, targetUrl, pageName } = resolveTargetUrl();
 
@@ -830,7 +830,7 @@ export async function executeCommentOnly(
     throw new Error('Chưa có liên kết bài viết Facebook (directPostUrl / fb_post_url). executeCommentOnly chỉ chạy khi có directPostUrl.');
   }
 
-  const headless = options?.headless ?? true;
+  const headless = resolveHeadless(options?.headless ?? true);
   const { pageName } = resolveTargetUrl();
   const targetUrl = directPostUrl;
 

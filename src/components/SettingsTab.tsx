@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Save,
   Key,
@@ -13,6 +13,7 @@ import {
   Lock,
   HardDrive,
   Layers,
+  Terminal,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import BackupRestoreSection from './BackupRestoreSection';
@@ -52,12 +53,31 @@ export default function SettingsTab({
     target_geo: settings.target_geo || 'VN',
     post_tone: settings.post_tone || 'finance_news',
     auto_mode: settings.auto_mode || 'false',
+    developer_mode: settings.developer_mode || 'false',
     filter_keywords:
       settings.filter_keywords ||
       'tài chính, chứng khoán, ngân hàng, bất động sản, kinh tế, crypto, usd, vàng, lạm phát',
     crawler_interval_minutes: settings.crawler_interval_minutes || '60',
     posts_per_cycle: settings.posts_per_cycle || '1',
   });
+
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      gemini_api_key: settings.gemini_api_key ?? prev.gemini_api_key,
+      fb_target_type: settings.fb_target_type ?? prev.fb_target_type,
+      fb_page_url: settings.fb_page_url ?? prev.fb_page_url,
+      fb_page_name: settings.fb_page_name ?? prev.fb_page_name,
+      fb_target_url: settings.fb_target_url ?? prev.fb_target_url,
+      target_geo: settings.target_geo ?? prev.target_geo,
+      post_tone: settings.post_tone ?? prev.post_tone,
+      auto_mode: settings.auto_mode ?? prev.auto_mode,
+      developer_mode: settings.developer_mode ?? prev.developer_mode,
+      filter_keywords: settings.filter_keywords ?? prev.filter_keywords,
+      crawler_interval_minutes: settings.crawler_interval_minutes ?? prev.crawler_interval_minutes,
+      posts_per_cycle: settings.posts_per_cycle ?? prev.posts_per_cycle,
+    }));
+  }, [settings]);
 
   const [showKey, setShowKey] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -296,6 +316,30 @@ export default function SettingsTab({
                 onClick={() => setForm({ ...form, auto_mode: form.auto_mode === 'true' ? 'false' : 'true' })}
                 className={`w-12 h-6 sm:w-14 sm:h-7 flex items-center rounded-full p-1 transition-colors duration-200 shrink-0 ${
                   form.auto_mode === 'true' ? 'bg-indigo-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+                }`}
+              >
+                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white shadow-md"></div>
+              </button>
+            </div>
+
+            {/* Developer Mode Toggle */}
+            <div className="flex items-center justify-between p-3.5 rounded-xl app-tag gap-3 border border-amber-500/20 bg-amber-500/5">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-inherit flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                  <Terminal className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{lang === 'vi' ? 'Chế độ Developer (Mở trình duyệt)' : 'Developer Mode (Show Browser)'}</span>
+                </div>
+                <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                  {lang === 'vi'
+                    ? 'Mặc định là TẮT (chạy ngầm headless). Khi BẬT, mọi tác vụ Playwright (đăng bài, reels, bình luận, cào tin) sẽ mở cửa sổ trình duyệt (headless = false) để bạn quan sát và gỡ lỗi.'
+                    : 'Default is OFF (headless). When ON, all Playwright operations run with visible browser window (headless = false) for debugging.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, developer_mode: form.developer_mode === 'true' ? 'false' : 'true' })}
+                className={`w-12 h-6 sm:w-14 sm:h-7 flex items-center rounded-full p-1 transition-colors duration-200 shrink-0 ${
+                  form.developer_mode === 'true' ? 'bg-amber-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
                 }`}
               >
                 <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white shadow-md"></div>

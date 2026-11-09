@@ -21,6 +21,7 @@ import {
   Download,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
+import Pagination from './Pagination';
 import { formatDateTime } from '@/lib/date';
 import { useI18n } from '@/context/I18nThemeContext';
 
@@ -59,6 +60,8 @@ export default function PostsTab({
   const [confirmDeleteAllFailed, setConfirmDeleteAllFailed] = useState(false);
   const [isDeletingAllFailed, setIsDeletingAllFailed] = useState(false);
   const [expandedPosts, setExpandedPosts] = useState<Record<string, boolean>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const toggleExpand = (id: string) => {
     setExpandedPosts((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -68,6 +71,10 @@ export default function PostsTab({
     if (filter === 'all') return true;
     return p.status === filter;
   });
+
+  const totalItems = filteredPosts.length;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedPosts = filteredPosts.slice(startIndex, startIndex + pageSize);
 
   const handleStartEdit = (post: PostItem) => {
     setEditingId(post.id);
@@ -99,6 +106,7 @@ export default function PostsTab({
                 key={st}
                 onClick={() => {
                   setFilter(st);
+                  setCurrentPage(1);
                   setConfirmDeleteAllFailed(false);
                 }}
                 className={`btn btn-sm ${
@@ -175,7 +183,7 @@ export default function PostsTab({
         </div>
       ) : (
         <div className="space-y-3 sm:space-y-4">
-          {filteredPosts.map((post) => {
+          {paginatedPosts.map((post) => {
             const isEditing = editingId === post.id;
             const isPublishing = publishingId === post.id;
             const isCommenting = commentingId === post.id;
@@ -458,6 +466,15 @@ export default function PostsTab({
               </div>
             );
           })}
+
+          <Pagination
+            currentPage={currentPage}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[5, 10, 20, 50]}
+          />
         </div>
       )}
 

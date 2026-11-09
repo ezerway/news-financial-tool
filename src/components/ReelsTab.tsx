@@ -28,6 +28,7 @@ import {
   Download,
 } from 'lucide-react';
 import { formatDateTime, formatDateDDMMYYYY, replaceDateWildcards } from '@/lib/date';
+import Pagination from './Pagination';
 import { useI18n } from '@/context/I18nThemeContext';
 
 interface ReelsTabProps {
@@ -96,6 +97,8 @@ export default function ReelsTab({
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [expandedCaptions, setExpandedCaptions] = useState<Record<string, boolean>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -107,6 +110,10 @@ export default function ReelsTab({
     if (filter === 'all') return true;
     return r.status === filter;
   });
+
+  const totalItems = filteredReels.length;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedReels = filteredReels.slice(startIndex, startIndex + pageSize);
 
   const getMinDateTimeLocal = () => {
     const now = new Date();
@@ -326,7 +333,10 @@ export default function ReelsTab({
             return (
               <button
                 key={st}
-                onClick={() => setFilter(st)}
+                onClick={() => {
+                  setFilter(st);
+                  setCurrentPage(1);
+                }}
                 className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost text-slate-500'
                   }`}
               >
@@ -395,8 +405,9 @@ export default function ReelsTab({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredReels.map((reel) => {
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {paginatedReels.map((reel) => {
             const isPublishingThis = publishingReelId === reel.id || reel.status === 'publishing';
             const isDeletingThis = isDeletingId === reel.id;
             const isExpanded = !!expandedCaptions[reel.id];
@@ -690,6 +701,16 @@ export default function ReelsTab({
               </div>
             );
           })}
+          </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[6, 10, 20, 50]}
+          />
         </div>
       )}
 

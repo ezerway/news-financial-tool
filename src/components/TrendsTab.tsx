@@ -16,6 +16,7 @@ import {
   Zap,
   AlertTriangle,
 } from 'lucide-react';
+import Pagination from './Pagination';
 import { useI18n } from '@/context/I18nThemeContext';
 
 interface TrendsTabProps {
@@ -47,6 +48,8 @@ export default function TrendsTab({
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'drafted' | 'unprocessed'>('all');
   const [expandedTrendIds, setExpandedTrendIds] = useState<Record<string, boolean>>({});
   const [searchingSourceId, setSearchingSourceId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
 
   const toggleExpand = (id: string) => {
     setExpandedTrendIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -79,9 +82,14 @@ export default function TrendsTab({
     );
   });
 
+  const totalItems = filteredTrends.length;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedTrends = filteredTrends.slice(startIndex, startIndex + pageSize);
+
   // Handle switching country
   const handleGeoChange = async (newGeo: string) => {
     setSelectedGeo(newGeo);
+    setCurrentPage(1);
     if (newGeo !== 'all') {
       const exists = trends.some((tr) => tr.geo === newGeo);
       if (!exists) {
@@ -105,7 +113,10 @@ export default function TrendsTab({
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
             placeholder={t('search_trends_placeholder')}
             className="w-full h-9.5 sm:h-9 pl-9 pr-3 app-input rounded-lg text-xs placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 transition-colors"
           />
@@ -155,7 +166,10 @@ export default function TrendsTab({
       {/* Quick Status Sub-filters (Smooth Mobile Touch Scroll) */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1 touch-pan-x text-xs">
         <button
-          onClick={() => setStatusFilter('all')}
+          onClick={() => {
+            setStatusFilter('all');
+            setCurrentPage(1);
+          }}
           className={`btn btn-sm shrink-0 ${
             statusFilter === 'all'
               ? 'btn-secondary font-bold ring-1 ring-slate-400/40 shadow-xs'
@@ -166,7 +180,10 @@ export default function TrendsTab({
         </button>
 
         <button
-          onClick={() => setStatusFilter('unprocessed')}
+          onClick={() => {
+            setStatusFilter('unprocessed');
+            setCurrentPage(1);
+          }}
           className={`btn btn-sm shrink-0 ${
             statusFilter === 'unprocessed'
               ? 'btn-secondary font-bold ring-1 ring-slate-400/40 shadow-xs'
@@ -177,7 +194,10 @@ export default function TrendsTab({
         </button>
 
         <button
-          onClick={() => setStatusFilter('drafted')}
+          onClick={() => {
+            setStatusFilter('drafted');
+            setCurrentPage(1);
+          }}
           className={`btn btn-sm shrink-0 ${
             statusFilter === 'drafted'
               ? 'bg-cyan-100 dark:bg-cyan-950/60 text-cyan-800 dark:text-cyan-300 font-bold border border-cyan-300 dark:border-cyan-800 shadow-xs'
@@ -188,7 +208,10 @@ export default function TrendsTab({
         </button>
 
         <button
-          onClick={() => setStatusFilter('published')}
+          onClick={() => {
+            setStatusFilter('published');
+            setCurrentPage(1);
+          }}
           className={`btn btn-sm shrink-0 ${
             statusFilter === 'published'
               ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-emerald-800 shadow-xs'
@@ -211,29 +234,30 @@ export default function TrendsTab({
           </p>
         </div>
       ) : (
-        <div className="rounded-xl app-card divide-y divide-[var(--app-border)] overflow-hidden shadow-xs">
-          {filteredTrends.map((trend, index) => {
-            const isGenerating = generatingId === trend.id;
-            const isSearchingSource = searchingSourceId === trend.id;
-            const isRetryingThis = retryingId === trend.id;
-            const validArticles = (trend.articles || []).filter((a) => a.url && !a.url.includes('google.com'));
-            const hasSourceLinks = validArticles.length > 0;
-            const isTrulyPublished = trend.status === 'published' && hasSourceLinks;
-            const isFalsePublished = trend.status === 'published' && !hasSourceLinks;
-            const isExpanded = !!expandedTrendIds[trend.id];
+        <div className="space-y-3">
+          <div className="rounded-xl app-card divide-y divide-[var(--app-border)] overflow-hidden shadow-xs">
+            {paginatedTrends.map((trend, index) => {
+              const isGenerating = generatingId === trend.id;
+              const isSearchingSource = searchingSourceId === trend.id;
+              const isRetryingThis = retryingId === trend.id;
+              const validArticles = (trend.articles || []).filter((a) => a.url && !a.url.includes('google.com'));
+              const hasSourceLinks = validArticles.length > 0;
+              const isTrulyPublished = trend.status === 'published' && hasSourceLinks;
+              const isFalsePublished = trend.status === 'published' && !hasSourceLinks;
+              const isExpanded = !!expandedTrendIds[trend.id];
 
-            return (
-              <div
-                key={trend.id}
-                className="p-3 sm:p-4 hover:bg-[var(--app-card-hover)] transition-colors"
-              >
-                {/* Main Row Content: Mobile stacked, Tablet/Desktop aligned to top */}
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                  {/* Left: Rank & Title & Source Pills */}
-                  <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
-                    {/* Rank & Traffic Styled Badge */}
-                    <div className="shrink-0 flex flex-col items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 text-center">
-                      <div className="text-[10px] font-mono text-slate-400 font-semibold leading-none">#{index + 1}</div>
+              return (
+                <div
+                  key={trend.id}
+                  className="p-3 sm:p-4 hover:bg-[var(--app-card-hover)] transition-colors"
+                >
+                  {/* Main Row Content: Mobile stacked, Tablet/Desktop aligned to top */}
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    {/* Left: Rank & Title & Source Pills */}
+                    <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
+                      {/* Rank & Traffic Styled Badge */}
+                      <div className="shrink-0 flex flex-col items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 text-center">
+                        <div className="text-[10px] font-mono text-slate-400 font-semibold leading-none">#{startIndex + index + 1}</div>
                       <div className="text-[11px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400 font-mono tracking-tight leading-none mt-1">
                         {trend.approx_traffic || '10K+'}
                       </div>
@@ -407,6 +431,16 @@ export default function TrendsTab({
               </div>
             );
           })}
+          </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[10, 15, 25, 50]}
+          />
         </div>
       )}
     </div>

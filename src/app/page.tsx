@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Header from '@/components/Header';
 import StatsCards from '@/components/StatsCards';
 import TrendsTab from '@/components/TrendsTab';
@@ -35,6 +35,9 @@ export default function DashboardPage() {
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [reels, setReels] = useState<ReelItem[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [logsLimit, setLogsLimit] = useState<string>('200');
+  const logsLimitRef = useRef(logsLimit);
+  logsLimitRef.current = logsLimit;
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [fbStatus, setFbStatus] = useState({
     loggedIn: false,
@@ -72,7 +75,7 @@ export default function DashboardPage() {
         fetch('/api/trends'),
         fetch('/api/posts'),
         fetch('/api/reels'),
-        fetch('/api/logs?limit=50'),
+        fetch(`/api/logs?limit=${encodeURIComponent(logsLimitRef.current)}`),
         fetch('/api/settings'),
       ]);
 
@@ -438,6 +441,33 @@ export default function DashboardPage() {
     }
   };
 
+  const handleLogsLimitChange = async (newLimit: string) => {
+    setLogsLimit(newLimit);
+    logsLimitRef.current = newLimit;
+    try {
+      const res = await fetch(`/api/logs?limit=${encodeURIComponent(newLimit)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLogs(data.logs || []);
+      }
+    } catch (err: any) {
+      console.error('Fetch logs error:', err);
+    }
+  };
+
+  const handleRefreshLogs = async () => {
+    try {
+      const res = await fetch(`/api/logs?limit=${encodeURIComponent(logsLimitRef.current)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLogs(data.logs || []);
+        showToast('Đã làm mới danh sách nhật ký!', 'success');
+      }
+    } catch (err: any) {
+      showToast(`Lỗi làm mới nhật ký: ${err.message}`, 'error');
+    }
+  };
+
   // Save settings
   const handleSaveSettings = async (newSettings: Record<string, string>) => {
     try {
@@ -795,7 +825,16 @@ export default function DashboardPage() {
             />
           )}
 
-          {activeTab === 'logs' && <LogsTab logs={logs} onClearLogs={handleClearLogs} />}
+          {activeTab === 'logs' && (
+            <LogsTab
+              logs={logs}
+              onClearLogs={handleClearLogs}
+              limit={logsLimit}
+              onLimitChange={handleLogsLimitChange}
+              onRefresh={handleRefreshLogs}
+              isLoading={isLoading}
+            />
+          )}
 
           {activeTab === 'settings' && (
             <SettingsTab

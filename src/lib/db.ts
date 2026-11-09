@@ -133,6 +133,7 @@ export function initSchema(database: Database.Database) {
       target_geo: 'VN',
       post_tone: 'finance_news', // finance_news, viral_engaging, concise
       auto_mode: 'false',
+      developer_mode: 'false',
       fb_target_url: 'https://www.facebook.com/',
       crawler_interval_minutes: '60',
       filter_keywords: 'tài chính, chứng khoán, ngân hàng, bất động sản, kinh tế, crypto, usd, vàng, lạm phát',
@@ -357,6 +358,21 @@ export function getAllSettings(): Record<string, string> {
     map[r.key] = r.value;
   }
   return map;
+}
+
+export function isDeveloperMode(): boolean {
+  try {
+    return getSetting('developer_mode', 'false') === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function resolveHeadless(preferredHeadless = true): boolean {
+  if (isDeveloperMode()) {
+    return false;
+  }
+  return preferredHeadless;
 }
 
 export default db;

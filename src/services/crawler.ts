@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { chromium } from 'playwright';
 import * as cheerio from 'cheerio';
-import db, { logActivity } from '@/lib/db';
+import db, { logActivity, resolveHeadless } from '@/lib/db';
 import { TrendItem, NewsArticle } from '@/types';
 import { getChromiumLaunchArgs } from '@/services/playwright/session';
 import { findDuplicatePost, getExistingPosts } from './dedup';
@@ -174,7 +174,7 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
   logActivity('INFO', 'CRAWL', `[Google Trends Finance] Đang mở danh mục Kinh doanh & Tài chính (category=3) cho ${targetGeo}: ${targetUrl}`);
 
   const browser = await chromium.launch({
-    headless: true,
+    headless: resolveHeadless(true),
     args: getChromiumLaunchArgs(),
   });
 

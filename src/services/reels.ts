@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs';
-import db, { logActivity } from '@/lib/db';
+import db, { logActivity, resolveHeadless } from '@/lib/db';
 import { uploadFacebookReel, PostReelResult } from '@/services/playwright/fb-reel';
 import { ReelItem } from '@/types';
 
@@ -171,7 +171,7 @@ export async function publishReelById(
 
   logActivity('INFO', 'POST_REEL', `Bắt đầu xuất bản Reel [${id}]: ${reel.video_filename}`);
 
-  const headless = options?.headless !== undefined ? options.headless : true;
+  const headless = resolveHeadless(options?.headless !== undefined ? options.headless : true);
 
   try {
     const result = await uploadFacebookReel({

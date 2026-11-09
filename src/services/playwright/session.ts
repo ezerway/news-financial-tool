@@ -1,7 +1,9 @@
 import { chromium } from 'playwright';
 import path from 'path';
 import fs from 'fs';
-import { logActivity, getSetting } from '@/lib/db';
+import { logActivity, getSetting, isDeveloperMode, resolveHeadless } from '@/lib/db';
+
+export { isDeveloperMode, resolveHeadless };
 
 // Storage directory management with turbopackIgnore to prevent over-bundling/tracing
 export function getStorageDir(): string {

@@ -2,24 +2,43 @@
 
 import React, { useState } from 'react';
 import { ActivityLog } from '@/types';
-import { Activity, Trash2, CheckCircle2, AlertTriangle, AlertCircle, Info } from 'lucide-react';
+import { Activity, Trash2, CheckCircle2, AlertTriangle, AlertCircle, Info, RefreshCw } from 'lucide-react';
+import Pagination from './Pagination';
 import { formatDateTime } from '@/lib/date';
 import { useI18n } from '@/context/I18nThemeContext';
+
 interface LogsTabProps {
   logs: ActivityLog[];
   onClearLogs: () => Promise<void>;
+  limit?: string;
+  onLimitChange?: (limit: string) => void;
+  onRefresh?: () => void;
+  isLoading?: boolean;
 }
 
-export default function LogsTab({ logs, onClearLogs }: LogsTabProps) {
+export default function LogsTab({
+  logs,
+  onClearLogs,
+  limit = '200',
+  onLimitChange,
+  onRefresh,
+  isLoading = false,
+}: LogsTabProps) {
   const { t, lang } = useI18n();
   const [levelFilter, setLevelFilter] = useState<'all' | 'SUCCESS' | 'INFO' | 'WARN' | 'ERROR'>('all');
   const [actionFilter, setActionFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const filteredLogs = logs.filter((l) => {
     const matchesLevel = levelFilter === 'all' || l.level === levelFilter;
     const matchesAction = actionFilter === 'all' || l.action === actionFilter;
     return matchesLevel && matchesAction;
   });
+
+  const totalItems = filteredLogs.length;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedLogs = filteredLogs.slice(startIndex, startIndex + pageSize);
 
   const getLevelBadge = (level: string) => {
     switch (level) {
@@ -58,14 +77,17 @@ export default function LogsTab({ logs, onClearLogs }: LogsTabProps) {
     <div className="space-y-5">
       {/* Controls Bar */}
       <div className="p-3 sm:p-4 rounded-2xl bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800/80 backdrop-blur-md shadow-sm dark:shadow-lg flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5 flex-1 min-w-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5 flex-1 min-w-0 flex-wrap">
           {/* Level Filter */}
           <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto no-scrollbar">
             {(['all', 'SUCCESS', 'INFO', 'WARN', 'ERROR'] as const).map((lvl) => (
               <button
                 key={lvl}
                 type="button"
-                onClick={() => setLevelFilter(lvl)}
+                onClick={() => {
+                  setLevelFilter(lvl);
+                  setCurrentPage(1);
+                }}
                 className={`btn btn-sm ${
                   levelFilter === lvl
                     ? 'btn-primary'
@@ -80,7 +102,10 @@ export default function LogsTab({ logs, onClearLogs }: LogsTabProps) {
           {/* Action Filter */}
           <select
             value={actionFilter}
-            onChange={(e) => setActionFilter(e.target.value)}
+            onChange={(e) => {
+              setActionFilter(e.target.value);
+              setCurrentPage(1);
+            }}
             className="app-input h-8 text-xs font-semibold rounded-lg px-2.5 focus:outline-hidden focus:border-indigo-500 cursor-pointer"
           >
             <option value="all">{t('log_action_all')}</option>
@@ -91,16 +116,56 @@ export default function LogsTab({ logs, onClearLogs }: LogsTabProps) {
             <option value="AUTH">AUTH ({lang === 'vi' ? 'Xác thực' : 'Auth'})</option>
             <option value="AUTO">AUTO ({lang === 'vi' ? 'Tự động hóa' : 'Automation'})</option>
           </select>
+
+          {/* Limit Selector */}
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              {lang === 'vi' ? 'Số lượng nạp:' : 'Fetch limit:'}
+            </span>
+            <select
+              value={limit}
+              onChange={(e) => {
+                onLimitChange?.(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="app-input h-8 text-xs font-semibold rounded-lg px-2.5 focus:outline-hidden focus:border-indigo-500 cursor-pointer"
+            >
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+              <option value="500">500</option>
+              <option value="1000">1000</option>
+              <option value="all">{lang === 'vi' ? 'Tất cả' : 'All'}</option>
+            </select>
+          </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onClearLogs}
-          className="btn btn-sm btn-secondary hover:text-rose-500 hover:border-rose-300 dark:hover:border-rose-900 shrink-0"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          <span>{t('btn_clear_logs')}</span>
-        </button>
+        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+          <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap">
+            {lang === 'vi' ? `${filteredLogs.length} / ${logs.length} bản ghi` : `${filteredLogs.length} / ${logs.length} items`}
+          </span>
+
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={isLoading}
+              title={lang === 'vi' ? 'Làm mới nhật ký' : 'Refresh logs'}
+              className="btn btn-sm btn-secondary shrink-0"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onClearLogs}
+            className="btn btn-sm btn-secondary hover:text-rose-500 hover:border-rose-300 dark:hover:border-rose-900 shrink-0"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>{t('btn_clear_logs')}</span>
+          </button>
+        </div>
       </div>
 
       {/* Logs View */}
@@ -114,7 +179,7 @@ export default function LogsTab({ logs, onClearLogs }: LogsTabProps) {
         <>
           {/* Mobile Card List (lg:hidden) */}
           <div className="lg:hidden space-y-2.5">
-            {filteredLogs.map((log) => (
+            {paginatedLogs.map((log) => (
               <div
                 key={log.id}
                 className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 shadow-sm dark:shadow-md space-y-2 backdrop-blur-md"
@@ -153,7 +218,7 @@ export default function LogsTab({ logs, onClearLogs }: LogsTabProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 font-mono">
-                  {filteredLogs.map((log) => (
+                  {paginatedLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="py-3.5 px-5 text-slate-500 whitespace-nowrap text-[11px]" suppressHydrationWarning>
                         {formatDateTime(log.created_at)}
@@ -178,6 +243,15 @@ export default function LogsTab({ logs, onClearLogs }: LogsTabProps) {
               </table>
             </div>
           </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[15, 25, 50, 100]}
+          />
         </>
       )}
     </div>
