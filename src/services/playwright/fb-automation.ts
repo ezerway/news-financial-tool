@@ -437,81 +437,24 @@ export async function executePublishAndComment(
       logActivity('INFO', 'PUBLISH', `[Page Mode] Kiểm tra nút chuyển quyền sang Fanpage trên: ${targetUrl}`);
       // Dismiss or select Page if "Your profiles & Pages" modal is showing
       await handleProfileSwitcherModal(page, pageName);
-
-      const switchSelectors = [
-        'div[role="button"]:has-text("Chuyển ngay")',
-        'div[role="button"]:has-text("Switch now")',
-        'div[role="button"]:has-text("Chuyển sang")',
-        'div[role="button"]:has-text("Switch to")',
-        'button:has-text("Chuyển ngay")',
-        'button:has-text("Switch now")',
-        'div[aria-label*="Chuyển ngay"]',
-        'div[aria-label*="Switch now"]',
-        'div[aria-label*="Chuyển sang"]',
-        'div[aria-label*="Switch to"]',
-      ];
-
-      for (const sel of switchSelectors) {
-        const btn = page.locator(sel).first();
-        if ((await btn.count()) > 0 && (await btn.isVisible({ timeout: 1500 }).catch(() => false))) {
-          const btnText = await btn.innerText().catch(() => '');
-          logActivity('INFO', 'PUBLISH', `[Page Mode] Phát hiện nút chuyển sang Fanpage ("${btnText}"), đang kích hoạt...`);
-          await btn.click();
-          await page.waitForTimeout(3000);
-          await handleProfileSwitcherModal(page, pageName);
-          await page.waitForTimeout(2000);
-          break;
-        }
-      }
     }
 
     // Dismiss any blocking popups before locating post trigger
     await dismissBlockingPagePopups(page, pageName);
 
-    // BƯỚC 1: Vào trang đích (mặc định https://www.facebook.com/pages/?category=your_pages&ref=bookmarks)
+    // BƯỚC 0: Vào trang đích (mặc định https://www.facebook.com/pages/?category=your_pages&ref=bookmarks)
     // (Đã điều hướng ở trên tới targetUrl)
 
-    // BƯỚC 2: Click vào span có text: "Create post"
-    logActivity('INFO', 'PUBLISH', '[Bước 2] Tìm và click vào thẻ "Create post"...');
-    const postTriggerSelectors = [
-      'a[aria-label="Create post"]',
-      'span:has-text("What\'s on your mind?")',
-      'span:has-text("What\'s on your mind")',
-      'span:has-text("Bạn đang nghĩ gì?")',
-      'span:has-text("Bạn đang nghĩ gì")',
-      'div[role="button"]:has-text("What\'s on your mind")',
-      'div[role="button"]:has-text("Bạn đang nghĩ gì")',
-      'div[role="button"]:has-text("Create post")',
-      'div[role="button"]:has-text("Tạo bài viết")',
-      'div[role="button"]:has-text("Create a post")',
-      'div[role="button"]:has-text("Viết gì đó")',
-      'div[aria-label*="Create a post"]',
-      'div[aria-label*="Create post"]',
-      'div[aria-label*="Tạo bài viết"]',
-    ];
-
-    let postTrigger = null;
-    for (const selector of postTriggerSelectors) {
-      const el = page.locator(selector).first();
-      if ((await el.count()) > 0 && (await el.isVisible({ timeout: 1500 }).catch(() => false))) {
-        postTrigger = el;
-        break;
-      }
-    }
+    // BƯỚC 1: Click vào span có text: "Create post"
+    logActivity('INFO', 'PUBLISH', '[Bước 1] Tìm và click vào thẻ "Create post"...');
+    let postTrigger = page.locator('a[aria-label="Create post"]').first();
 
     if (!postTrigger) {
       // Thử xử lý modal profile switcher và cuộn nhẹ trang xuống
       await handleProfileSwitcherModal(page, pageName);
       await page.evaluate(() => window.scrollBy(0, 300));
       await page.waitForTimeout(1500);
-
-      for (const selector of postTriggerSelectors) {
-        const el = page.locator(selector).first();
-        if ((await el.count()) > 0 && (await el.isVisible({ timeout: 1500 }).catch(() => false))) {
-          postTrigger = el;
-          break;
-        }
-      }
+      postTrigger = page.locator('a[aria-label="Create post"]').first();
     }
 
     if (!postTrigger) {
@@ -525,8 +468,8 @@ export async function executePublishAndComment(
     await postTrigger.click();
     await page.waitForTimeout(5000);
 
-    // BƯỚC 3: 1 modal mở ra nhập nội dung vào 1 div có contenteditable="true"
-    logActivity('INFO', 'PUBLISH', '[Bước 3] Modal tạo bài viết mở ra, tìm div có contenteditable="true" để nhập nội dung...');
+    // BƯỚC 2: 1 modal mở ra nhập nội dung vào 1 div có contenteditable="true"
+    logActivity('INFO', 'PUBLISH', '[Bước 2] Modal tạo bài viết mở ra, tìm div có contenteditable="true" để nhập nội dung...');
     const textboxSelectors = [
       'div[role="dialog"] div[contenteditable="true"]',
       'div[role="dialog"] div[role="textbox"]',
@@ -592,10 +535,10 @@ export async function executePublishAndComment(
       await page.waitForTimeout(1000);
     }
 
-    // BƯỚC 4: Ấn Next, sau đó ấn Post
-    logActivity('INFO', 'PUBLISH', '[Bước 4] Kiểm tra nút Next và nút Post để xuất bản bài viết...');
+    // BƯỚC 3: Ấn Next, sau đó ấn Post
+    logActivity('INFO', 'PUBLISH', '[Bước 3] Kiểm tra nút Next và nút Post để xuất bản bài viết...');
 
-    // 4a. Tìm nút Next (nếu có trong wizard tạo bài của Fanpage)
+    // 3a. Tìm nút Next (nếu có trong wizard tạo bài của Fanpage)
     const nextBtnSelectors = [
       'div[role="dialog"] div[role="button"]:has-text("Next")',
       'div[role="dialog"] div[role="button"]:has-text("Tiếp")',
@@ -622,7 +565,7 @@ export async function executePublishAndComment(
 
     await dismissBlockingPagePopups(page, pageName);
 
-    // 4b. Tìm nút Post
+    // 3b. Tìm nút Post
     const submitBtnSelectors = [
       'div[role="dialog"] div[aria-label="Post"]',
       'div[role="dialog"] div[aria-label="Đăng"]',
@@ -695,8 +638,8 @@ export async function executePublishAndComment(
     // Đợi thêm 3.5 giây để máy chủ Facebook cập nhật vào feeds trước khi chuyển trang
     await page.waitForTimeout(3500);
 
-    // BƯỚC 5: Sau khi post thành công, vào https://www.facebook.com/?filter=all&sk=h_chr tìm bài đã post
-    logActivity('INFO', 'PUBLISH', '[Bước 5] Điều hướng đến https://www.facebook.com/?filter=all&sk=h_chr để tìm bài viết vừa post...');
+    // BƯỚC 4: Sau khi post thành công, vào https://www.facebook.com/?filter=all&sk=h_chr tìm bài đã post
+    logActivity('INFO', 'PUBLISH', '[Bước 4] Điều hướng đến https://www.facebook.com/?filter=all&sk=h_chr để tìm bài viết vừa post...');
     let exactPostUrl = targetUrl;
 
     try {
@@ -733,8 +676,8 @@ export async function executePublishAndComment(
         logActivity('SUCCESS', 'PUBLISH', `URL chính xác của bài viết từ modal: ${exactPostUrl}`);
       }
 
-      // BƯỚC 6: Nhập bình luận vào thẻ có contenteditable="true" trong modal
-      logActivity('INFO', 'COMMENT', '[Bước 6] Nhập bình luận vào thẻ contenteditable="true" trong modal...');
+      // BƯỚC 5: Nhập bình luận vào thẻ có contenteditable="true" trong modal
+      logActivity('INFO', 'COMMENT', '[Bước 5] Nhập bình luận vào thẻ contenteditable="true" trong modal...');
       await handleProfileSwitcherModal(page, pageName);
 
 
@@ -746,8 +689,8 @@ export async function executePublishAndComment(
         await page.keyboard.insertText(post.comment_content);
         await page.waitForTimeout(1500);
 
-        // BƯỚC 7: Click vào element aria-label="Post comment"
-        logActivity('INFO', 'COMMENT', '[Bước 7] Tìm và click element aria-label="Post comment"...');
+        // BƯỚC 6: Click vào element aria-label="Post comment"
+        logActivity('INFO', 'COMMENT', '[Bước 6] Tìm và click element aria-label="Post comment"...');
         const postCommentBtnSelectors = [
           '[aria-label="Post comment"]',
         ];
