@@ -687,67 +687,9 @@ export async function executePublishAndComment(
     // Giám sát tiến trình đăng bài (bắt popup WhatsApp "Make it easier to contact you" khi nút đang xoay)
     logActivity('INFO', 'PUBLISH', 'Đang giám sát tiến trình xuất bản và tự động xử lý popup WhatsApp ("Make it easier to contact you")...');
 
-    let publishCompleted = false;
-    const maxWaitSeconds = 35;
-    const startPublishWait = Date.now();
-
-    while (Date.now() - startPublishWait < maxWaitSeconds * 1000) {
+    for (let w = 0; w < 6; w++) {
+      await dismissBlockingPagePopups(page, pageName);
       await page.waitForTimeout(1000);
-
-      // 1. Kiểm tra và bấm "Not now" ngay khi popup WhatsApp xuất hiện
-      const dismissedWhatsApp = await dismissWhatsAppPopup(page);
-      if (dismissedWhatsApp) {
-        logActivity('SUCCESS', 'PUBLISH', 'Đã bấm "Not now" trên popup WhatsApp thành công!');
-        await page.waitForTimeout(2000);
-      }
-
-      // 2. Kiểm tra nếu nút Post vẫn còn hiển thị và enabled (cần bấm lại sau khi đóng popup)
-      const isPostBtnVisible = await submitBtn.isVisible().catch(() => false);
-      if (isPostBtnVisible) {
-        const isDisabled =
-          (await submitBtn.getAttribute('aria-disabled')) === 'true' ||
-          (await submitBtn.getAttribute('disabled')) !== null;
-        if (!isDisabled) {
-          logActivity('INFO', 'PUBLISH', 'Nút Post vẫn còn hiển thị sau khi đóng popup, đang kích hoạt lại nút Post...');
-          await submitBtn.click().catch(() => submitBtn.click({ force: true }));
-          await page.waitForTimeout(2000);
-        }
-      }
-
-      // 3. Kiểm tra xem tất cả các dialog tạo bài viết đã đóng hoàn toàn chưa
-      const dialogs = page.locator('div[role="dialog"]');
-      const dialogCount = await dialogs.count();
-      let hasComposerOpen = false;
-
-      for (let i = 0; i < dialogCount; i++) {
-        const dlg = dialogs.nth(i);
-        if (await dlg.isVisible().catch(() => false)) {
-          const txt = await dlg.innerText().catch(() => '');
-          if (
-            txt.includes('Create post') ||
-            txt.includes('Tạo bài viết') ||
-            txt.includes('Post settings') ||
-            txt.includes('Make it easier to contact you') ||
-            txt.includes('Add a WhatsApp button') ||
-            txt.includes('WhatsApp')
-          ) {
-            hasComposerOpen = true;
-            break;
-          }
-        }
-      }
-
-      if (!hasComposerOpen) {
-        logActivity('SUCCESS', 'PUBLISH', 'Modal tạo bài viết và popup WhatsApp đã đóng hoàn toàn (bài viết đã được xuất bản).');
-        publishCompleted = true;
-        break;
-      }
-    }
-
-    if (!publishCompleted) {
-      // Thử xử lý lần cuối nếu popup vẫn còn
-      await dismissWhatsAppPopup(page);
-      await page.waitForTimeout(2000);
     }
 
     // Đợi thêm 3.5 giây để máy chủ Facebook cập nhật vào feeds trước khi chuyển trang
