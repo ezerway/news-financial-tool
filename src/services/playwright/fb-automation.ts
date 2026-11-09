@@ -130,11 +130,60 @@ async function dismissBlockingPagePopups(page: any, targetPageName?: string): Pr
     }
   } catch { }
 
-  // 3. Dismiss WhatsApp "Make it easier to contact you" popup
+  // 3. Dismiss "Speak with people who matter" popup
+  const speakWithPeopleDismissed = await dismissSpeakWithPeoplePopup(page);
+  if (speakWithPeopleDismissed) dismissed = true;
+
+  // 4. Dismiss WhatsApp "Make it easier to contact you" popup
   const whatsAppDismissed = await dismissWhatsAppPopup(page);
   if (whatsAppDismissed) dismissed = true;
 
   return dismissed;
+}
+
+/**
+ * Specifically detect and dismiss the "Speak with people who matter" popup
+ * by clicking "Not now" or the close button.
+ */
+export async function dismissSpeakWithPeoplePopup(page: any): Promise<boolean> {
+  try {
+    const speakDialog = page.locator(
+      'div[role="dialog"] button:has-text("Add Button")'
+    );
+
+    if ((await speakDialog.count()) > 0 && (await speakDialog.first().isVisible({ timeout: 800 }).catch(() => false))) {
+      logActivity('INFO', 'PUBLISH', 'Phát hiện popup speakDialog...');
+
+      const notNowSelectors = [
+        'div[role="dialog"] div[role="button"][aria-label="Not now"]',
+        'div[role="dialog"] div[role="button"]:has-text("Not now")',
+        'div[role="dialog"] div[role="button"]:has-text("Lúc khác")',
+        'div[role="dialog"] div[role="button"]:has-text("Không phải bây giờ")',
+        'div[role="dialog"] button:has-text("Not now")',
+        'div[role="dialog"] button:has-text("Lúc khác")',
+        'div[role="button"]:has-text("Not now")',
+        'div[role="button"]:has-text("Lúc khác")',
+        'div[role="button"]:has-text("Không phải bây giờ")',
+        'button:has-text("Not now")',
+        'button:has-text("Lúc khác")',
+        'span:has-text("Not now")',
+        'span:has-text("Lúc khác")',
+      ];
+
+      for (const sel of notNowSelectors) {
+        const btn = page.locator(sel).first();
+        if ((await btn.count()) > 0 && (await btn.isVisible({ timeout: 800 }).catch(() => false))) {
+          logActivity('INFO', 'PUBLISH', `[Bypass Popup] Đang click nút "Not now" ("${await btn.innerText().catch(() => 'Not now')}") trên popup WhatsApp...`);
+          await btn.click({ force: true }).catch(() => { });
+          await page.waitForTimeout(1500);
+          return true;
+        }
+      }
+    }
+  } catch (err: any) {
+    logActivity('WARN', 'PUBLISH', `Lỗi xử lý popup speakDialog: ${err.message}`);
+  }
+  return false;
 }
 
 /**
