@@ -3,27 +3,23 @@ import path from 'path';
 import fs from 'fs';
 import { logActivity, getSetting } from '@/lib/db';
 
-// Dynamically evaluate storage directory to prevent Turbopack from statically bundling/tracing browser-profile
+// Storage directory management with turbopackIgnore to prevent over-bundling/tracing
 export function getStorageDir(): string {
-  const getCwd = () => process.cwd();
-  const folder = ['sto', 'rage'].join('');
-  const dir = process.env.STORAGE_PATH || path.join(getCwd(), folder);
-  if (!fs.existsSync(dir)) {
+  const dir = process.env.STORAGE_PATH || path.join(/*turbopackIgnore: true*/ process.cwd(), 'storage');
+  if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) {
     try {
-      fs.mkdirSync(dir, { recursive: true });
+      fs.mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
     } catch {}
   }
   return dir;
 }
 
 export function getSessionPath(): string {
-  const file = ['fb', 'session.json'].join('-');
-  return path.join(getStorageDir(), file);
+  return path.join(/*turbopackIgnore: true*/ getStorageDir(), 'fb-session.json');
 }
 
 export function getUserDataDir(): string {
-  const profileDir = ['browser', 'profile'].join('-');
-  return path.join(getStorageDir(), profileDir);
+  return path.join(/*turbopackIgnore: true*/ getStorageDir(), 'browser-profile');
 }
 
 /**
@@ -31,21 +27,26 @@ export function getUserDataDir(): string {
  * which can cause Turbopack / Next.js build errors or lockup subsequent launches.
  */
 export function cleanStaleChromeLocks(userDataDir: string = getUserDataDir()): void {
-  if (!fs.existsSync(userDataDir)) return;
-  const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket', 'RunningChromeVersion'];
-  for (const file of lockFiles) {
-    const filePath = path.join(userDataDir, file);
-    try {
-      // lstatSync detects symlinks even if the target is non-existent/broken
-      if (fs.lstatSync(filePath).isSymbolicLink() || fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    } catch {}
-  }
+  try {
+    if (!fs.existsSync(/*turbopackIgnore: true*/ userDataDir)) return;
+    const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket', 'RunningChromeVersion'];
+    for (const file of lockFiles) {
+      const filePath = path.join(/*turbopackIgnore: true*/ userDataDir, file);
+      try {
+        // lstatSync detects symlinks even if the target is non-existent/broken
+        if (
+          fs.lstatSync(/*turbopackIgnore: true*/ filePath).isSymbolicLink() ||
+          fs.existsSync(/*turbopackIgnore: true*/ filePath)
+        ) {
+          fs.unlinkSync(/*turbopackIgnore: true*/ filePath);
+        }
+      } catch {}
+    }
+  } catch {}
 }
 
 export function isSessionAvailable(): boolean {
-  return fs.existsSync(getSessionPath());
+  return fs.existsSync(/*turbopackIgnore: true*/ getSessionPath());
 }
 
 /**
@@ -89,7 +90,7 @@ export async function checkFacebookLoginStatus(): Promise<{
   const pageName = getSetting('fb_page_name', '');
 
   const sessionFile = getSessionPath();
-  if (!fs.existsSync(sessionFile)) {
+  if (!fs.existsSync(/*turbopackIgnore: true*/ sessionFile)) {
     return {
       loggedIn: false,
       message: 'Chưa có file phiên đăng nhập (storage/fb-session.json)',
@@ -358,7 +359,7 @@ export function parseAndSaveFacebookCookies(rawInput: string): { success: boolea
  */
 export async function injectSessionCookies(context: { addCookies: (cookies: any[]) => Promise<void> }): Promise<number> {
   const sessionFile = getSessionPath();
-  if (!fs.existsSync(sessionFile)) return 0;
+  if (!fs.existsSync(/*turbopackIgnore: true*/ sessionFile)) return 0;
 
   try {
     const raw = fs.readFileSync(sessionFile, 'utf-8');
