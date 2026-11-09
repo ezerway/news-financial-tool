@@ -677,10 +677,10 @@ export async function executePublishAndComment(
     logActivity('INFO', 'PUBLISH', `Kích hoạt nút Đăng (Post) lên ${targetType === 'page' ? 'Fanpage' : 'Facebook'}...`);
     await submitBtn.click().catch(() => submitBtn.click({ force: true }));
 
-    // Giám sát tiến trình đăng bài (bắt popup WhatsApp "Make it easier to contact you" khi nút đang xoay)
-    logActivity('INFO', 'PUBLISH', 'Đang giám sát tiến trình xuất bản và tự động xử lý popup WhatsApp ("Make it easier to contact you")...');
+    // Giám sát tiến trình đăng bài
+    logActivity('INFO', 'PUBLISH', 'Đang giám sát tiến trình xuất bản và tự động xử lý popup...');
 
-    for (let w = 0; w < 6; w++) {
+    for (let w = 0; w < 16; w++) {
       await dismissBlockingPagePopups(page, pageName);
       await page.waitForTimeout(1000);
     }
