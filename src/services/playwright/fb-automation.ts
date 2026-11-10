@@ -721,7 +721,7 @@ export async function executePublishAndComment(
       // Kiểm tra xem URL trên trình duyệt có cập nhật sang link bài viết trực tiếp không
       const currentUrl = page.url();
       if (
-        currentUrl && currentUrl.includes('/content_id/')
+        currentUrl && currentUrl.includes('content_id')
       ) {
         exactPostUrl = currentUrl;
         logActivity('SUCCESS', 'PUBLISH', `URL chính xác của bài viết từ modal: ${exactPostUrl}`);

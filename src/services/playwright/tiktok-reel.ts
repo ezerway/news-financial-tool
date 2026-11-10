@@ -256,7 +256,7 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
 
     // Bước 5: Thêm nhạc
     notify('Bước 5: Thêm nhạc...');
-    const soundBtn = page.locator('button [data-default-left-menu="MusicPanel"][data-default-right-menu="AudioClipPropSetting"][data-button-name="sounds"]').first();
+    const soundBtn = page.locator('button[data-default-left-menu="MusicPanel"][data-default-right-menu="AudioClipPropSetting"][data-button-name="sounds"]').first();
     await soundBtn.click();
     await page.waitForTimeout(2000);
     await dismissAllTooltip(page);
@@ -495,17 +495,19 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
 }
 
 async function dismissAllTooltip(page: Page) {
-  const tooltipSelectors = ['[class$="-tooltip"]'];
+  const tooltipSelectors = '[class$="-tooltip"]';
 
   for (let i = 0; i < 5; i++) {
-    for (const mSel of tooltipSelectors) {
-      if (await page.locator(mSel).first().isVisible({ timeout: 1000 }).catch(() => false)) {
-        const gotItBtn = await page.locator(`${mSel} button[data-type="primary"]`).first();
+    if (await page.locator(tooltipSelectors).first().isVisible({ timeout: 1000 }).catch(() => false)) {
+      const container = page.locator(tooltipSelectors).first();
+      if (await container.locator(`button[data-type="primary"]`).first().isVisible({ timeout: 1000 }).catch(() => false)) {
+        const gotItBtn = container.locator(`button[data-type="primary"]`).first();
         if (gotItBtn) {
           await gotItBtn.click();
         }
         break;
       }
+      break;
     }
 
     await page.waitForTimeout(1000);

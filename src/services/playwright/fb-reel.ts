@@ -406,74 +406,33 @@ export async function uploadFacebookReel(
     notify('Đang đợi khoảng 30 giây để Facebook xử lý video và xuất bản Reel...');
     await page.waitForTimeout(30000);
 
-    // Bước 14: Vào lại https://www.facebook.com/?filter=all&sk=h_chr để lấy link reel
+    // Bước 14: Vào lại /professional_dashboard/content/content_library để lấy link reel
     let reelUrl: string | undefined;
-    const CHRONOLOGICAL_FEED_URL = 'https://www.facebook.com/?filter=all&sk=h_chr';
+    const CHRONOLOGICAL_FEED_URL = 'https://www.facebook.com/professional_dashboard/content/content_library/?date_range=TODAY&filter=PUBLISHED&placement_type=ALL&post_type=ALL_CONTENT&post_types[0]=REELS&sort_by=DATE&sorting_method=METRICS_DESCENDING';
     try {
       notify(`Đang mở bảng tin gần đây nhất: ${CHRONOLOGICAL_FEED_URL}`);
       await page.goto(CHRONOLOGICAL_FEED_URL, {
         waitUntil: 'domcontentloaded',
         timeout: 45000,
       }).catch(() => { });
-      await page.waitForTimeout(5000);
+      await page.waitForTimeout(2500);
 
-      notify('Đang tìm kiếm link Reel bằng selector: [data-video-id]');
-      const primarySelector = '[data-video-id]';
-      let reelLinkLocator = page.locator(primarySelector).first();
-      let isFound = (await reelLinkLocator.count()) > 0;
+      // Tìm URL bài viết trên feed gần đây nhất
+      const firstFeedPostLink = page.locator(
+        '[aria-label="Content Library"] [aria-colindex="2"] a[href*="content_id"]'
+      ).first();
 
-      // Nếu chưa thấy ngay, cuộn nhẹ trang xuống và đợi thêm
-      if (!isFound) {
-        await page.mouse.wheel(0, 300);
-        await page.waitForTimeout(3000);
-        isFound = (await reelLinkLocator.count()) > 0;
+      if ((await firstFeedPostLink.count()) > 0 && (await firstFeedPostLink.isVisible({ timeout: 4000 }).catch(() => false))) {
+        await firstFeedPostLink.click();
       }
 
-      // Thử cuộn thêm lần nữa nếu chưa thấy
-      if (!isFound) {
-        await page.mouse.wheel(0, 500);
-        await page.waitForTimeout(3000);
-        isFound = (await reelLinkLocator.count()) > 0;
-      }
-
-
-      // Ưu tiên 1: Trích xuất value của attribute [data-video-id] từ phần tử Reel tìm thấy
-      let videoId: string | null = null;
-      if (isFound) {
-        videoId = await reelLinkLocator.evaluate((el: HTMLElement) => {
-          // 1. Kiểm tra trực tiếp trên thẻ
-          const direct = el.getAttribute('data-video-id');
-          if (direct) return direct;
-
-          // 2. Kiểm tra phần tử cha hoặc container gần nhất có data-video-id
-          const ancestor = el.closest('[data-video-id]');
-          if (ancestor) return ancestor.getAttribute('data-video-id');
-
-          // 3. Kiểm tra phần tử con
-          const descendant = el.querySelector('[data-video-id]');
-          if (descendant) return descendant.getAttribute('data-video-id');
-
-          // 4. Tìm trong feed post unit
-          const postContainer = el.closest('[role="article"], [data-pagelet*="FeedUnit"], div[role="feed"] > div');
-          if (postContainer) {
-            const item = postContainer.querySelector('[data-video-id]');
-            if (item) return item.getAttribute('data-video-id');
-          }
-          return null;
-        }).catch(() => null);
-      }
-
-      // Ưu tiên 2: Nếu chưa tìm thấy videoId từ reelLinkLocator, tìm trực tiếp phần tử mang [data-video-id] trên feed
-      if (!videoId) {
-        const dataVideoLocator = page.locator('a[href*="reel"][data-video-id], [data-video-id]').first();
-        if ((await dataVideoLocator.count()) > 0) {
-          videoId = await dataVideoLocator.getAttribute('data-video-id').catch(() => null);
-        }
-      }
-
-      if (videoId) {
-        reelUrl = normalizeReelUrl(videoId);
-        notify(`Đã lấy thành công link Reel từ attr [data-video-id] (${videoId}): ${reelUrl}`, 'SUCCESS');
+      // Kiểm tra xem URL trên trình duyệt có cập nhật sang link bài viết trực tiếp không
+      const currentUrl = page.url();
+      if (
+        currentUrl && currentUrl.includes('content_id')
+      ) {
+        reelUrl = currentUrl;
+        notify(`Đã lấy thành công link Reel: ${reelUrl}`, 'SUCCESS');
       } else {
         notify('Chưa tìm thấy link Reel trên bảng tin gần đây nhất (có thể Facebook vẫn đang xử lý nền).', 'WARN');
       }
