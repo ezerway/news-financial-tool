@@ -396,6 +396,36 @@ export default function DashboardPage() {
     }
   };
 
+  // Toggle post video recording
+  const handleToggleRecordVideo = async (postId: string, enabled: boolean) => {
+    // Optimistic update
+    setPosts((prevPosts) =>
+      prevPosts.map((p) => (p.id === postId ? { ...p, record_video: enabled ? 1 : 0 } : p))
+    );
+
+    try {
+      const res = await fetch(`/api/posts/${postId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ record_video: enabled ? 1 : 0 }),
+      });
+      if (res.ok) {
+        showToast(
+          enabled
+            ? 'Đã bật ghi lại video khi đăng bài này'
+            : 'Đã tắt ghi lại video khi đăng bài này',
+          'info'
+        );
+      } else {
+        await fetchData();
+        showToast('Lỗi cập nhật cài đặt quay video', 'error');
+      }
+    } catch (err: any) {
+      await fetchData();
+      showToast(`Lỗi: ${err.message}`, 'error');
+    }
+  };
+
   // Delete post
   const handleDeletePost = async (postId: string) => {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
@@ -888,6 +918,7 @@ export default function DashboardPage() {
               onUpdate={handleUpdatePost}
               onDelete={handleDeletePost}
               onDeleteAllFailed={handleDeleteAllFailedPosts}
+              onToggleRecordVideo={handleToggleRecordVideo}
               publishingId={publishingId}
               commentingId={commentingId}
             />

@@ -21,6 +21,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       updates.push('status = ?');
       values.push(body.status);
     }
+    if (body.record_video !== undefined) {
+      updates.push('record_video = ?');
+      values.push(body.record_video ? 1 : 0);
+    }
 
     if (updates.length === 0) {
       return NextResponse.json({ success: true, message: 'No changes provided' });

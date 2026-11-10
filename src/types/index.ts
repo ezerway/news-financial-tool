@@ -32,6 +32,7 @@ export interface PostItem {
   error_message?: string | null;
   screenshot_path?: string | null;
   video_path?: string | null;
+  record_video?: boolean | number | null;
   scheduled_at?: string | null;
   published_at?: string | null;
   created_at?: string;

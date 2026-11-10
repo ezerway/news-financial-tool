@@ -33,6 +33,7 @@ interface PostsTabProps {
   onUpdate: (postId: string, postContent: string, commentContent: string) => Promise<void>;
   onDelete: (postId: string) => Promise<void>;
   onDeleteAllFailed?: () => Promise<void>;
+  onToggleRecordVideo?: (postId: string, enabled: boolean) => Promise<void>;
   publishingId: string | null;
   commentingId?: string | null;
 }
@@ -44,10 +45,16 @@ export default function PostsTab({
   onUpdate,
   onDelete,
   onDeleteAllFailed,
+  onToggleRecordVideo,
   publishingId,
   commentingId,
 }: PostsTabProps) {
   const { t, lang } = useI18n();
+
+  const isRecordingVideo = (post: PostItem): boolean => {
+    if (post.record_video === 0 || post.record_video === false) return false;
+    return true;
+  };
   const [filter, setFilter] = useState<'all' | 'draft' | 'published' | 'failed'>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPostContent, setEditPostContent] = useState('');
@@ -314,8 +321,36 @@ export default function PostsTab({
 
                 {/* Footer Toolbar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-[var(--app-border)] text-xs">
-                  {/* Left: Meta links */}
-                  <div className="flex items-center gap-3 shrink-0">
+                  {/* Left: Meta links & options */}
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+                    {onToggleRecordVideo && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleRecordVideo(post.id, !isRecordingVideo(post))}
+                        disabled={isPublishing}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all cursor-pointer select-none ${
+                          isRecordingVideo(post)
+                            ? 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/15'
+                            : 'bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-400'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        title={
+                          isRecordingVideo(post)
+                            ? (lang === 'vi' ? 'Đang BẬT ghi lại video khi đăng bài. Bấm để tắt.' : 'Recording ON. Click to disable.')
+                            : (lang === 'vi' ? 'Đang TẮT ghi lại video khi đăng bài. Bấm để bật.' : 'Recording OFF. Click to enable.')
+                        }
+                      >
+                        <Video className={`w-3.5 h-3.5 shrink-0 ${isRecordingVideo(post) ? 'text-rose-500' : 'text-slate-400'}`} />
+                        <span>{lang === 'vi' ? 'Quay video' : 'Record'}</span>
+                        <div
+                          className={`w-6 h-3.5 flex items-center rounded-full p-0.5 transition-colors ${
+                            isRecordingVideo(post) ? 'bg-rose-500 justify-end' : 'bg-slate-300 dark:bg-slate-600 justify-start'
+                          }`}
+                        >
+                          <div className="w-2.5 h-2.5 rounded-full bg-white shadow-xs"></div>
+                        </div>
+                      </button>
+                    )}
+
                     {post.fb_post_url && (
                       <a
                         href={post.fb_post_url}

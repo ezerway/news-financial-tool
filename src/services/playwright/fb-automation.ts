@@ -248,13 +248,26 @@ export function resolveTargetUrl(): { targetType: string; targetUrl: string; pag
   return { targetType, targetUrl, pageName };
 }
 
+export interface PublishOptions {
+  dryRun?: boolean;
+  headless?: boolean;
+  force?: boolean;
+  recordVideo?: boolean;
+}
+
 export async function executePublishAndComment(
   post: PostItem,
-  options?: { dryRun?: boolean; headless?: boolean; force?: boolean }
+  options?: PublishOptions
 ): Promise<PublishResult> {
   const dryRun = options?.dryRun ?? false;
   const force = options?.force ?? false;
   const headless = resolveHeadless(options?.headless ?? true);
+  const shouldRecordVideo =
+    options?.recordVideo !== undefined
+      ? Boolean(options.recordVideo)
+      : post.record_video !== undefined && post.record_video !== null
+      ? Boolean(post.record_video)
+      : true;
 
   const { targetType, targetUrl, pageName } = resolveTargetUrl();
 
@@ -335,23 +348,28 @@ export async function executePublishAndComment(
   const videoFileName = `publish_${post.id}_${Date.now()}.webm`;
 
   try {
-    context = await chromium.launchPersistentContext(getUserDataDir(), {
+    const launchOptions: any = {
       headless: headless,
       viewport: { width: 1280, height: 900 },
-      recordVideo: {
-        dir: VIDEOS_DIR,
-        size: { width: 1280, height: 900 },
-      },
       userAgent:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       args: getChromiumLaunchArgs(['--disable-notifications']),
-    });
+    };
+
+    if (shouldRecordVideo) {
+      launchOptions.recordVideo = {
+        dir: VIDEOS_DIR,
+        size: { width: 1280, height: 900 },
+      };
+    }
+
+    context = await chromium.launchPersistentContext(getUserDataDir(), launchOptions);
 
     // Inject cookies from fb-session.json into context
     await injectSessionCookies(context);
 
     page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
-    video = page.video();
+    video = shouldRecordVideo ? page.video() : null;
     page.on('crash', () => {
       logActivity('ERROR', 'PUBLISH', 'Playwright page crashed (Bộ nhớ RAM trên VPS bị cạn kiệt hoặc tiến trình bị ngắt).');
     });
@@ -646,15 +664,14 @@ export async function executePublishAndComment(
     const isDevMode = isDeveloperMode();
     let savedVideoFileName: string | undefined = undefined;
 
-    // Khi bật developer mode: lưu tất cả video quá trình post (kể cả thành công)
-    // Khi chưa bật developer mode: chỉ lưu video bài post bị lỗi, bài thành công thì xóa video tạm để tiết kiệm dung lượng
+    // Lưu video khi bài viết bật toggle record_video hoặc developer mode
     if (video) {
       try {
-        if (isDevMode) {
+        if (shouldRecordVideo) {
           const finalVideoPath = path.join(VIDEOS_DIR, videoFileName);
           await video.saveAs(finalVideoPath);
           savedVideoFileName = videoFileName;
-          logActivity('INFO', 'PUBLISH', `[Dev Mode] Đã lưu video quá trình đăng thành công: ${videoFileName}`);
+          logActivity('INFO', 'PUBLISH', `[Video] Đã lưu video quá trình đăng thành công: ${videoFileName}`);
         } else {
           await video.delete().catch(() => { });
         }
@@ -772,6 +789,10 @@ export async function executeCommentOnly(
   }
 
   const headless = resolveHeadless(options?.headless ?? true);
+  const shouldRecordVideo =
+    post.record_video !== undefined && post.record_video !== null
+      ? Boolean(post.record_video)
+      : true;
   const { pageName } = resolveTargetUrl();
   const targetUrl = directPostUrl;
 
@@ -783,23 +804,28 @@ export async function executeCommentOnly(
   let page: any;
   let video: any;
   try {
-    context = await chromium.launchPersistentContext(getUserDataDir(), {
+    const launchOptions: any = {
       headless: headless,
       viewport: { width: 1280, height: 900 },
-      recordVideo: {
-        dir: VIDEOS_DIR,
-        size: { width: 1280, height: 900 },
-      },
       userAgent:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       args: getChromiumLaunchArgs(['--disable-notifications']),
-    });
+    };
+
+    if (shouldRecordVideo) {
+      launchOptions.recordVideo = {
+        dir: VIDEOS_DIR,
+        size: { width: 1280, height: 900 },
+      };
+    }
+
+    context = await chromium.launchPersistentContext(getUserDataDir(), launchOptions);
 
     // Inject cookies from fb-session.json into context
     await injectSessionCookies(context);
 
     page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
-    video = page.video();
+    video = shouldRecordVideo ? page.video() : null;
     page.on('crash', () => {
       logActivity('ERROR', 'COMMENT', 'Playwright page crashed (Bộ nhớ RAM trên VPS bị cạn kiệt hoặc tiến trình bị ngắt).');
     });
@@ -861,11 +887,11 @@ export async function executeCommentOnly(
     const isDevMode = isDeveloperMode();
     if (video) {
       try {
-        if (isDevMode) {
+        if (shouldRecordVideo) {
           const finalVideoPath = path.join(VIDEOS_DIR, videoFileName);
           await video.saveAs(finalVideoPath);
           savedVideoFileName = videoFileName;
-          logActivity('INFO', 'COMMENT', `[Dev Mode] Đã lưu video quá trình bình luận thành công: ${videoFileName}`);
+          logActivity('INFO', 'COMMENT', `[Video] Đã lưu video quá trình bình luận thành công: ${videoFileName}`);
         } else {
           await video.delete().catch(() => { });
         }

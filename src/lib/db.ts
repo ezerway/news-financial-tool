@@ -68,6 +68,7 @@ export function initSchema(database: Database.Database) {
         error_message TEXT,
         screenshot_path TEXT,
         video_path TEXT,
+        record_video INTEGER DEFAULT 1,
         scheduled_at DATETIME,
         published_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -120,6 +121,9 @@ export function initSchema(database: Database.Database) {
   // Safe migration for video_path, fb_post_url, screenshot_path, debug_video_path if tables already exist
   try {
     database.exec(`ALTER TABLE posts ADD COLUMN video_path TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE posts ADD COLUMN record_video INTEGER DEFAULT 1`);
   } catch {}
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN fb_post_url TEXT`);
