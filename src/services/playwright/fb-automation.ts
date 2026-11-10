@@ -117,13 +117,15 @@ export async function dismissBlockingPagePopups(page: any, targetPageName?: stri
 
   try {
     const notNowBtn = page.locator('div[aria-label="Not now"]').first();
-    if (notNowBtn) {
+    if (notNowBtn && await notNowBtn.isVisible({ timeout: 3000 })) {
       logActivity('INFO', 'PUBLISH', 'Phát hiện popup...');
       logActivity('INFO', 'PUBLISH', `[Bypass Popup] Đang click nút "Not now"...`);
       await notNowBtn.click({ force: true }).catch(() => { });
       await page.waitForTimeout(1500);
+      dismissed = true;
+    } else {
+      logActivity('INFO', 'PUBLISH', '[Bypass] Không tìm thấy nút "Not now"');
     }
-    dismissed = true;
   } catch (err: any) {
     logActivity('WARN', 'PUBLISH', `Lỗi xử lý popup: ${err.message}`);
   }
