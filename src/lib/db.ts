@@ -159,6 +159,8 @@ export function initSchema(database: Database.Database) {
       telegram_notify_enabled: 'false',
       telegram_bot_token: process.env.TELEGRAM_BOT_TOKEN || '',
       telegram_chat_id: process.env.TELEGRAM_CHAT_ID || '',
+      slack_notify_enabled: 'false',
+      slack_webhook_url: process.env.SLACK_WEBHOOK_URL || '',
       notify_on_success: 'true',
       notify_on_failure: 'true',
       fb_target_url: 'https://www.facebook.com/',

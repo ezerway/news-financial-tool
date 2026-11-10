@@ -76,6 +76,8 @@ export default function SettingsTab({
     telegram_notify_enabled: settings.telegram_notify_enabled || 'false',
     telegram_bot_token: settings.telegram_bot_token || '',
     telegram_chat_id: settings.telegram_chat_id || '',
+    slack_notify_enabled: settings.slack_notify_enabled || 'false',
+    slack_webhook_url: settings.slack_webhook_url || '',
     notify_on_success: settings.notify_on_success || 'true',
     notify_on_failure: settings.notify_on_failure || 'true',
     filter_keywords:
@@ -102,6 +104,8 @@ export default function SettingsTab({
       telegram_notify_enabled: settings.telegram_notify_enabled ?? prev.telegram_notify_enabled,
       telegram_bot_token: settings.telegram_bot_token ?? prev.telegram_bot_token,
       telegram_chat_id: settings.telegram_chat_id ?? prev.telegram_chat_id,
+      slack_notify_enabled: settings.slack_notify_enabled ?? prev.slack_notify_enabled,
+      slack_webhook_url: settings.slack_webhook_url ?? prev.slack_webhook_url,
       notify_on_success: settings.notify_on_success ?? prev.notify_on_success,
       notify_on_failure: settings.notify_on_failure ?? prev.notify_on_failure,
       filter_keywords: settings.filter_keywords ?? prev.filter_keywords,
@@ -195,6 +199,8 @@ export default function SettingsTab({
   const [isTestingTelegram, setIsTestingTelegram] = useState(false);
   const [telegramTestMsg, setTelegramTestMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [showTelegramToken, setShowTelegramToken] = useState(false);
+  const [isTestingSlack, setIsTestingSlack] = useState(false);
+  const [slackTestMsg, setSlackTestMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     if (isBrowserNotificationSupported()) {
@@ -238,6 +244,7 @@ export default function SettingsTab({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          channel: 'telegram',
           botToken: form.telegram_bot_token.trim(),
           chatId: form.telegram_chat_id.trim(),
         }),
@@ -252,6 +259,39 @@ export default function SettingsTab({
       setTelegramTestMsg({ text: 'Lỗi kết nối: ' + err.message, type: 'error' });
     } finally {
       setIsTestingTelegram(false);
+    }
+  };
+
+  const handleTestSlackNotification = async () => {
+    if (!form.slack_webhook_url.trim()) {
+      setSlackTestMsg({
+        text: lang === 'vi' ? 'Vui lòng nhập Slack Incoming Webhook URL trước.' : 'Please enter Slack Incoming Webhook URL.',
+        type: 'error',
+      });
+      return;
+    }
+
+    setIsTestingSlack(true);
+    setSlackTestMsg(null);
+    try {
+      const res = await fetch('/api/notifications/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: 'slack',
+          webhookUrl: form.slack_webhook_url.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSlackTestMsg({ text: data.message, type: 'success' });
+      } else {
+        setSlackTestMsg({ text: data.error || data.message || 'Lỗi gửi tin nhắn Slack', type: 'error' });
+      }
+    } catch (err: any) {
+      setSlackTestMsg({ text: 'Lỗi kết nối: ' + err.message, type: 'error' });
+    } finally {
+      setIsTestingSlack(false);
     }
   };
 
@@ -855,6 +895,98 @@ export default function SettingsTab({
                       >
                         {telegramTestMsg.type === 'success' ? '✓ ' : '✕ '}
                         {telegramTestMsg.text}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* CHANNEL 3: Slack Incoming Webhook */}
+            <div className="p-4 rounded-xl border border-[var(--app-border)] space-y-3.5 bg-white dark:bg-slate-900/60">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px]">
+                    #
+                  </div>
+                  <div>
+                    <span className="text-xs sm:text-sm font-bold text-inherit">
+                      {lang === 'vi' ? '3. Thông báo qua Slack Incoming Webhook' : '3. Slack Incoming Webhook'}
+                    </span>
+                    <span className="ml-2 text-[10px] text-slate-400 font-normal">
+                      ({lang === 'vi' ? 'Gửi vào Channel Slack' : 'Send to Slack Channel'})
+                    </span>
+                  </div>
+                </div>
+
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={form.slack_notify_enabled === 'true'}
+                    onChange={(e) => setForm({ ...form, slack_notify_enabled: e.target.checked ? 'true' : 'false' })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-emerald-600"></div>
+                </label>
+              </div>
+
+              {form.slack_notify_enabled === 'true' && (
+                <div className="space-y-3 pt-1 border-t border-[var(--app-border)] animate-in fade-in">
+                  <div>
+                    <label className="block text-xs font-semibold text-inherit mb-1">
+                      Slack Webhook URL <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="url"
+                      value={form.slack_webhook_url}
+                      onChange={(e) => setForm({ ...form, slack_webhook_url: e.target.value })}
+                      placeholder="https://hooks.slack.com/services/T.../B.../..."
+                      className="w-full h-9 px-3 app-input rounded-lg text-xs font-mono placeholder-slate-400 focus:outline-hidden focus:border-indigo-500"
+                    />
+                  </div>
+
+                  {/* Quick Guide */}
+                  <div className="p-2.5 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/30 text-[11px] text-emerald-900 dark:text-emerald-300 space-y-1">
+                    <div className="font-semibold flex items-center gap-1">
+                      💡 {lang === 'vi' ? 'Cách tạo Slack Webhook URL trong 1 phút:' : 'How to get Slack Webhook URL:'}
+                    </div>
+                    <ol className="list-decimal list-inside space-y-0.5 text-[10.5px] opacity-90 pl-1">
+                      <li>{lang === 'vi' ? 'Truy cập https://api.slack.com/apps và chọn Create New App (From scratch).' : 'Go to https://api.slack.com/apps and click Create New App.'}</li>
+                      <li>{lang === 'vi' ? 'Bật tính năng "Incoming Webhooks" ➔ Bấm "Add New Webhook to Workspace" ➔ Chọn kênh nhận tin và Copy Webhook URL.' : 'Enable "Incoming Webhooks", click "Add New Webhook to Workspace", choose your channel, and copy the URL.'}</li>
+                    </ol>
+                  </div>
+
+                  {/* Test Slack Button */}
+                  <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleTestSlackNotification}
+                      disabled={isTestingSlack}
+                      className="btn btn-sm btn-primary bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500"
+                    >
+                      {isTestingSlack ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>{lang === 'vi' ? 'Đang gửi thử nghiệm...' : 'Sending test...'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3 h-3" />
+                          <span>{lang === 'vi' ? 'Gửi thử tin nhắn Slack' : 'Test Slack Message'}</span>
+                        </>
+                      )}
+                    </button>
+
+                    {slackTestMsg && (
+                      <span
+                        className={`text-xs font-medium ${
+                          slackTestMsg.type === 'success'
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-rose-600 dark:text-rose-400'
+                        }`}
+                      >
+                        {slackTestMsg.type === 'success' ? '✓ ' : '✕ '}
+                        {slackTestMsg.text}
                       </span>
                     )}
                   </div>

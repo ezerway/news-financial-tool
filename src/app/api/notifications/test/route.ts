@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { testTelegramNotification } from '@/services/notifications';
+import { testTelegramNotification, testSlackNotification } from '@/services/notifications';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { botToken, chatId } = body;
+    const { channel = 'telegram', botToken, chatId, webhookUrl } = body;
 
+    if (channel === 'slack' || webhookUrl) {
+      if (!webhookUrl) {
+        return NextResponse.json(
+          { success: false, error: 'Vui lòng cung cấp Slack Incoming Webhook URL.' },
+          { status: 400 }
+        );
+      }
+      const result = await testSlackNotification(webhookUrl);
+      return NextResponse.json(result);
+    }
+
+    // Default to telegram
     if (!botToken || !chatId) {
       return NextResponse.json(
         { success: false, error: 'Vui lòng nhập cả Telegram Bot Token và Chat ID.' },
@@ -22,4 +34,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
