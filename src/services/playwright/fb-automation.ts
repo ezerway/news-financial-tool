@@ -5,6 +5,7 @@ import db, { logActivity, getSetting, resolveHeadless, isDeveloperMode } from '@
 import { PostItem } from '@/types';
 import { isSessionAvailable, getUserDataDir, injectSessionCookies, getSessionPath, getChromiumLaunchArgs } from './session';
 import { checkDuplicatePublish, markTrendAsPublished } from '../dedup';
+import { sendServerPushNotification } from '../notifications';
 
 const SCREENSHOTS_DIR = path.join(process.cwd(), 'storage', 'screenshots');
 if (!fs.existsSync(SCREENSHOTS_DIR)) {
@@ -462,10 +463,8 @@ export async function executePublishAndComment(
     }
     await page.waitForTimeout(2000);
 
-    // Bỏ qua các popup cản trở như WhatsApp prompt nếu có
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const hadPopup = await dismissBlockingPagePopups(page, pageName);
-      if (!hadPopup) break;
+    for (let w = 0; w < 4; w++) {
+      await dismissBlockingPagePopups(page, pageName);
       await page.waitForTimeout(1000);
     }
 
@@ -485,11 +484,6 @@ export async function executePublishAndComment(
     for (const nsel of nextBtnSelectors) {
       const nBtn = page.locator(nsel).first();
       if ((await nBtn.count()) > 0 && (await nBtn.isVisible({ timeout: 1500 }).catch(() => false))) {
-        for (let w = 0; w < 5; w++) {
-          const isDisabled = (await nBtn.getAttribute('aria-disabled')) === 'true';
-          if (!isDisabled) break;
-          await page.waitForTimeout(800);
-        }
         logActivity('INFO', 'PUBLISH', 'Phát hiện bước chuyển tiếp, đang bấm nút "Next" / "Tiếp"...');
         await nBtn.click().catch(() => nBtn.click({ force: true }));
         await page.waitForTimeout(2500);
@@ -497,7 +491,10 @@ export async function executePublishAndComment(
       }
     }
 
-    await dismissBlockingPagePopups(page, pageName);
+    for (let w = 0; w < 4; w++) {
+      await dismissBlockingPagePopups(page, pageName);
+      await page.waitForTimeout(1000);
+    }
 
     // 3b. Tìm nút Post
     const submitBtnSelectors = [
@@ -522,22 +519,8 @@ export async function executePublishAndComment(
       for (let i = count - 1; i >= 0; i--) {
         const el = els.nth(i);
         if (await el.isVisible().catch(() => false)) {
-          const txt = (await el.innerText().catch(() => '')).trim();
-          const ariaLabel = (await el.getAttribute('aria-label').catch(() => '')) || '';
-          const cleanTxt = txt.replace(/\s+/g, ' ').trim();
-
-          if (
-            cleanTxt === 'Post' ||
-            cleanTxt === 'Đăng' ||
-            cleanTxt === 'Share' ||
-            cleanTxt === 'Chia sẻ' ||
-            ariaLabel === 'Post' ||
-            ariaLabel === 'Đăng' ||
-            (cleanTxt.startsWith('Post') && cleanTxt.length < 15)
-          ) {
-            submitBtn = el;
-            break;
-          }
+          submitBtn = el;
+          break;
         }
       }
       if (submitBtn) break;
@@ -547,13 +530,7 @@ export async function executePublishAndComment(
       throw new Error('Không tìm thấy nút Đăng (Post) hợp lệ trên giao diện Facebook.');
     }
 
-    // Chờ nút submit được kích hoạt (enabled)
-    for (let w = 0; w < 6; w++) {
-      const isDisabled =
-        (await submitBtn.getAttribute('aria-disabled')) === 'true' ||
-        (await submitBtn.getAttribute('disabled')) !== null;
-      if (!isDisabled) break;
-      logActivity('INFO', 'PUBLISH', 'Nút Đăng đang chờ xử lý (disabled), kiểm tra popup cản trở...');
+    for (let w = 0; w < 4; w++) {
       await dismissBlockingPagePopups(page, pageName);
       await page.waitForTimeout(1000);
     }
@@ -564,7 +541,7 @@ export async function executePublishAndComment(
     // Giám sát tiến trình đăng bài
     logActivity('INFO', 'PUBLISH', 'Đang giám sát tiến trình xuất bản và tự động xử lý popup...');
 
-    for (let w = 0; w < 6; w++) {
+    for (let w = 0; w < 4; w++) {
       await dismissBlockingPagePopups(page, pageName);
       await page.waitForTimeout(1000);
     }
@@ -709,6 +686,15 @@ export async function executePublishAndComment(
 
     logActivity('SUCCESS', 'PUBLISH', `Post ${post.id} successfully published to ${targetType === 'page' ? 'Fanpage' : 'Facebook'}!`);
 
+    // Gửi push notification khi post thành công
+    await sendServerPushNotification({
+      type: 'post',
+      status: 'success',
+      title: post.trend_title,
+      url: exactPostUrl,
+      details: targetType === 'page' ? `Đã đăng lên Fanpage (${pageName || targetUrl})` : 'Đã đăng lên Trang cá nhân',
+    }).catch(() => { });
+
     return {
       success: true,
       postId: post.id,
@@ -750,6 +736,14 @@ export async function executePublishAndComment(
       SET status = 'failed', error_message = ?, screenshot_path = ?, video_path = ?
       WHERE id = ?
     `).run(errorMsg, screenshotFileName, savedVideoFileName || null, post.id);
+
+    // Gửi push notification khi post thất bại
+    await sendServerPushNotification({
+      type: 'post',
+      status: 'failed',
+      title: post.trend_title,
+      error: errorMsg,
+    }).catch(() => { });
 
     return {
       success: false,

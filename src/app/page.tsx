@@ -13,6 +13,7 @@ import { TrendItem, PostItem, ReelItem, ActivityLog } from '@/types';
 import { formatTime } from '@/lib/date';
 import { useI18n } from '@/context/I18nThemeContext';
 import { ToastContainer, ToastItem, ToastType } from '@/components/Toast';
+import { showBrowserNotification } from '@/lib/browser-notifications';
 import {
   TrendingUp,
   FileText,
@@ -321,6 +322,9 @@ export default function DashboardPage() {
         body: JSON.stringify({ postId, dryRun, force }),
       });
       const data = await res.json();
+      const postObj = posts.find((p) => p.id === postId);
+      const postTitle = postObj?.trend_title || 'Bài viết';
+
       if (data.success) {
         showToast(
           dryRun
@@ -330,9 +334,17 @@ export default function DashboardPage() {
             : 'Đã xuất bản bài viết và bình luận nguồn thành công!',
           'success'
         );
+        showBrowserNotification('✅ Đã xuất bản bài viết thành công!', {
+          body: postTitle,
+          url: data.result?.fbPostUrl || undefined,
+        });
         await fetchData();
       } else {
-        showToast(`Lỗi xuất bản: ${data.error || data.result?.error}`, 'error');
+        const errorMsg = data.error || data.result?.error || 'Có lỗi xảy ra khi xuất bản bài viết';
+        showToast(`Lỗi xuất bản: ${errorMsg}`, 'error');
+        showBrowserNotification('❌ Đăng bài viết thất bại', {
+          body: `${postTitle}: ${errorMsg}`,
+        });
         await fetchData();
       }
     } catch (err: any) {
@@ -578,15 +590,27 @@ export default function DashboardPage() {
         body: JSON.stringify({ headless: true }),
       });
       const resData = await res.json();
+      const reelObj = reels.find((r) => r.id === reelId);
+      const reelTitle = reelObj?.caption ? reelObj.caption.slice(0, 100) : (reelObj?.video_filename || 'Reel Facebook');
+
       if (res.ok && resData.success) {
         showToast('Đã xuất bản Reel Facebook thành công!', 'success');
+        showBrowserNotification('✅ Đã xuất bản Reel Facebook thành công!', {
+          body: reelTitle,
+          url: resData.result?.reelUrl || undefined,
+        });
         await fetchData(true);
       } else {
-        showToast(`Xuất bản Reel thất bại: ${resData.error || resData.result?.message}`, 'error');
+        const errorMsg = resData.error || resData.result?.message || 'Có lỗi xảy ra';
+        showToast(`Xuất bản Reel thất bại: ${errorMsg}`, 'error');
+        showBrowserNotification('❌ Xuất bản Reel Facebook thất bại', {
+          body: `${reelTitle}: ${errorMsg}`,
+        });
         await fetchData(true);
       }
     } catch (err: any) {
       showToast(`Lỗi xuất bản: ${err.message}`, 'error');
+      showBrowserNotification('❌ Lỗi xuất bản Reel Facebook', { body: err.message });
       await fetchData(true);
     } finally {
       setPublishingReelId(null);
@@ -603,15 +627,27 @@ export default function DashboardPage() {
         body: JSON.stringify({ headless: true }),
       });
       const resData = await res.json();
+      const reelObj = reels.find((r) => r.id === reelId);
+      const reelTitle = reelObj?.caption ? reelObj.caption.slice(0, 100) : (reelObj?.video_filename || 'Video TikTok');
+
       if (res.ok && resData.success) {
         showToast('Đã xuất bản video lên TikTok thành công!', 'success');
+        showBrowserNotification('✅ Đã xuất bản video lên TikTok thành công!', {
+          body: reelTitle,
+          url: resData.result?.tiktokUrl || undefined,
+        });
         await fetchData(true);
       } else {
-        showToast(`Xuất bản TikTok thất bại: ${resData.error || resData.result?.message}`, 'error');
+        const errorMsg = resData.error || resData.result?.message || 'Có lỗi xảy ra';
+        showToast(`Xuất bản TikTok thất bại: ${errorMsg}`, 'error');
+        showBrowserNotification('❌ Xuất bản video TikTok thất bại', {
+          body: `${reelTitle}: ${errorMsg}`,
+        });
         await fetchData(true);
       }
     } catch (err: any) {
       showToast(`Lỗi xuất bản TikTok: ${err.message}`, 'error');
+      showBrowserNotification('❌ Lỗi xuất bản video TikTok', { body: err.message });
       await fetchData(true);
     } finally {
       setPublishingTikTokId(null);

@@ -3,6 +3,7 @@ import fs from 'fs';
 import db, { logActivity, resolveHeadless, isTikTokAutoPostEnabled } from '@/lib/db';
 import { uploadFacebookReel, PostReelResult } from '@/services/playwright/fb-reel';
 import { uploadTikTokVideo, PostTikTokResult } from '@/services/playwright/tiktok-reel';
+import { sendServerPushNotification } from './notifications';
 import { ReelItem } from '@/types';
 
 export function getReels(status?: string): ReelItem[] {
@@ -219,6 +220,14 @@ export async function publishReelById(
           : `Xuất bản Reel Facebook thành công: ${reel.video_filename}`
       );
 
+      // Gửi push notification khi Reel Facebook xuất bản thành công
+      await sendServerPushNotification({
+        type: 'reel_fb',
+        status: 'success',
+        title: reel.caption ? reel.caption.slice(0, 100) : (reel.video_filename || 'Reel Facebook'),
+        url: result.reelUrl,
+      }).catch(() => { });
+
       // Đăng đồng bộ lên TikTok nếu được bật cấu hình
       if (isTikTokAutoPostEnabled()) {
         try {
@@ -243,6 +252,14 @@ export async function publishReelById(
               WHERE id = ?
             `).run(ttResult.tiktokUrl || null, ttResult.debugVideoPath || null, id);
             logActivity('SUCCESS', 'POST_TIKTOK', `[TikTok] Đã xuất bản video TikTok thành công: ${reel.video_filename} ${ttResult.tiktokUrl ? `(Link: ${ttResult.tiktokUrl})` : ''}`);
+
+            // Gửi push notification khi video TikTok xuất bản thành công
+            await sendServerPushNotification({
+              type: 'reel_tiktok',
+              status: 'success',
+              title: reel.caption ? reel.caption.slice(0, 100) : (reel.video_filename || 'Video TikTok'),
+              url: ttResult.tiktokUrl,
+            }).catch(() => { });
           } else {
             db.prepare(`
               UPDATE reels 
@@ -253,6 +270,14 @@ export async function publishReelById(
               WHERE id = ?
             `).run(ttResult.debugVideoPath || null, ttResult.screenshotPath || null, ttResult.error || ttResult.message, id);
             logActivity('WARN', 'POST_TIKTOK', `[TikTok] Đăng video lên TikTok thất bại: ${ttResult.error || ttResult.message}`);
+
+            // Gửi push notification khi video TikTok thất bại
+            await sendServerPushNotification({
+              type: 'reel_tiktok',
+              status: 'failed',
+              title: reel.caption ? reel.caption.slice(0, 100) : (reel.video_filename || 'Video TikTok'),
+              error: ttResult.error || ttResult.message,
+            }).catch(() => { });
           }
         } catch (ttErr: any) {
           const ttErrMsg = ttErr?.message || String(ttErr);
@@ -262,6 +287,13 @@ export async function publishReelById(
             WHERE id = ?
           `).run(ttErrMsg, id);
           logActivity('WARN', 'POST_TIKTOK', `[TikTok] Lỗi ngoại lệ khi đăng lên TikTok: ${ttErrMsg}`);
+
+          await sendServerPushNotification({
+            type: 'reel_tiktok',
+            status: 'failed',
+            title: reel.caption ? reel.caption.slice(0, 100) : (reel.video_filename || 'Video TikTok'),
+            error: ttErrMsg,
+          }).catch(() => { });
         }
       }
 
@@ -278,6 +310,15 @@ export async function publishReelById(
       `).run(errorMsg, result.screenshotPath || null, result.debugVideoPath || null, id);
 
       logActivity('ERROR', 'POST_REEL', `Xuất bản Reel thất bại: ${errorMsg}`);
+
+      // Gửi push notification khi Reel Facebook thất bại
+      await sendServerPushNotification({
+        type: 'reel_fb',
+        status: 'failed',
+        title: reel.caption ? reel.caption.slice(0, 100) : (reel.video_filename || 'Reel Facebook'),
+        error: errorMsg,
+      }).catch(() => { });
+
       return result;
     }
   } catch (error: any) {
@@ -339,6 +380,15 @@ export async function publishTikTokReelById(
         'POST_TIKTOK',
         `Xuất bản video TikTok thành công: ${reel.video_filename} ${result.tiktokUrl ? `(Link: ${result.tiktokUrl})` : ''}`
       );
+
+      // Gửi push notification khi video TikTok xuất bản thành công
+      await sendServerPushNotification({
+        type: 'reel_tiktok',
+        status: 'success',
+        title: reel.caption ? reel.caption.slice(0, 100) : (reel.video_filename || 'Video TikTok'),
+        url: result.tiktokUrl,
+      }).catch(() => { });
+
       return result;
     } else {
       const errorMsg = result.error || result.message;
@@ -351,6 +401,15 @@ export async function publishTikTokReelById(
         WHERE id = ?
       `).run(result.debugVideoPath || null, result.screenshotPath || null, errorMsg, id);
       logActivity('WARN', 'POST_TIKTOK', `Xuất bản video TikTok thất bại: ${errorMsg}`);
+
+      // Gửi push notification khi video TikTok thất bại
+      await sendServerPushNotification({
+        type: 'reel_tiktok',
+        status: 'failed',
+        title: reel.caption ? reel.caption.slice(0, 100) : (reel.video_filename || 'Video TikTok'),
+        error: errorMsg,
+      }).catch(() => { });
+
       return result;
     }
   } catch (err: any) {

@@ -19,12 +19,23 @@ import {
   Loader2,
   Image as ImageIcon,
   Video,
+  Bell,
+  Send,
+  Eye,
+  EyeOff,
+  AlertCircle,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import TikTokIcon from './TikTokIcon';
 import BackupRestoreSection from './BackupRestoreSection';
 import AdminSecuritySection from './AdminSecuritySection';
 import { useI18n } from '@/context/I18nThemeContext';
+import {
+  isBrowserNotificationSupported,
+  getBrowserNotificationPermission,
+  requestBrowserNotificationPermission,
+  showBrowserNotification,
+} from '@/lib/browser-notifications';
 
 interface SettingsTabProps {
   settings: Record<string, string>;
@@ -49,7 +60,7 @@ export default function SettingsTab({
   onRefreshData,
 }: SettingsTabProps) {
   const { t, lang } = useI18n();
-  const [activeSection, setActiveSection] = useState<'all' | 'facebook' | 'tiktok' | 'ai' | 'storage' | 'security' | 'backup' | 'pwa'>('all');
+  const [activeSection, setActiveSection] = useState<'all' | 'facebook' | 'tiktok' | 'notifications' | 'ai' | 'storage' | 'security' | 'backup' | 'pwa'>('all');
   const [form, setForm] = useState<Record<string, string>>({
     gemini_api_key: settings.gemini_api_key || '',
     fb_target_type: settings.fb_target_type || 'page',
@@ -61,6 +72,12 @@ export default function SettingsTab({
     auto_mode: settings.auto_mode || 'false',
     developer_mode: settings.developer_mode || 'false',
     tiktok_auto_post: settings.tiktok_auto_post || 'true',
+    browser_notify_enabled: settings.browser_notify_enabled || 'true',
+    telegram_notify_enabled: settings.telegram_notify_enabled || 'false',
+    telegram_bot_token: settings.telegram_bot_token || '',
+    telegram_chat_id: settings.telegram_chat_id || '',
+    notify_on_success: settings.notify_on_success || 'true',
+    notify_on_failure: settings.notify_on_failure || 'true',
     filter_keywords:
       settings.filter_keywords ||
       'tài chính, chứng khoán, ngân hàng, bất động sản, kinh tế, crypto, usd, vàng, lạm phát',
@@ -81,6 +98,12 @@ export default function SettingsTab({
       auto_mode: settings.auto_mode ?? prev.auto_mode,
       developer_mode: settings.developer_mode ?? prev.developer_mode,
       tiktok_auto_post: settings.tiktok_auto_post ?? prev.tiktok_auto_post,
+      browser_notify_enabled: settings.browser_notify_enabled ?? prev.browser_notify_enabled,
+      telegram_notify_enabled: settings.telegram_notify_enabled ?? prev.telegram_notify_enabled,
+      telegram_bot_token: settings.telegram_bot_token ?? prev.telegram_bot_token,
+      telegram_chat_id: settings.telegram_chat_id ?? prev.telegram_chat_id,
+      notify_on_success: settings.notify_on_success ?? prev.notify_on_success,
+      notify_on_failure: settings.notify_on_failure ?? prev.notify_on_failure,
       filter_keywords: settings.filter_keywords ?? prev.filter_keywords,
       crawler_interval_minutes: settings.crawler_interval_minutes ?? prev.crawler_interval_minutes,
       posts_per_cycle: settings.posts_per_cycle ?? prev.posts_per_cycle,
@@ -164,6 +187,71 @@ export default function SettingsTab({
       alert('Lỗi: ' + err.message);
     } finally {
       setIsSavingTiktokCookies(false);
+    }
+  };
+
+  // Notification states
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [isTestingTelegram, setIsTestingTelegram] = useState(false);
+  const [telegramTestMsg, setTelegramTestMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [showTelegramToken, setShowTelegramToken] = useState(false);
+
+  useEffect(() => {
+    if (isBrowserNotificationSupported()) {
+      setNotificationPermission(getBrowserNotificationPermission());
+    }
+  }, []);
+
+  const handleRequestBrowserPermission = async () => {
+    const perm = await requestBrowserNotificationPermission();
+    setNotificationPermission(perm);
+    if (perm === 'granted') {
+      await showBrowserNotification('🔔 TrendPulse - Đã kích hoạt thông báo!', {
+        body: 'Thông báo đẩy trình duyệt đã sẵn sàng nhận kết quả đăng bài & Reel.',
+      });
+    }
+  };
+
+  const handleTestBrowserNotification = async () => {
+    const success = await showBrowserNotification('🔔 TrendPulse - Thử nghiệm thông báo đẩy', {
+      body: 'Thông báo hoạt động tốt! Bạn sẽ nhận được tin nhắn khi đăng bài thành công hoặc gặp sự cố.',
+      url: typeof window !== 'undefined' ? window.location.origin : undefined,
+    });
+    if (!success && notificationPermission !== 'granted') {
+      await handleRequestBrowserPermission();
+    }
+  };
+
+  const handleTestTelegramNotification = async () => {
+    if (!form.telegram_bot_token.trim() || !form.telegram_chat_id.trim()) {
+      setTelegramTestMsg({
+        text: lang === 'vi' ? 'Vui lòng nhập cả Telegram Bot Token và Chat ID trước.' : 'Please enter both Telegram Bot Token and Chat ID.',
+        type: 'error',
+      });
+      return;
+    }
+
+    setIsTestingTelegram(true);
+    setTelegramTestMsg(null);
+    try {
+      const res = await fetch('/api/notifications/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          botToken: form.telegram_bot_token.trim(),
+          chatId: form.telegram_chat_id.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTelegramTestMsg({ text: data.message, type: 'success' });
+      } else {
+        setTelegramTestMsg({ text: data.error || data.message || 'Lỗi gửi tin nhắn Telegram', type: 'error' });
+      }
+    } catch (err: any) {
+      setTelegramTestMsg({ text: 'Lỗi kết nối: ' + err.message, type: 'error' });
+    } finally {
+      setIsTestingTelegram(false);
     }
   };
 
@@ -260,6 +348,7 @@ export default function SettingsTab({
     { id: 'all', label: lang === 'vi' ? 'Tất cả' : 'All', icon: Layers },
     { id: 'facebook', label: 'Facebook', icon: FacebookIcon },
     { id: 'tiktok', label: 'TikTok', icon: TikTokIcon },
+    { id: 'notifications', label: lang === 'vi' ? 'Thông báo' : 'Notifications', icon: Bell },
     { id: 'ai', label: 'Gemini AI', icon: Sparkles },
     { id: 'storage', label: lang === 'vi' ? 'Bộ nhớ' : 'Storage', icon: Trash2 },
     { id: 'security', label: lang === 'vi' ? 'Bảo mật' : 'Security', icon: Lock },
@@ -294,7 +383,7 @@ export default function SettingsTab({
         </div>
 
         {/* Quick Save Trigger */}
-        {(activeSection === 'all' || activeSection === 'facebook' || activeSection === 'ai') && (
+        {(activeSection === 'all' || activeSection === 'facebook' || activeSection === 'notifications' || activeSection === 'ai') && (
           <button
             type="button"
             onClick={() => handleSubmit()}
@@ -538,6 +627,243 @@ export default function SettingsTab({
           </div>
         )}
 
+        {/* SECTION: PUSH NOTIFICATIONS (Browser & Telegram) */}
+        {(activeSection === 'all' || activeSection === 'notifications') && (
+          <div className="p-4 sm:p-6 rounded-2xl app-card shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 sm:pb-4 border-b border-[var(--app-border)]">
+              <div className="flex items-center gap-2.5 sm:gap-3.5">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-purple-50 dark:bg-purple-600/15 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-500/30 flex items-center justify-center shadow-xs shrink-0">
+                  <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-inherit">
+                    {lang === 'vi' ? 'Thông báo đẩy (Push Notifications)' : 'Push Notifications'}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {lang === 'vi'
+                      ? 'Nhận thông báo ngay lập tức qua Trình duyệt & Telegram khi đăng bài thành công hoặc thất bại'
+                      : 'Get instant alerts via Browser & Telegram on post success or failure'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Notification Filter Preferences */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-[var(--app-border)]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-slate-900 dark:text-white">
+                    {lang === 'vi' ? 'Thông báo khi THÀNH CÔNG' : 'Alert on SUCCESS'}
+                  </span>
+                  <p className="text-[10px] text-slate-400">
+                    {lang === 'vi' ? 'Gửi thông báo khi bài viết hoặc video đăng xong' : 'Send notification when post or reel succeeds'}
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer ml-2 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={form.notify_on_success === 'true'}
+                    onChange={(e) => setForm({ ...form, notify_on_success: e.target.checked ? 'true' : 'false' })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-emerald-500"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-slate-900 dark:text-white">
+                    {lang === 'vi' ? 'Thông báo khi THẤT BẠI' : 'Alert on FAILURE'}
+                  </span>
+                  <p className="text-[10px] text-slate-400">
+                    {lang === 'vi' ? 'Gửi cảnh báo kèm lỗi khi đăng bài gặp sự cố' : 'Send error alert when post or reel fails'}
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer ml-2 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={form.notify_on_failure === 'true'}
+                    onChange={(e) => setForm({ ...form, notify_on_failure: e.target.checked ? 'true' : 'false' })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-rose-500"></div>
+                </label>
+              </div>
+            </div>
+
+            {/* CHANNEL 1: Browser Web Push Notifications */}
+            <div className="p-4 rounded-xl border border-[var(--app-border)] space-y-3 bg-white dark:bg-slate-900/60">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-indigo-500" />
+                  <span className="text-xs sm:text-sm font-bold text-inherit">
+                    {lang === 'vi' ? '1. Thông báo đẩy trên Trình duyệt / Thiết bị' : '1. Browser / Device Push Notifications'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {notificationPermission === 'granted' ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800">
+                      ● {lang === 'vi' ? 'Đã cho phép' : 'Granted'}
+                    </span>
+                  ) : notificationPermission === 'denied' ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-800">
+                      ✕ {lang === 'vi' ? 'Bị chặn' : 'Blocked'}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-800">
+                      ○ {lang === 'vi' ? 'Chưa cấp quyền' : 'Not Granted'}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                {lang === 'vi'
+                  ? 'Hiển thị thông báo native của hệ điều hành (macOS, Windows, Android, iOS PWA) ngay cả khi bạn đang mở tab khác hoặc chạy nền.'
+                  : 'Displays OS-level native notifications (macOS, Windows, Android, iOS PWA) even when using other apps or running in background.'}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                {notificationPermission !== 'granted' && (
+                  <button
+                    type="button"
+                    onClick={handleRequestBrowserPermission}
+                    className="btn btn-sm btn-primary"
+                  >
+                    <Bell className="w-3.5 h-3.5" />
+                    <span>{lang === 'vi' ? 'Cấp quyền thông báo' : 'Grant Permission'}</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleTestBrowserNotification}
+                  className="btn btn-sm btn-secondary"
+                >
+                  <Send className="w-3 h-3 text-indigo-500" />
+                  <span>{lang === 'vi' ? 'Thử thông báo trình duyệt' : 'Test Browser Alert'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* CHANNEL 2: Telegram Bot Notifications */}
+            <div className="p-4 rounded-xl border border-[var(--app-border)] space-y-3.5 bg-white dark:bg-slate-900/60">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-[10px]">
+                    TG
+                  </div>
+                  <div>
+                    <span className="text-xs sm:text-sm font-bold text-inherit">
+                      {lang === 'vi' ? '2. Thông báo qua Telegram Bot' : '2. Telegram Bot Notifications'}
+                    </span>
+                    <span className="ml-2 text-[10px] text-slate-400 font-normal">
+                      ({lang === 'vi' ? 'Khuyên dùng cho Cron / Chạy ngầm' : 'Recommended for Cron / Headless'})
+                    </span>
+                  </div>
+                </div>
+
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={form.telegram_notify_enabled === 'true'}
+                    onChange={(e) => setForm({ ...form, telegram_notify_enabled: e.target.checked ? 'true' : 'false' })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-500"></div>
+                </label>
+              </div>
+
+              {form.telegram_notify_enabled === 'true' && (
+                <div className="space-y-3 pt-1 border-t border-[var(--app-border)] animate-in fade-in">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-inherit mb-1">
+                        Telegram Bot Token <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showTelegramToken ? 'text' : 'password'}
+                          value={form.telegram_bot_token}
+                          onChange={(e) => setForm({ ...form, telegram_bot_token: e.target.value })}
+                          placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz..."
+                          className="w-full h-9 pl-3 pr-10 app-input rounded-lg text-xs font-mono placeholder-slate-400 focus:outline-hidden focus:border-indigo-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowTelegramToken(!showTelegramToken)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                        >
+                          {showTelegramToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-inherit mb-1">
+                        Telegram Chat ID <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={form.telegram_chat_id}
+                        onChange={(e) => setForm({ ...form, telegram_chat_id: e.target.value })}
+                        placeholder="Ví dụ: 123456789 hoặc -100123456789"
+                        className="w-full h-9 px-3 app-input rounded-lg text-xs font-mono placeholder-slate-400 focus:outline-hidden focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quick Guide */}
+                  <div className="p-2.5 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-900/30 text-[11px] text-blue-900 dark:text-blue-300 space-y-1">
+                    <div className="font-semibold flex items-center gap-1">
+                      💡 {lang === 'vi' ? 'Cách lấy Bot Token và Chat ID trong 1 phút:' : 'How to get Bot Token & Chat ID:'}
+                    </div>
+                    <ol className="list-decimal list-inside space-y-0.5 text-[10.5px] opacity-90 pl-1">
+                      <li>{lang === 'vi' ? 'Mở Telegram tìm @BotFather, gửi lệnh /newbot để tạo bot và copy Bot Token.' : 'Open Telegram, chat with @BotFather, send /newbot and copy Bot Token.'}</li>
+                      <li>{lang === 'vi' ? 'Tìm bot của bạn và ấn Start. Sau đó mở @userinfobot để xem Chat ID của bạn.' : 'Search your bot and press Start. Then open @userinfobot to get your Chat ID.'}</li>
+                    </ol>
+                  </div>
+
+                  {/* Test Telegram Button */}
+                  <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleTestTelegramNotification}
+                      disabled={isTestingTelegram}
+                      className="btn btn-sm btn-primary bg-blue-600 hover:bg-blue-700 text-white border-blue-500"
+                    >
+                      {isTestingTelegram ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>{lang === 'vi' ? 'Đang gửi thử nghiệm...' : 'Sending test...'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3 h-3" />
+                          <span>{lang === 'vi' ? 'Gửi thử tin nhắn Telegram' : 'Test Telegram Message'}</span>
+                        </>
+                      )}
+                    </button>
+
+                    {telegramTestMsg && (
+                      <span
+                        className={`text-xs font-medium ${
+                          telegramTestMsg.type === 'success'
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-rose-600 dark:text-rose-400'
+                        }`}
+                      >
+                        {telegramTestMsg.type === 'success' ? '✓ ' : '✕ '}
+                        {telegramTestMsg.text}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* SECTION 3: GEMINI AI & AUTOMATION */}
         {(activeSection === 'all' || activeSection === 'ai') && (
           <div className="p-4 sm:p-6 rounded-2xl app-card shadow-xs space-y-4">
@@ -695,7 +1021,7 @@ export default function SettingsTab({
         )}
 
         {/* Save Button for Form */}
-        {(activeSection === 'all' || activeSection === 'facebook' || activeSection === 'ai') && (
+        {(activeSection === 'all' || activeSection === 'facebook' || activeSection === 'notifications' || activeSection === 'ai') && (
           <div className="flex items-center justify-end gap-2.5 pt-1">
             {isSaved && (
               <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-bold animate-pulse">
