@@ -1,219 +1,250 @@
-# 🚀 TrendPulse - Google Trends & Facebook Automation Tool
+# 🚀 TrendPulse - Google Trends, Facebook & TikTok Automation Tool
 
-Một công cụ tự động hóa toàn diện giúp bạn:
-1. **Cào các chủ đề thịnh hành (Google Trends)**: Tự động trích xuất các xu hướng nóng từ Google Trends (Việt Nam, US, SG...), phân loại các tin tức Tài chính / Kinh tế / Xã hội và lấy liên kết bài báo gốc.
-2. **Sáng tạo nội dung với AI (Gemini)**: Viết bài đăng Facebook thu hút người xem (Hook, gạch đầu dòng điểm tin, kêu gọi hành động CTA, hashtag). **Tuyệt đối không chèn link vào bài đăng** để thuật toán Facebook không bóp tương tác (Reach).
-3. **Tự động đăng bài lên Facebook (Playwright)**: Sử dụng Playwright với Persistent Session để tự động đăng lên Facebook cá nhân hoặc Fanpage.
-4. **Tự động bình luận nguồn tin (Auto-Comment Source Links)**: Ngay sau khi bài viết được đăng, bot tự động vào ô bình luận của bài viết đó để comment đầy đủ các link nguồn gốc.
-5. **Dashboard quản lý trực quan (Tailwind CSS)**: Quản lý xu hướng, studio duyệt bài, xem ảnh chụp màn hình đối soát (Audit Screenshots), theo dõi nhật ký hoạt động thời gian thực và cấu hình tài khoản.
+**TrendPulse** là nền tảng tự động hóa toàn diện giúp theo dõi xu hướng, sáng tạo nội dung tin tức tài chính bằng AI và tự động xuất bản đa nền tảng (Facebook Post, Facebook Reels, TikTok Video) với cơ chế chống checkpoint, ghi hình kiểm soát và thông báo tức thời.
+
+---
+
+## 📚 Tài liệu Chi tiết (Detailed Documentation)
+
+Để tìm hiểu sâu hơn về từng khía cạnh kỹ thuật của dự án, vui lòng tham khảo các tài liệu chuyên sâu trong thư mục [`docs/`](docs/):
+
+- 🏛️ **[Kiến trúc Hệ thống (Architecture)](docs/ARCHITECTURE.md)**: Sơ đồ kiến trúc, luồng dữ liệu tự động hóa, thiết kế SQLite WAL, cơ chế chống checkpoint và dọn dẹp bộ nhớ.
+- 💻 **[Tra cứu Lệnh CLI (CLI Reference)](docs/CLI_REFERENCE.md)**: Hướng dẫn chi tiết từng tham số dòng lệnh cho `auto-cycle`, `post-reel`, `cron-daemon`, `fb-login`, `playwright.js`.
+- 🔌 **[Đặc tả REST API (API Reference)](docs/API.md)**: Danh mục toàn bộ các REST endpoints (Auth, Trends, Posts, Reels, TikTok, Notifications, Backups).
+- 🚀 **[Hướng dẫn Triển khai VPS (Deployment & Ops)](docs/DEPLOYMENT.md)**: Hướng dẫn cài đặt Ubuntu VPS từ A-Z, cấu hình Swap, PM2, Nginx Reverse Proxy, SSL HTTPS và xử lý sự cố thường gặp.
+
+---
+
+## 🌟 Điểm nổi bật & Tính năng chính
+
+1. **Cào & Phân tích xu hướng (Google Trends Real-time)**:
+   - Tự động trích xuất các xu hướng nóng theo từng quốc gia (Việt Nam `VN`, Mỹ `US`, Singapore `SG`...).
+   - Bộ lọc thông minh chuyên biệt cho chủ đề **Tài chính / Kinh tế / Chứng khoán / Bất động sản / Vàng & Ngoại tệ**.
+   - Tự động tìm kiếm và trích xuất liên kết các bài báo nguồn chính thống (Publisher News Sources).
+   - Cơ chế tự động sửa lỗi bất đồng bộ (`DB Auto-Repair`) và lọc bài trùng lặp (`Dedup engine`).
+
+2. **Sáng tạo nội dung với AI (Google Gemini 2.5 / 2.0)**:
+   - Tự động viết bài đăng Facebook chuẩn SEO & Engagement (Hook giật tít, tóm tắt điểm tin, bullet points, CTA, hashtag).
+   - **Chiến lược giữ Reach**: Tuyệt đối không chèn link vào bài viết chính để thuật toán Facebook không bóp tương tác.
+   - Dự phòng thông minh: Tự động chuyển đổi template nếu mất kết nối hoặc hết quota API Gemini.
+
+3. **Tự động đăng bài Facebook & Auto-Comment nguồn (Playwright)**:
+   - Tự động đăng lên **Trang cá nhân (Profile)** hoặc **Fanpage**.
+   - **Tự động bình luận nguồn tin (First-Comment Links)**: Ngay khi bài viết đăng thành công, bot tự động vào bình luận chính bài viết đó để đính kèm link bài báo gốc minh bạch.
+   - Cơ chế đóng pop-up thông minh (`Not now`, `Chuyển sang trang...`) và mô phỏng thao tác người dùng tự nhiên (Anti-detection).
+
+4. **Studio Đăng Facebook Reels & TikTok Video**:
+   - Quản lý kho video ngắn, tải lên trực tiếp từ Dashboard hoặc qua CLI `pnpm post-reel`.
+   - Hỗ trợ **hẹn giờ đăng tự động (Scheduled Reels)** chạy ngầm bởi daemon.
+   - Đăng đồng thời lên **Facebook Reels** và **TikTok Web**.
+
+5. **Ghi hình & Chụp ảnh đối soát (Audit Trail)**:
+   - Tùy chọn bật/tắt ghi video (MP4) và chụp ảnh màn hình (Screenshot) toàn bộ phiên tự động hóa để kiểm tra, xem lại trực tiếp trên Dashboard.
+
+6. **Hệ thống thông báo tức thời (Multi-Channel Notifications)**:
+   - Gửi thông báo kết quả đăng bài (kèm link bài viết, ảnh, thời gian hoặc chi tiết lỗi) qua **Telegram Bot**, **Slack Incoming Webhook**, và **Browser Web Push Notifications**.
+
+7. **Dashboard quản trị PWA (Next.js 16 + Astryx Design)**:
+   - Giao diện Dark Mode chuẩn hiện đại, responsive hoàn hảo cho cả Mobile & Desktop.
+   - Hỗ trợ cài đặt như ứng dụng di động **PWA (Progressive Web App)** không cần thông qua App Store.
+   - Phân quyền bảo mật xác thực Admin, hệ thống Backup & Restore SQLite 1-click.
 
 ---
 
 ## 🛠️ Công nghệ sử dụng (Tech Stack)
 
-- **Ngôn ngữ & Runtime**: Node.js v20+ / TypeScript
-- **Web Framework & UI**: Next.js 16 (App Router) + Tailwind CSS v4 + **Meta Astryx Design System** (`@astryxdesign/core`) + Lucide Icons
-- **Tự động hóa trình duyệt**: Playwright (Persistent Context & Anti-detection)
-- **Cơ sở dữ liệu**: SQLite (Better-SQLite3) chế độ WAL (Zero-config, chạy cục bộ siêu nhanh)
-- **AI Content Generator**: Google Gemini API (`@google/genai`) kèm bộ template thông minh dự phòng
+| Thành phần | Công nghệ |
+|---|---|
+| **Runtime & Language** | Node.js v20+ / TypeScript / TSX |
+| **Framework & UI** | Next.js 16 (App Router) + Tailwind CSS v4 + Astryx Design System + Lucide Icons |
+| **Tự động hóa trình duyệt** | Playwright (Persistent Context, Stealth flags, Resource blocker) |
+| **Cơ sở dữ liệu** | SQLite (Better-SQLite3) chạy chế độ WAL (Zero-config, tốc độ cao, siêu nhẹ) |
+| **Trí tuệ nhân tạo** | Google Gemini API (`@google/genai`) kèm Fallback Templates |
+| **Thông báo & Tích hợp** | Telegram Bot API, Slack Incoming Webhooks, Web Push API |
+| **Quản lý tiến trình** | PM2 (`ecosystem.config.js`) / Cron Daemon |
 
 ---
 
-## 🚀 Hướng dẫn cài đặt & Khởi chạy
+## 🚀 Hướng dẫn Cài đặt & Khởi chạy
 
-### 1. Khởi chạy Dashboard trực quan
-Chạy lệnh sau trong thư mục dự án:
+### 1. Chuẩn bị môi trường & Cài đặt dependencies
+
+```bash
+# Clone repository
+git clone https://github.com/ezerway/news-financial-tool.git
+cd news-financial-tool
+
+# Cài đặt thư viện
+pnpm install
+
+# Cài đặt trình duyệt Chromium và thư viện hệ thống cho Playwright
+npx playwright install --with-deps chromium
+```
+
+### 2. Cấu hình biến môi trường (`.env`)
+
+Sao chép từ file mẫu:
+```bash
+cp .env.example .env
+```
+
+Thiết lập các biến môi trường quan trọng:
+```env
+PORT=3000
+NODE_ENV=production
+
+# Google Gemini API Key (Hoặc cấu hình qua tab Cài đặt trên Web)
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Tài khoản đăng nhập Dashboard quản trị (mặc định: admin / admin123456)
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=your_secure_password_here
+AUTH_SECRET=your_random_secret_key_at_least_32_chars_here
+
+# Thông báo (Tùy chọn)
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+SLACK_WEBHOOK_URL=
+```
+
+### 3. Khởi chạy Dashboard phát triển (Local)
+
 ```bash
 pnpm dev
 ```
-Sau đó mở trình duyệt tại: **`http://localhost:3000`**
-
-### 2. Kết nối tài khoản Facebook (Chỉ cần 1 lần duy nhất)
-Facebook có cơ chế bảo mật cao (2FA, Captcha, Checkpoint). Công cụ hỗ trợ 3 cách kết nối linh hoạt:
-
-**Cách 1 (Trên máy cá nhân có màn hình - Mac/Windows):**
-- Chạy `pnpm fb:login` trong terminal, hoặc bấm **"Mở trình duyệt quản lý phiên Facebook"** tại tab **Cài đặt**.
-- Cửa sổ Chromium sẽ mở ra. Bạn chỉ cần đăng nhập tài khoản Facebook và xác thực 2FA.
-- Sau khi xong, hệ thống tự động lưu file `storage/fb-session.json`.
-
-**Cách 2 (Trên Linux VPS / Server không có giao diện GUI):**
-- **Phương án A (Nhập Cookie qua CLI - Nhanh nhất)**: Chạy `pnpm fb:login`. Script sẽ tự động nhận diện VPS và yêu cầu bạn dán 2 cookie `c_user` và `xs` (lấy từ DevTools F12 hoặc extension Cookie-Editor trên trình duyệt cá nhân).
-- **Phương án B (Tải file session lên Dashboard)**: Đăng nhập trên máy tính cá nhân bằng Cách 1 -> Mở Dashboard VPS -> vào tab **Cài đặt** -> phần **Sao lưu & Khôi phục** -> Tải file `fb-session.json` lên.
-- **Phương án C (Dùng xvfb nếu có)**: `xvfb-run -a pnpm fb:login`
-
-### 3. Cấu hình Gemini API Key
-Bạn có thể cấu hình API key bằng 2 cách:
-- **Cách 1**: Vào tab **"Cài đặt & Tài khoản FB"** trên Dashboard, nhập API key và bấm **"Lưu tất cả cấu hình"**.
-- **Cách 2**: Tạo file `.env.local` ở thư mục gốc:
-  ```env
-  GEMINI_API_KEY=your_gemini_api_key_here
-  ```
-*(Lưu ý: Nếu chưa nhập API Key, công cụ vẫn hoạt động bình thường với bộ sinh nội dung thông minh tích hợp sẵn).*
+Mở trình duyệt tại: **`http://localhost:3000`**
 
 ---
 
-## 💻 Các lệnh dòng lệnh (CLI Commands)
+## 🔑 Kết nối Tài khoản (Facebook & TikTok)
 
-| Lệnh | Ý nghĩa |
+### 1. Kết nối Facebook
+Hệ thống lưu trữ phiên làm việc trong `storage/fb-session.json`. Có 3 cách kết nối linh hoạt:
+
+- **Cách 1 (Máy cá nhân Mac/Windows có màn hình)**:
+  Chạy lệnh `pnpm fb:login`. Trình duyệt Chromium sẽ mở lên, bạn chỉ cần đăng nhập Facebook và xác thực 2FA. Session sẽ tự động được lưu.
+- **Cách 2 (Trên Linux VPS - Nhập Cookie CLI)**:
+  Chạy `pnpm fb:login`. Script phát hiện môi trường VPS không GUI và hiển thị prompt để bạn dán 2 cookie `c_user` và `xs`.
+- **Cách 3 (Import qua Dashboard Web)**:
+  Vào tab **Cài đặt** $\to$ mục **Trạng thái kết nối Facebook** hoặc **Sao lưu & Khôi phục** để tải lên file `fb-session.json`.
+
+### 2. Kết nối TikTok (Dành cho tính năng Reels/Video)
+- Đăng nhập TikTok trên trình duyệt cá nhân, xuất cookie ra JSON hoặc sao lưu vào `storage/tiktok-session.json`.
+- Hoặc cấu hình tài khoản trực tiếp qua tab **Reels & Video** trên Dashboard.
+
+---
+
+## 💻 Bảng tra cứu Lệnh CLI (CLI Reference)
+
+| Lệnh | Mô tả chi tiết |
 |---|---|
-| `pnpm dev` | Khởi động máy chủ Next.js và Dashboard quản trị |
-| `pnpm fb:login` | Mở trình duyệt để đăng nhập tài khoản Facebook và lưu session |
-| `pnpm auto-cycle` | Chạy 1 chu kỳ hoàn chỉnh: Cào Google Trends -> Viết bài -> Đưa vào hàng đợi |
-| `pnpm auto-cycle --dry-run` | Chạy thử mô phỏng toàn bộ chu kỳ mà không đăng thật lên Facebook |
-| `pnpm auto-cycle --publish` | Tự động cào, viết bài và xuất bản thật ngay lập tức lên Facebook |
+| `pnpm dev` | Khởi chạy Next.js development server (Port 3000) |
+| `pnpm build` | Làm sạch lock cũ (`prebuild`) và build production bundle |
+| `pnpm start` | Khởi chạy Next.js production server |
+| `pnpm fb:login` | Đăng nhập tài khoản Facebook để lấy session (hỗ trợ GUI và Cookie CLI) |
+| `pnpm auto-cycle` | Chạy 1 chu kỳ cào Google Trends $\to$ AI viết bài $\to$ lưu bản nháp vào Database |
+| `pnpm auto-cycle --publish` | Chạy 1 chu kỳ hoàn chỉnh và **đăng ngay lập tức** lên Facebook |
+| `pnpm auto-cycle --limit 3` | Giới hạn xử lý tối đa 3 xu hướng trong chu kỳ này |
+| `pnpm auto-cycle --retry` | Chạy lại tìm kiếm link báo chí và xuất bản cho các xu hướng chưa có nguồn |
+| `pnpm auto-cycle --trend <id>` | Chạy riêng cho một xu hướng cụ thể theo mã ID |
+| `pnpm post-reel` | CLI đăng Reels lên Facebook & TikTok (chế độ tương tác hỏi - đáp) |
+| `pnpm post-reel -f <video> -c "Cap"` | Đăng nhanh một video Reel qua tham số dòng lệnh |
+| `pnpm post-reel -f <video> --schedule "2026-11-15 10:00"` | Hẹn giờ đăng video Reel |
+| `pnpm cron-daemon --publish` | Khởi chạy Daemon chạy ngầm liên tục theo chu kỳ cấu hình |
+| `node scripts/playwright.js <url> [sel]` | Tiện ích cào DOM/HTML chống rò rỉ bộ nhớ (zero memory leak) |
 
 ---
 
-## ⏰ Cài đặt chạy định kỳ tự động (Cron Job)
+## 🎬 Quản lý Facebook Reels & TikTok Video
 
-Nếu bạn muốn công cụ tự động cào và đăng bài mỗi 2 tiếng:
-Mở crontab:
-```bash
-crontab -e
-```
-Thêm dòng sau:
-```cron
-0 */2 * * * cd /home/ezerway-financial-news/news-financial-tool && pnpm auto-cycle --publish >> /home/ezerway-financial-news/logs/cron_debug.log 2>&1
-```
+Dự án cung cấp bộ công cụ toàn diện cho Video ngắn:
+- **Tải lên & Xem trước**: Hỗ trợ định dạng MP4/MOV, tỉ lệ 9:16 tối ưu cho Reels/Shorts/TikTok.
+- **Hẹn giờ đăng tự động (Scheduler)**:
+  - Bạn có thể đặt lịch đăng cho từng video qua giao diện Web hoặc lệnh `--schedule`.
+  - Tiến trình `cron-daemon` tự động kiểm tra mỗi 30 giây và xuất bản video đúng thời điểm.
+- **Đăng chéo Facebook & TikTok**:
+  - Tự động tải video lên Facebook Reels (Page hoặc cá nhân).
+  - Tự động đăng tiếp lên TikTok Web nếu bật cấu hình `tiktok_auto_post`.
+  - Ghi hình video debug và ảnh screenshot đối soát kết quả đăng trên cả 2 nền tảng.
 
 ---
+
+## 🔔 Cấu hình Thông báo Tức thời
+
+Bạn có thể kích hoạt thông báo khi có bài viết hoặc Reel mới được xuất bản:
+
+### 1. Telegram Bot
+1. Tạo bot qua [@BotFather](https://t.me/BotFather) để lấy `TELEGRAM_BOT_TOKEN`.
+2. Lấy `TELEGRAM_CHAT_ID` của bạn (hoặc nhóm) qua [@userinfobot](https://t.me/userinfobot).
+3. Nhập token và chat ID vào tab **Cài đặt** $\to$ **Cấu hình Thông báo** $\to$ Bấm **"Gửi tin nhắn thử nghiệm"** để kiểm tra.
+
+### 2. Slack Webhook
+1. Tạo một Incoming Webhook trên trang quản lý ứng dụng Slack (`https://api.slack.com/apps`).
+2. Dán URL webhook (`https://hooks.slack.com/...`) vào cấu hình Slack trên Dashboard.
+
+### 3. Web Push Notification
+- Bật công tắc **"Nhận thông báo trên trình duyệt"** tại tab Cài đặt và cấp quyền cho trình duyệt.
 
 ---
 
 ## 🌐 Hướng dẫn Triển khai VPS (Production Deployment)
 
-### 1. Chuẩn bị môi trường VPS (Ubuntu / Debian)
-
-Cài đặt Node.js 20+, pnpm và các thư viện cần thiết cho Chromium Playwright:
+### 1. Cài đặt môi trường VPS (Ubuntu / Debian)
 
 ```bash
-# Cập nhật hệ thống
+# 1. Cập nhật hệ thống
 sudo apt update && sudo apt upgrade -y
 
-# Cài đặt Node.js 20.x
+# 2. Cài đặt Node.js 20.x và Git
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs git
 
-# Cài đặt pnpm và PM2 toàn cục
+# 3. Cài đặt pnpm và PM2 toàn cục
 sudo npm install -g pnpm pm2
 ```
 
-### 2. Kéo mã nguồn & Cài đặt dependencies
+### 2. Kéo mã nguồn & Cài đặt
 
 ```bash
-# Clone repository
 git clone https://github.com/ezerway/news-financial-tool.git /home/ezerway-financial-news/news-financial-tool
 cd /home/ezerway-financial-news/news-financial-tool
 
-# Cài đặt gói thư viện dự án
 pnpm install
-
-# Cài đặt Chromium cùng các thư viện hệ thống cho Playwright trên Linux VPS
 npx playwright install --with-deps chromium
 ```
 
-### 3. Cấu hình biến môi trường (`.env`)
-
-Sao chép và thiết lập file `.env`:
-```bash
-cp .env.example .env 2>/dev/null || touch .env
-nano .env
-```
-
-Nội dung gợi ý trong file `.env`:
-```env
-PORT=3000
-NODE_ENV=production
-
-# Tài khoản đăng nhập Dashboard quản trị VPS
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=your_secure_password_here
-AUTH_SECRET=your_random_secret_key_32_characters_here
-
-# Cấu hình AI
-GEMINI_API_KEY=your_gemini_api_key_here
-```
-
-### 4. Build ứng dụng
+### 3. Thiết lập cấu hình `.env` & Build
 
 ```bash
+cp .env.example .env
+nano .env   # Cập nhật thông tin bảo mật, GEMINI_API_KEY, ADMIN_PASSWORD
 pnpm build
 ```
 
-### 5. Khởi chạy bằng PM2 (`ecosystem.config.js`)
+### 4. Quản lý dịch vụ bằng PM2 (`ecosystem.config.js`)
 
-Dự án đã tích hợp sẵn file `ecosystem.config.js` quản lý cả **Web Dashboard** và **Cron Job tự động chạy mỗi 1 tiếng**:
+File `ecosystem.config.js` đã được tối ưu sẵn chạy **Web Dashboard** và **Cron Daemon**:
 
 ```bash
-# Khởi động cả Web và Cron tự động
+# Khởi động toàn bộ hệ thống
 pm2 start ecosystem.config.js
 
-# Lưu trạng thái để tự khởi động lại khi VPS reboot
+# Thiết lập tự động khởi động cùng hệ điều hành
 pm2 save
 pm2 startup
 ```
 
-**Các lệnh PM2 thông dụng:**
+**Các lệnh giám sát thông dụng:**
 ```bash
-# Xem trạng thái các dịch vụ đang chạy
-pm2 status
-
-# Xem log thời gian thực (đặc biệt khi bot chạy chu kỳ)
-pm2 logs
-pm2 logs trendpulse-cron    # Chỉ xem log của cron
-pm2 logs trendpulse-web     # Chỉ xem log của web
-
-# Khởi động lại
-pm2 restart ecosystem.config.js
-
-# Dừng hệ thống
-pm2 stop all
+pm2 status                  # Xem trạng thái hoạt động
+pm2 logs                    # Xem toàn bộ logs
+pm2 logs trendpulse-cron    # Xem logs chu kỳ tự động đăng bài
+pm2 restart all             # Khởi động lại tất cả
 ```
 
-**Cấu hình số bài viết đăng mỗi lần chạy cron:**
-* **Cách 1 (Khuyên dùng):** Mở Web Dashboard -> Tab **Cài đặt** -> mục **"Số lượng bài đăng mỗi lần chạy tự động"** (chọn 1, 2, 3, 4 hoặc 5 bài/lần) rồi bấm **Lưu tất cả cấu hình**. `trendpulse-cron` sẽ tự động đọc cấu hình này từ database.
-* **Cách 2 (Cố định qua PM2):** Trong file [`ecosystem.config.js`](file:///Volumes/KINGSTON/Code/news-financial-tool/ecosystem.config.js), thêm `--limit 3` vào phần `args`:
-  ```js
-  args: 'scripts/cron-daemon.ts --limit 3',
-  ```
-  *(Khi đăng từ 2 bài trở lên, bot tự động nghỉ 25 giây giữa các bài để bảo vệ tài khoản Facebook khỏi bị checkpoint / chống spam).*
+### 5. Cấu hình Nginx Reverse Proxy & SSL (HTTPS cho PWA)
 
-**Cơ chế chạy tự động 1 tiếng 1 lần (`trendpulse-cron`):**
-1. Tiến trình `trendpulse-cron` sử dụng script [`scripts/cron-daemon.ts`](file:///Volumes/KINGSTON/Code/news-financial-tool/scripts/cron-daemon.ts) kèm cờ `--publish`.
-2. Khi vừa khởi động (`pm2 start` hoặc `pm2 restart`), bot sẽ **chạy ngay lập tức 1 lần** để cào tin và đăng bài lên Facebook (không phải chờ đợi).
-3. Sau đó, bot tự động lặp lại chu kỳ **đúng 1 tiếng 1 lần (mỗi 60 phút)** liên tục 24/7. Có thể xem thời gian đếm ngược lần chạy kế tiếp qua `pm2 logs trendpulse-cron`.
-
----
-
-### 6. Quy trình Cập nhật Code mới (Redeploy / Update)
-
-Khi có bản cập nhật hoặc sửa lỗi mới từ GitHub, chạy các lệnh sau trên VPS:
-
-```bash
-cd /home/ezerway-financial-news/news-financial-tool
-
-# 1. Kéo code mới nhất về
-git pull
-
-# 2. Xóa cache browser profile cũ bị hỏng do các lần crash trước (nếu có)
-rm -rf storage/browser-profile
-
-# 3. Cài lại thư viện (nếu có thay đổi package.json) và build lại
-pnpm install
-pnpm build
-
-# 4. Khởi động lại tiến trình PM2
-pm2 restart ecosystem.config.js
-```
-
----
-
-### 7. Cấu hình Nginx & HTTPS để hỗ trợ PWA (Cài đặt trên Mobile)
-
-> **Lưu ý quan trọng về PWA**: Trình duyệt di động (Chrome, Edge) chỉ hiển thị nút **"Cài đặt Ứng dụng" (Add to Home Screen)** khi trang web chạy qua giao thức **HTTPS (SSL)**.
-
-Cấu hình mẫu Nginx Reverse Proxy (`/etc/nginx/sites-available/trendpulse`):
-
+Tạo file cấu hình `/etc/nginx/sites-available/trendpulse`:
 ```nginx
 server {
     server_name yourdomain.com;
@@ -232,17 +263,13 @@ server {
 }
 ```
 
-Kích hoạt và cấp chứng chỉ SSL miễn phí với Let's Encrypt:
+Kích hoạt và cấp chứng chỉ Let's Encrypt:
 ```bash
 sudo ln -s /etc/nginx/sites-available/trendpulse /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d yourdomain.com
 ```
-
-**Cách cài đặt PWA trên điện thoại:**
-- **Android / Chrome / Edge**: Truy cập `https://yourdomain.com`, bấm banner nổi **"Cài đặt TrendPulse"** hoặc bấm menu 3 chấm (⋮) chọn **"Cài đặt ứng dụng"**.
-- **iPhone / iPad (Safari)**: Mở Safari truy cập web -> Bấm nút **Chia sẻ (Share icon 📤)** ở thanh dưới -> Chọn **"Thêm vào MH chính" (Add to Home Screen)**.
 
 ---
 
@@ -251,24 +278,53 @@ sudo certbot --nginx -d yourdomain.com
 ```text
 news-financial-tool/
 ├── src/
-│   ├── app/                     # Next.js App Router (Dashboard, Login, API endpoints)
-│   │   ├── api/                 # REST APIs: trends, generate, publish, logs, settings, backup, auth
-│   │   ├── login/               # Trang xác thực quản trị viên
-│   │   ├── page.tsx             # Trang Dashboard chính (Overview, Trends, Posts, Logs, Settings)
-│   │   └── layout.tsx           # Layout, PWA Manifest, SEO & Fonts
-│   ├── components/              # Các thành phần UI (Header, Stats, Trends, Posts Studio, PWA Manager...)
-│   ├── lib/                     # SQLite database & Authentication (db.ts, auth-server.ts, auth-token.ts)
-│   ├── services/
-│   │   ├── crawler.ts           # Cào Google Trends Category 3 (Kinh tế & Tài chính) kèm link báo gốc
-│   │   ├── ai-generator.ts      # Tạo bài đăng & comment nguồn tin bằng Gemini
-│   │   ├── auto-runner.ts       # Điều phối chu kỳ tự động (Cào -> Viết -> Đăng)
-│   │   └── playwright/          # Tự động hóa Facebook (Persistent Context, Chống crash VPS, Auto-comment)
-│   └── types/                   # Định nghĩa TypeScript
-├── public/                      # Static assets, PWA icons, manifest.json, sw.js
-├── scripts/                     # Các CLI scripts (fb-login, auto-cycle, generate-icons)
-├── storage/                     # Thư mục lưu DB (app.db), session Facebook, ảnh chụp màn hình
-├── ecosystem.config.js          # Cấu hình PM2 chạy Web & Cron tự động trên VPS
+│   ├── app/                         # Next.js App Router
+│   │   ├── api/                     # REST APIs (trends, generate, publish, reels, notifications, backup...)
+│   │   ├── login/                   # Giao diện xác thực Admin
+│   │   ├── page.tsx                 # Dashboard điều khiển trung tâm
+│   │   └── layout.tsx               # Root layout, PWA metadata & theme
+│   ├── components/                  # Giao diện thành phần (TrendsTab, PostsTab, ReelsTab, SettingsTab...)
+│   ├── lib/                         # Core libraries
+│   │   ├── db.ts                    # SQLite (Better-SQLite3) & Auto-repair schemas
+│   │   ├── auth-server.ts           # Xác thực phiên Admin qua cookie/JWT
+│   │   └── auth-token.ts            # Quản lý mã hóa token
+│   ├── services/                    # Business Logic & Automations
+│   │   ├── crawler.ts               # Cào Google Trends Tài chính & trích xuất tin tức gốc
+│   │   ├── ai-generator.ts          # Tạo nội dung bài viết Facebook qua Gemini API
+│   │   ├── auto-runner.ts           # Điều phối chu kỳ tự động (Crawl -> AI -> Publish)
+│   │   ├── dedup.ts                 # Bộ lọc chống trùng lặp tin tức
+│   │   ├── notifications.ts         # Thông báo qua Telegram, Slack & Web Push
+│   │   ├── reels.ts                 # Quản lý hàng đợi và bộ xử lý Reel theo lịch
+│   │   └── playwright/              # Tự động hóa trình duyệt
+│   │       ├── session.ts           # Quản lý session Facebook, stealth flags, chống crash VPS
+│   │       ├── fb-automation.ts     # Đăng bài Facebook & bình luận link nguồn
+│   │       ├── fb-reel.ts           # Tự động hóa đăng Facebook Reels
+│   │       ├── tiktok-session.ts    # Quản lý session TikTok
+│   │       └── tiktok-reel.ts       # Tự động hóa đăng video TikTok Web
+│   └── types/                       # TypeScript interfaces & types
+├── public/                          # Static assets, PWA icons, manifest.json, sw.js
+├── scripts/                         # CLI Automation Tools
+│   ├── auto-cycle.ts                # CLI chạy chu kỳ tự động hóa
+│   ├── cron-daemon.ts               # Background Daemon chạy chu kỳ & quét video hẹn giờ
+│   ├── fb-login.ts                  # CLI đăng nhập và lưu session Facebook
+│   ├── post-reel.ts                 # CLI đăng Reel lên Facebook và TikTok
+│   ├── playwright.js                # Công cụ cào DOM/HTML Playwright chống rò rỉ RAM
+│   └── clean-locks.js               # Tiện ích dọn dẹp file lock trước khi build
+├── storage/                         # Thư mục lưu trữ nội bộ (SQLite app.db, sessions, screenshots, videos)
+├── docs/                            # Tài liệu chuyên sâu (Kiến trúc hệ thống, Tham chiếu CLI)
+├── ecosystem.config.js              # Cấu hình PM2 chạy Web & Cron trên VPS
 ├── package.json
 └── README.md
 ```
 
+---
+
+## 🛡️ Tối ưu hóa & Chống rò rỉ bộ nhớ (Memory Safety)
+
+1. **Khắc phục triệt để Zombie Chromium**:
+   - Tất cả các tác vụ Playwright (`fb-automation`, `fb-reel`, `tiktok-reel`, `scripts/playwright.js`) đều giải phóng tài nguyên trong khối `finally` (`page.close()` $\to$ `context.close()` $\to$ `browser.close()`).
+   - Lắng nghe tín hiệu `SIGINT` / `SIGTERM` để đảm bảo đóng browser khi tiến trình bị dừng đột ngột.
+2. **Ngăn chặn cạn kiệt `/dev/shm`**:
+   - Sử dụng cờ `--disable-dev-shm-usage`, `--no-sandbox`, `--disable-gpu` đảm bảo hoạt động bền bỉ trên VPS dung lượng RAM thấp (1GB - 2GB RAM).
+3. **Chặn tài nguyên nặng khi cào dữ liệu**:
+   - Tự động abort hình ảnh, video, font chữ và websockets trong các tác vụ crawl, giảm thiểu tới 85% RAM tiêu thụ.
