@@ -101,6 +101,8 @@ export function initSchema(database: Database.Database) {
         tiktok_post_url TEXT,
         tiktok_status TEXT DEFAULT 'idle',
         tiktok_error_message TEXT,
+        tiktok_debug_video_path TEXT,
+        tiktok_screenshot_path TEXT,
         screenshot_path TEXT,
         debug_video_path TEXT,
         error_message TEXT,
@@ -136,6 +138,12 @@ export function initSchema(database: Database.Database) {
   } catch {}
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN tiktok_error_message TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN tiktok_debug_video_path TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN tiktok_screenshot_path TEXT`);
   } catch {}
 
   // Insert default settings if not exists

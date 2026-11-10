@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import db, { logActivity, resolveHeadless, isTikTokAutoPostEnabled } from '@/lib/db';
 import { uploadFacebookReel, PostReelResult } from '@/services/playwright/fb-reel';
-import { uploadTikTokVideo } from '@/services/playwright/tiktok-reel';
+import { uploadTikTokVideo, PostTikTokResult } from '@/services/playwright/tiktok-reel';
 import { ReelItem } from '@/types';
 
 export function getReels(status?: string): ReelItem[] {
@@ -235,16 +235,23 @@ export async function publishReelById(
           if (ttResult.success) {
             db.prepare(`
               UPDATE reels 
-              SET tiktok_post_url = ?, tiktok_status = 'published', tiktok_error_message = NULL 
+              SET tiktok_post_url = ?, 
+                  tiktok_status = 'published', 
+                  tiktok_debug_video_path = ?,
+                  tiktok_screenshot_path = NULL,
+                  tiktok_error_message = NULL 
               WHERE id = ?
-            `).run(ttResult.tiktokUrl || null, id);
+            `).run(ttResult.tiktokUrl || null, ttResult.debugVideoPath || null, id);
             logActivity('SUCCESS', 'POST_TIKTOK', `[TikTok] Đã xuất bản video TikTok thành công: ${reel.video_filename} ${ttResult.tiktokUrl ? `(Link: ${ttResult.tiktokUrl})` : ''}`);
           } else {
             db.prepare(`
               UPDATE reels 
-              SET tiktok_status = 'failed', tiktok_error_message = ? 
+              SET tiktok_status = 'failed', 
+                  tiktok_debug_video_path = ?,
+                  tiktok_screenshot_path = ?,
+                  tiktok_error_message = ? 
               WHERE id = ?
-            `).run(ttResult.error || ttResult.message, id);
+            `).run(ttResult.debugVideoPath || null, ttResult.screenshotPath || null, ttResult.error || ttResult.message, id);
             logActivity('WARN', 'POST_TIKTOK', `[TikTok] Đăng video lên TikTok thất bại: ${ttResult.error || ttResult.message}`);
           }
         } catch (ttErr: any) {
@@ -286,6 +293,77 @@ export async function publishReelById(
     return {
       success: false,
       message: 'Lỗi xuất bản: ' + errorMsg,
+      filePath: reel.video_path,
+      error: errorMsg,
+    };
+  }
+}
+
+/**
+ * Xuất bản video Reel trực tiếp lên kênh TikTok
+ */
+export async function publishTikTokReelById(
+  id: string,
+  options?: { headless?: boolean }
+): Promise<PostTikTokResult> {
+  const reel = getReelById(id);
+  if (!reel) {
+    throw new Error(`Không tìm thấy Reel với ID: ${id}`);
+  }
+
+  logActivity('INFO', 'POST_TIKTOK', `Bắt đầu xuất bản video lên TikTok [${id}]: ${reel.video_filename}`);
+  db.prepare(`UPDATE reels SET tiktok_status = 'publishing' WHERE id = ?`).run(id);
+
+  const headless = resolveHeadless(options?.headless !== undefined ? options.headless : true);
+
+  try {
+    const result = await uploadTikTokVideo({
+      reelId: reel.id,
+      filePath: reel.video_path,
+      content: reel.caption || '',
+      headless,
+    });
+
+    if (result.success) {
+      db.prepare(`
+        UPDATE reels 
+        SET tiktok_post_url = ?, 
+            tiktok_status = 'published', 
+            tiktok_debug_video_path = ?,
+            tiktok_screenshot_path = NULL,
+            tiktok_error_message = NULL 
+        WHERE id = ?
+      `).run(result.tiktokUrl || null, result.debugVideoPath || null, id);
+      logActivity(
+        'SUCCESS',
+        'POST_TIKTOK',
+        `Xuất bản video TikTok thành công: ${reel.video_filename} ${result.tiktokUrl ? `(Link: ${result.tiktokUrl})` : ''}`
+      );
+      return result;
+    } else {
+      const errorMsg = result.error || result.message;
+      db.prepare(`
+        UPDATE reels 
+        SET tiktok_status = 'failed', 
+            tiktok_debug_video_path = ?,
+            tiktok_screenshot_path = ?,
+            tiktok_error_message = ? 
+        WHERE id = ?
+      `).run(result.debugVideoPath || null, result.screenshotPath || null, errorMsg, id);
+      logActivity('WARN', 'POST_TIKTOK', `Xuất bản video TikTok thất bại: ${errorMsg}`);
+      return result;
+    }
+  } catch (err: any) {
+    const errorMsg = err?.message || String(err);
+    db.prepare(`
+      UPDATE reels 
+      SET tiktok_status = 'failed', tiktok_error_message = ? 
+      WHERE id = ?
+    `).run(errorMsg, id);
+    logActivity('ERROR', 'POST_TIKTOK', `Lỗi nghiêm trọng khi xuất bản TikTok: ${errorMsg}`);
+    return {
+      success: false,
+      message: 'Lỗi xuất bản TikTok: ' + errorMsg,
       filePath: reel.video_path,
       error: errorMsg,
     };

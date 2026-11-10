@@ -49,6 +49,8 @@ export interface ReelItem {
   tiktok_post_url?: string | null;
   tiktok_status?: 'idle' | 'publishing' | 'published' | 'failed' | null;
   tiktok_error_message?: string | null;
+  tiktok_debug_video_path?: string | null;
+  tiktok_screenshot_path?: string | null;
   error_message?: string | null;
   screenshot_path?: string | null;
   debug_video_path?: string | null;

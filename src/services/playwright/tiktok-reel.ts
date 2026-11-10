@@ -100,6 +100,14 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
     page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
     video = page.video();
 
+    context.on('page', (newPage: Page) => {
+      notify(`[TikTok] Phát hiện chuyển hướng hoặc mở tab mới: ${newPage.url()}`);
+      page = newPage;
+      if (newPage.video()) {
+        video = newPage.video();
+      }
+    });
+
     // Bước 1: Điều hướng đến trang chủ https://www.tiktok.com/
     notify('Bước 1: Điều hướng đến https://www.tiktok.com/...');
     await page.goto('https://www.tiktok.com/', { waitUntil: 'domcontentloaded', timeout: 45000 });
@@ -252,6 +260,12 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
 
     if (!captionFilled) {
       notify('Cảnh báo: Không tìm thấy ô nhập caption, tiếp tục tiến trình đăng...', 'WARN');
+    }
+
+    // Click hashtag .hashtag-suggestion-item nếu có
+    const firstHash = page.locator('.hashtag-suggestion-item').first();
+    if (firstHash) {
+      await firstHash.click();
     }
 
     // Bước 5: Thêm nhạc
@@ -420,25 +434,34 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
       }
     }
 
-    // Đóng page và xử lý video Playwright
-    if (page && !page.isClosed()) {
-      await page.close().catch(() => { });
+    // Đóng tất cả pages để Playwright flush và hoàn tất video artifact
+    if (context) {
+      const allPages = context.pages();
+      for (const p of allPages) {
+        if (!p.isClosed()) {
+          await p.close().catch(() => { });
+        }
+      }
     }
 
     const isDevMode = isDeveloperMode();
     let savedVideoFileName: string | undefined = undefined;
 
-    if (video) {
+    const targetVideo = video || (page && !page.isClosed() ? page.video() : null);
+
+    if (targetVideo) {
       try {
         if (isDevMode) {
           const finalVideoPath = path.join(VIDEOS_DIR, videoFileName);
-          await video.saveAs(finalVideoPath);
+          await targetVideo.saveAs(finalVideoPath);
           savedVideoFileName = videoFileName;
           notify(`[Dev Mode] Đã lưu video quá trình đăng TikTok: ${videoFileName}`, 'SUCCESS');
         } else {
-          await video.delete().catch(() => { });
+          await targetVideo.delete().catch(() => { });
         }
-      } catch { }
+      } catch (vErr: any) {
+        notify(`Lỗi lưu video TikTok: ${vErr?.message || vErr}`, 'WARN');
+      }
     }
 
     if (context) {
@@ -467,16 +490,29 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
         savedScreenshotFileName = screenshotFileName;
         notify(`Đã lưu ảnh chụp lỗi TikTok tại: ${screenshotFileName}`);
       } catch { }
-      await page.close().catch(() => { });
     }
 
-    if (video) {
+    // Đóng tất cả pages để Playwright hoàn tất ghi video lỗi
+    if (context) {
+      const allPages = context.pages();
+      for (const p of allPages) {
+        if (!p.isClosed()) {
+          await p.close().catch(() => { });
+        }
+      }
+    }
+
+    const targetVideo = video || (page && !page.isClosed() ? page.video() : null);
+
+    if (targetVideo) {
       try {
         const finalVideoPath = path.join(VIDEOS_DIR, videoFileName);
-        await video.saveAs(finalVideoPath);
+        await targetVideo.saveAs(finalVideoPath);
         savedVideoFileName = videoFileName;
-        notify(`[Video Debug] Đã lưu video thao tác lỗi TikTok: ${videoFileName}`);
-      } catch { }
+        notify(`[Video Debug] Đã lưu video thao tác lỗi TikTok: ${videoFileName}`, 'SUCCESS');
+      } catch (vErr: any) {
+        notify(`Lỗi lưu video debug TikTok: ${vErr?.message || vErr}`, 'WARN');
+      }
     }
 
     if (context) {
@@ -497,7 +533,7 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
 async function dismissAllTooltip(page: Page) {
   const tooltipSelectors = '[class$="-tooltip"]';
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 2; i++) {
     if (await page.locator(tooltipSelectors).first().isVisible({ timeout: 1000 }).catch(() => false)) {
       const container = page.locator(tooltipSelectors).first();
       if (await container.locator(`button[data-type="primary"]`).first().isVisible({ timeout: 1000 }).catch(() => false)) {

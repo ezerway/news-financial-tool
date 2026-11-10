@@ -53,6 +53,7 @@ export default function DashboardPage() {
   const [isRetryingAll, setIsRetryingAll] = useState<boolean>(false);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [publishingReelId, setPublishingReelId] = useState<string | null>(null);
+  const [publishingTikTokId, setPublishingTikTokId] = useState<string | null>(null);
   const [commentingId, setCommentingId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isFbModalOpen, setIsFbModalOpen] = useState(false);
@@ -592,6 +593,31 @@ export default function DashboardPage() {
     }
   };
 
+  const handlePublishTikTok = async (reelId: string) => {
+    setPublishingTikTokId(reelId);
+    showToast('Đang khởi chạy Playwright Chromium để đăng video lên TikTok...', 'info');
+    try {
+      const res = await fetch(`/api/reels/${reelId}/publish-tiktok`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headless: true }),
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        showToast('Đã xuất bản video lên TikTok thành công!', 'success');
+        await fetchData(true);
+      } else {
+        showToast(`Xuất bản TikTok thất bại: ${resData.error || resData.result?.message}`, 'error');
+        await fetchData(true);
+      }
+    } catch (err: any) {
+      showToast(`Lỗi xuất bản TikTok: ${err.message}`, 'error');
+      await fetchData(true);
+    } finally {
+      setPublishingTikTokId(null);
+    }
+  };
+
   const handleConnectFb = (url?: string) => {
     setFbTargetUrlForModal(url);
     setIsFbModalOpen(true);
@@ -637,7 +663,7 @@ export default function DashboardPage() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5 pb-28 md:pb-8 min-w-0">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5 pb-36 md:pb-8 min-w-0">
         {/* Tab Content Display */}
         <div>
           {activeTab === 'overview' && (
@@ -836,10 +862,12 @@ export default function DashboardPage() {
               reels={reels}
               onRefresh={fetchData}
               onPublishReel={handlePublishReel}
+              onPublishTikTok={handlePublishTikTok}
               onDeleteReel={handleDeleteReel}
               onUpdateReel={handleUpdateReel}
               onCreateReel={handleCreateReel}
               publishingReelId={publishingReelId}
+              publishingTikTokId={publishingTikTokId}
             />
           )}
 

@@ -36,6 +36,7 @@ interface ReelsTabProps {
   reels: ReelItem[];
   onRefresh: () => Promise<void>;
   onPublishReel: (reelId: string) => Promise<void>;
+  onPublishTikTok?: (reelId: string) => Promise<void>;
   onDeleteReel: (reelId: string) => Promise<void>;
   onUpdateReel: (
     reelId: string,
@@ -49,16 +50,19 @@ interface ReelsTabProps {
     status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
   }) => Promise<void>;
   publishingReelId: string | null;
+  publishingTikTokId?: string | null;
 }
 
 export default function ReelsTab({
   reels,
   onRefresh,
   onPublishReel,
+  onPublishTikTok,
   onDeleteReel,
   onUpdateReel,
   onCreateReel,
   publishingReelId,
+  publishingTikTokId,
 }: ReelsTabProps) {
   const { t, lang, theme } = useI18n();
 
@@ -67,8 +71,6 @@ export default function ReelsTab({
 
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
-  const [previewVideoTitle, setPreviewVideoTitle] = useState<string>('');
   const [previewDebugVideo, setPreviewDebugVideo] = useState<string | null>(null);
   const [previewScreenshot, setPreviewScreenshot] = useState<string | null>(null);
 
@@ -410,11 +412,10 @@ export default function ReelsTab({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {paginatedReels.map((reel) => {
             const isPublishingThis = publishingReelId === reel.id || reel.status === 'publishing';
+            const isPublishingTikTokThis =
+              (publishingTikTokId && publishingTikTokId === reel.id) || reel.tiktok_status === 'publishing';
             const isDeletingThis = isDeletingId === reel.id;
             const isExpanded = !!expandedCaptions[reel.id];
-            const videoApiUrl = reel.video_filename
-              ? `/api/videos/${encodeURIComponent(reel.video_filename)}`
-              : null;
 
             return (
               <div
@@ -484,15 +485,22 @@ export default function ReelsTab({
                 )}
 
                 {/* Error Banner if Failed */}
-                {reel.status === 'failed' && (reel.error_message || reel.debug_video_path || reel.screenshot_path) && (
+                {((reel.status === 'failed' && (reel.error_message || reel.debug_video_path || reel.screenshot_path)) ||
+                  (reel.tiktok_status === 'failed' && (reel.tiktok_error_message || reel.tiktok_debug_video_path || reel.tiktok_screenshot_path))) && (
                   <div className="p-2.5 rounded-lg bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-800/40 text-[11px] text-rose-800 dark:text-rose-300 space-y-1.5">
                     {reel.error_message && (
                       <div className="flex items-start gap-1.5">
                         <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500 mt-0.5" />
-                        <span className="line-clamp-2">{reel.error_message}</span>
+                        <span className="line-clamp-2">[FB] {reel.error_message}</span>
                       </div>
                     )}
-                    {(reel.debug_video_path || reel.screenshot_path) && (
+                    {reel.tiktok_error_message && (
+                      <div className="flex items-start gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500 mt-0.5" />
+                        <span className="line-clamp-2">[TikTok] {reel.tiktok_error_message}</span>
+                      </div>
+                    )}
+                    {(reel.debug_video_path || reel.tiktok_debug_video_path || reel.screenshot_path || reel.tiktok_screenshot_path) && (
                       <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-rose-200/50 dark:border-rose-800/40">
                         {reel.debug_video_path && (
                           <button
@@ -502,7 +510,18 @@ export default function ReelsTab({
                             title={t('debug_video_title')}
                           >
                             <Video className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                            <span>{t('debug_video')}</span>
+                            <span>Video lỗi FB</span>
+                          </button>
+                        )}
+                        {reel.tiktok_debug_video_path && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDebugVideo(reel.tiktok_debug_video_path || null)}
+                            className="inline-flex items-center gap-1.5 font-semibold text-rose-700 hover:text-rose-900 dark:text-rose-300 dark:hover:text-rose-100 hover:underline cursor-pointer"
+                            title="Xem video quá trình lỗi TikTok"
+                          >
+                            <Video className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                            <span>Video lỗi TikTok</span>
                           </button>
                         )}
                         {reel.screenshot_path && (
@@ -513,7 +532,18 @@ export default function ReelsTab({
                             title={t('debug_screenshot_title')}
                           >
                             <ImageIcon className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                            <span>{t('screenshot')}</span>
+                            <span>Ảnh FB</span>
+                          </button>
+                        )}
+                        {reel.tiktok_screenshot_path && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewScreenshot(reel.tiktok_screenshot_path || null)}
+                            className="inline-flex items-center gap-1.5 font-semibold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:underline cursor-pointer"
+                            title="Ảnh chụp lỗi TikTok"
+                          >
+                            <ImageIcon className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                            <span>Ảnh TikTok</span>
                           </button>
                         )}
                       </div>
@@ -521,29 +551,14 @@ export default function ReelsTab({
                   </div>
                 )}
 
-                {/* Video Info & Player / Preview */}
+                {/* Video Info & Thumbnail */}
                 <div className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-[var(--app-border)]">
                   <div
-                    onClick={() => {
-                      if (videoApiUrl) {
-                        setPreviewVideoUrl(videoApiUrl);
-                        setPreviewVideoTitle(reel.video_filename || 'Video Reel');
-                      }
-                    }}
-                    className="relative w-16 h-20 rounded-md bg-black shrink-0 overflow-hidden cursor-pointer group flex items-center justify-center shadow-xs"
-                    title={t('click_to_preview_video')}
+                    className="relative w-14 h-16 sm:w-16 sm:h-20 rounded-lg bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white shrink-0 overflow-hidden flex flex-col items-center justify-center shadow-xs border border-slate-700/60"
+                    title={reel.video_filename || 'Video Reel'}
                   >
-                    {videoApiUrl ? (
-                      <video
-                        src={videoApiUrl}
-                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-                        preload="metadata"
-                      />
-                    ) : (
-                      <Film className="w-6 h-6 text-slate-400" />
-                    )}
-                    <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 flex items-center justify-center transition-colors">
-                      <Play className="w-5 h-5 text-white drop-shadow" />
+                    <div className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-xs flex items-center justify-center border border-white/20 shadow-xs">
+                      <Play className="w-3.5 h-3.5 fill-white text-white ml-0.5" />
                     </div>
                   </div>
 
@@ -554,21 +569,6 @@ export default function ReelsTab({
                     <p className="text-[11px] text-slate-400 font-mono truncate" title={reel.video_path}>
                       {reel.video_path}
                     </p>
-                    <div className="flex items-center gap-2 pt-0.5">
-                      {videoApiUrl && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPreviewVideoUrl(videoApiUrl);
-                            setPreviewVideoTitle(reel.video_filename || 'Video Reel');
-                          }}
-                          className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold hover:underline inline-flex items-center gap-1"
-                        >
-                          <Play className="w-2.5 h-2.5 fill-current" />
-                          {t('preview_video')}
-                        </button>
-                      )}
-                    </div>
                   </div>
                 </div>
 
@@ -613,12 +613,12 @@ export default function ReelsTab({
                 </div>
 
                 {/* Bottom Actions */}
-                <div className="pt-2 border-t border-[var(--app-border)] flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    {/* Publish Now Button (enabled for draft, scheduled, failed) */}
+                <div className="pt-2 border-t border-[var(--app-border)] flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Publish Facebook Button */}
                     <button
                       onClick={() => onPublishReel(reel.id)}
-                      disabled={isPublishingThis}
+                      disabled={isPublishingThis || isPublishingTikTokThis}
                       className="btn btn-sm btn-primary text-xs"
                       title={t('publish_reel_tooltip')}
                     >
@@ -630,15 +630,41 @@ export default function ReelsTab({
                       ) : (
                         <>
                           <Send className="w-3.5 h-3.5" />
-                          <span>{reel.status === 'published' ? t('btn_republish') : t('btn_publish_immediate')}</span>
+                          <span>{reel.status === 'published' ? (lang === 'vi' ? 'Đăng lại FB' : 'Republish FB') : (lang === 'vi' ? 'Đăng FB' : 'Post FB')}</span>
                         </>
                       )}
                     </button>
 
+                    {/* Publish TikTok Button */}
+                    {onPublishTikTok && (
+                      <button
+                        onClick={() => onPublishTikTok(reel.id)}
+                        disabled={isPublishingThis || isPublishingTikTokThis}
+                        className="btn btn-sm bg-rose-600 hover:bg-rose-700 text-white border-rose-500 text-xs font-semibold shadow-2xs inline-flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
+                        title={lang === 'vi' ? 'Xuất bản video lên TikTok' : 'Publish video to TikTok'}
+                      >
+                        {isPublishingTikTokThis ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>TikTok...</span>
+                          </>
+                        ) : (
+                          <>
+                            <TikTokIcon className="w-3.5 h-3.5" />
+                            <span>
+                              {reel.tiktok_status === 'published'
+                                ? (lang === 'vi' ? 'Đăng lại TikTok' : 'Republish TikTok')
+                                : (lang === 'vi' ? 'Đăng TikTok' : 'Post TikTok')}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    )}
+
                     {/* Edit / Reschedule Button */}
                     <button
                       onClick={() => handleStartEdit(reel)}
-                      disabled={isPublishingThis}
+                      disabled={isPublishingThis || isPublishingTikTokThis}
                       className="btn btn-sm btn-secondary text-xs"
                       title={t('edit_reel_tooltip')}
                     >
@@ -692,16 +718,29 @@ export default function ReelsTab({
                       </span>
                     )}
 
-                    {/* Video quay lại quá trình đăng (Dev Mode hoặc Lưu vết) */}
+                    {/* Video quay lại quá trình đăng Facebook (Dev Mode hoặc Lưu vết) */}
                     {reel.debug_video_path && reel.status !== 'failed' && (
                       <button
                         type="button"
                         onClick={() => setPreviewDebugVideo(reel.debug_video_path || null)}
+                        className="btn btn-sm btn-ghost text-xs text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                        title={lang === 'vi' ? 'Xem video quay lại quá trình đăng Facebook' : 'View Facebook post process video'}
+                      >
+                        <Video className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>Video FB</span>
+                      </button>
+                    )}
+
+                    {/* Video quay lại quá trình đăng TikTok (Dev Mode hoặc Lưu vết) */}
+                    {reel.tiktok_debug_video_path && reel.tiktok_status !== 'failed' && (
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDebugVideo(reel.tiktok_debug_video_path || null)}
                         className="btn btn-sm btn-ghost text-xs text-rose-600 dark:text-rose-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                        title={t('debug_video_title')}
+                        title={lang === 'vi' ? 'Xem video quay lại quá trình đăng TikTok' : 'View TikTok post process video'}
                       >
                         <Video className="w-3.5 h-3.5 text-rose-500" />
-                        <span>{t('debug_video')}</span>
+                        <span>Video TikTok</span>
                       </button>
                     )}
                   </div>
@@ -1187,33 +1226,6 @@ export default function ReelsTab({
                   </>
                 )}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* VIDEO PREVIEW MODAL */}
-      {previewVideoUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
-          <div className="bg-slate-900 text-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl space-y-3 p-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <span className="text-xs font-semibold truncate text-slate-200 max-w-[320px]">
-                {previewVideoTitle}
-              </span>
-              <button
-                onClick={() => setPreviewVideoUrl(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="relative aspect-[9/16] max-h-[65vh] mx-auto bg-black rounded-lg overflow-hidden flex items-center justify-center">
-              <video
-                src={previewVideoUrl}
-                controls
-                autoPlay
-                className="w-full h-full object-contain"
-              />
             </div>
           </div>
         </div>

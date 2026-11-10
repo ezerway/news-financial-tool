@@ -14,6 +14,11 @@ import {
   HardDrive,
   Layers,
   Terminal,
+  Trash2,
+  RefreshCw,
+  Loader2,
+  Image as ImageIcon,
+  Video,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import TikTokIcon from './TikTokIcon';
@@ -44,7 +49,7 @@ export default function SettingsTab({
   onRefreshData,
 }: SettingsTabProps) {
   const { t, lang } = useI18n();
-  const [activeSection, setActiveSection] = useState<'all' | 'facebook' | 'tiktok' | 'ai' | 'security' | 'backup' | 'pwa'>('all');
+  const [activeSection, setActiveSection] = useState<'all' | 'facebook' | 'tiktok' | 'ai' | 'storage' | 'security' | 'backup' | 'pwa'>('all');
   const [form, setForm] = useState<Record<string, string>>({
     gemini_api_key: settings.gemini_api_key || '',
     fb_target_type: settings.fb_target_type || 'page',
@@ -162,6 +167,57 @@ export default function SettingsTab({
     }
   };
 
+  // Storage cleanup states
+  const [storageStats, setStorageStats] = useState<{
+    screenshots: { count: number; sizeFormatted: string };
+    videos: { count: number; sizeFormatted: string };
+    totalCount: number;
+    totalFormatted: string;
+  } | null>(null);
+  const [isLoadingStorage, setIsLoadingStorage] = useState(false);
+  const [isCleaningStorage, setIsCleaningStorage] = useState(false);
+  const [storageMsg, setStorageMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [showConfirmClean, setShowConfirmClean] = useState(false);
+
+  const fetchStorageStats = async () => {
+    setIsLoadingStorage(true);
+    try {
+      const res = await fetch('/api/storage/clean');
+      const data = await res.json();
+      if (data.success) {
+        setStorageStats(data);
+      }
+    } catch {}
+    finally {
+      setIsLoadingStorage(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStorageStats();
+  }, []);
+
+  const handleCleanStorage = async () => {
+    setIsCleaningStorage(true);
+    setStorageMsg(null);
+    try {
+      const res = await fetch('/api/storage/clean', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setStorageMsg({ text: data.message, type: 'success' });
+        setShowConfirmClean(false);
+        fetchStorageStats();
+        if (onRefreshData) onRefreshData();
+      } else {
+        setStorageMsg({ text: data.error || 'Lỗi khi dọn dẹp', type: 'error' });
+      }
+    } catch (err: any) {
+      setStorageMsg({ text: 'Lỗi: ' + err.message, type: 'error' });
+    } finally {
+      setIsCleaningStorage(false);
+    }
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsSaving(true);
@@ -205,6 +261,7 @@ export default function SettingsTab({
     { id: 'facebook', label: 'Facebook', icon: FacebookIcon },
     { id: 'tiktok', label: 'TikTok', icon: TikTokIcon },
     { id: 'ai', label: 'Gemini AI', icon: Sparkles },
+    { id: 'storage', label: lang === 'vi' ? 'Bộ nhớ' : 'Storage', icon: Trash2 },
     { id: 'security', label: lang === 'vi' ? 'Bảo mật' : 'Security', icon: Lock },
     { id: 'backup', label: lang === 'vi' ? 'Sao lưu' : 'Backup', icon: HardDrive },
     { id: 'pwa', label: 'App PWA', icon: Smartphone },
@@ -275,9 +332,15 @@ export default function SettingsTab({
               </div>
 
               <div className="self-start sm:self-auto px-2.5 py-0.5 rounded-full text-xs font-semibold app-tag shrink-0">
-                {fbStatus.loggedIn
-                  ? (lang === 'vi' ? '● Đã kết nối' : '● Connected')
-                  : (lang === 'vi' ? '○ Chưa kết nối' : '○ Disconnected')}
+                {fbStatus.loggedIn ? (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                    {lang === 'vi' ? '● Đã kết nối' : '● Connected'}
+                  </span>
+                ) : (
+                  <span className="text-slate-400">
+                    {lang === 'vi' ? '○ Chưa kết nối' : '○ Disconnected'}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -650,6 +713,163 @@ export default function SettingsTab({
           </div>
         )}
       </form>
+
+      {/* SECTION: STORAGE CLEANUP (SCREENSHOTS & VIDEOS) */}
+      {(activeSection === 'all' || activeSection === 'storage') && (
+        <div className="app-card p-4 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 sm:pb-4 border-b border-app-border">
+            <div className="flex items-center gap-2.5 sm:gap-3.5">
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-amber-50 dark:bg-amber-600/15 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30 flex items-center justify-center shadow-xs shrink-0">
+                <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>{lang === 'vi' ? 'Dọn dẹp bộ nhớ (Screenshot & Video)' : 'Storage Cleanup (Screenshots & Videos)'}</span>
+                  {storageStats && (
+                    <span className="app-tag text-[10px] font-bold px-2 py-0.5 rounded-md text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20">
+                      {storageStats.totalFormatted}
+                    </span>
+                  )}
+                </h3>
+                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  {lang === 'vi'
+                    ? 'Xóa toàn bộ ảnh đối soát bài đăng và video quay màn hình Playwright để giải phóng dung lượng ổ cứng (VPS).'
+                    : 'Delete all post screenshots and Playwright videos to free up disk space on the server.'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={fetchStorageStats}
+              disabled={isLoadingStorage}
+              className="btn btn-sm btn-ghost text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 self-start sm:self-auto cursor-pointer"
+              title={lang === 'vi' ? 'Làm mới dung lượng' : 'Refresh storage stats'}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingStorage ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{lang === 'vi' ? 'Kiểm tra' : 'Check'}</span>
+            </button>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-3 border border-[var(--app-border)]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 flex items-center justify-center shrink-0">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-900 dark:text-white text-xs">
+                    {lang === 'vi' ? 'Ảnh chụp màn hình (Screenshots)' : 'Audit Screenshots'}
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-mono">
+                    storage/screenshots
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                  {storageStats?.screenshots.count ?? 0} {lang === 'vi' ? 'file' : 'files'}
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  {storageStats?.screenshots.sizeFormatted ?? '0 B'}
+                </div>
+              </div>
+            </div>
+
+            <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-3 border border-[var(--app-border)]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center shrink-0">
+                  <Video className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-900 dark:text-white text-xs">
+                    {lang === 'vi' ? 'Video Playwright ghi lại' : 'Playwright Videos'}
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-mono">
+                    storage/videos
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                  {storageStats?.videos.count ?? 0} {lang === 'vi' ? 'file' : 'files'}
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  {storageStats?.videos.sizeFormatted ?? '0 B'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Notification Messages */}
+          {storageMsg && (
+            <div
+              className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                storageMsg.type === 'success'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                  : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+              }`}
+            >
+              <span>{storageMsg.type === 'success' ? '✓' : '⚠️'}</span>
+              <span>{storageMsg.text}</span>
+            </div>
+          )}
+
+          {/* Delete Action Bar */}
+          <div className="pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p className="text-[11px] text-slate-400">
+              💡 {lang === 'vi'
+                ? 'Thao tác sẽ xóa các file ảnh/video tạm và gỡ liên kết trong bài viết/reel, không ảnh hưởng đến dữ liệu văn bản.'
+                : 'This deletes temporary image/video files and resets database references without touching text data.'}
+            </p>
+
+            {showConfirmClean ? (
+              <div className="flex items-center gap-2 self-end sm:self-auto animate-in fade-in">
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmClean(false)}
+                  disabled={isCleaningStorage}
+                  className="btn btn-sm btn-ghost text-xs"
+                >
+                  {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCleanStorage}
+                  disabled={isCleaningStorage}
+                  className="btn btn-sm bg-rose-600 hover:bg-rose-700 text-white border-rose-500 text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isCleaningStorage ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>{lang === 'vi' ? 'Đang xóa...' : 'Deleting...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{lang === 'vi' ? 'Xác nhận xóa hết' : 'Confirm Delete All'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowConfirmClean(true)}
+                disabled={(storageStats?.totalCount ?? 0) === 0 || isCleaningStorage}
+                className="btn btn-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/80 text-xs font-semibold self-start sm:self-auto cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>
+                  {lang === 'vi' ? 'Xóa hết Screenshot & Video' : 'Delete All Screenshots & Videos'}
+                  {storageStats?.totalCount ? ` (${storageStats.totalCount})` : ''}
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* SECTION 4: PWA APP */}
       {(activeSection === 'all' || activeSection === 'pwa') && (

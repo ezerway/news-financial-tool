@@ -195,7 +195,7 @@ export default function LogsTab({
                     {formatDateTime(log.created_at)}
                   </span>
                 </div>
-                <div className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-sans">{log.message}</div>
+                <div className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-sans break-all">{log.message}</div>
                 {log.details_json && (
                   <pre className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[10px] text-slate-700 dark:text-slate-400 overflow-x-auto font-mono no-scrollbar">
                     {log.details_json}
@@ -230,7 +230,7 @@ export default function LogsTab({
                         </span>
                       </td>
                       <td className="py-3.5 px-5 text-slate-800 dark:text-slate-200">
-                        <div className="font-sans leading-relaxed text-xs">{log.message}</div>
+                        <div className="font-sans leading-relaxed text-xs break-all">{log.message}</div>
                         {log.details_json && (
                           <pre className="mt-1.5 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/90 border border-slate-200 dark:border-slate-800/80 text-[10px] text-slate-700 dark:text-slate-400 overflow-x-auto">
                             {log.details_json}

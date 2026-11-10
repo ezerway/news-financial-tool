@@ -146,39 +146,41 @@ export default function TrendsTab({
           />
         </div>
 
-        {/* Right: Country Select & Crawl Button */}
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <select
-            value={selectedGeo}
-            onChange={(e) => handleGeoChange(e.target.value)}
-            className="flex-1 md:flex-initial app-input h-9.5 sm:h-9 text-xs font-semibold rounded-lg px-2.5 sm:px-3 focus:outline-hidden focus:border-indigo-500 cursor-pointer min-w-0"
-          >
-            <option value="VN">🇻🇳 {lang === 'vi' ? 'Việt Nam' : 'Vietnam'}</option>
-            <option value="US">🇺🇸 {lang === 'vi' ? 'Hoa Kỳ' : 'United States'}</option>
-            <option value="SG">🇸🇬 Singapore</option>
-            <option value="GB">🇬🇧 {lang === 'vi' ? 'Anh' : 'UK'}</option>
-            <option value="JP">🇯🇵 {lang === 'vi' ? 'Nhật Bản' : 'Japan'}</option>
-            <option value="all">{t('region_all')}</option>
-          </select>
+        {/* Right: Country Select & Action Buttons */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <select
+              value={selectedGeo}
+              onChange={(e) => handleGeoChange(e.target.value)}
+              className="flex-1 sm:w-36 app-input h-9.5 sm:h-9 text-xs font-semibold rounded-lg px-2.5 sm:px-3 focus:outline-hidden focus:border-indigo-500 cursor-pointer min-w-0"
+            >
+              <option value="VN">🇻🇳 {lang === 'vi' ? 'Việt Nam' : 'Vietnam'}</option>
+              <option value="US">🇺🇸 {lang === 'vi' ? 'Hoa Kỳ' : 'United States'}</option>
+              <option value="SG">🇸🇬 Singapore</option>
+              <option value="GB">🇬🇧 {lang === 'vi' ? 'Anh' : 'UK'}</option>
+              <option value="JP">🇯🇵 {lang === 'vi' ? 'Nhật Bản' : 'Japan'}</option>
+              <option value="all">{t('region_all')}</option>
+            </select>
 
-          <button
-            onClick={() => onCrawl(selectedGeo === 'all' ? 'VN' : selectedGeo)}
-            disabled={isCrawling || isRetryingAll}
-            className="btn btn-md btn-emerald flex-1 md:flex-initial justify-center shrink-0 h-9.5 sm:h-9"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isCrawling ? 'animate-spin' : ''}`} />
-            <span className="whitespace-nowrap">{isCrawling ? t('crawling') : t('crawl_btn')}</span>
-          </button>
+            <button
+              onClick={() => onCrawl(selectedGeo === 'all' ? 'VN' : selectedGeo)}
+              disabled={isCrawling || isRetryingAll}
+              className="flex-1 sm:flex-initial btn btn-md btn-emerald justify-center h-9.5 sm:h-9 whitespace-nowrap active:scale-[0.98]"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isCrawling ? 'animate-spin' : ''}`} />
+              <span>{isCrawling ? t('crawling') : t('crawl_btn')}</span>
+            </button>
+          </div>
 
           {onRetryAndPublish && (
             <button
               onClick={() => onRetryAndPublish(undefined, true)}
               disabled={isRetryingAll || isCrawling}
-              className="btn btn-md btn-primary flex-1 md:flex-initial justify-center shrink-0 h-9.5 sm:h-9 bg-amber-600 hover:bg-amber-700 text-white border-amber-500 shadow-xs"
+              className="w-full sm:w-auto btn btn-md btn-primary justify-center h-9.5 sm:h-9 shadow-xs active:scale-[0.98] px-3"
               title={lang === 'vi' ? 'Tự động tìm kiếm nguồn báo chí và đăng bài cho các trend chưa có nguồn hoặc chưa đăng thành công' : 'Find sources and publish posts for trends missing sources'}
             >
-              <Zap className={`w-3.5 h-3.5 ${isRetryingAll ? 'animate-spin' : ''}`} />
-              <span className="whitespace-nowrap">
+              <Zap className={`w-3.5 h-3.5 shrink-0 ${isRetryingAll ? 'animate-spin' : ''}`} />
+              <span className="truncate">
                 {isRetryingAll ? t('batch_retrying') : t('batch_retry_btn')}
                 {missingSourcesCount > 0 ? ` (${missingSourcesCount})` : ''}
               </span>
@@ -336,8 +338,8 @@ export default function TrendsTab({
                           </button>
                         )}
 
-                        {/* Quick View Post Action Pill if post exists */}
-                        {post && (
+                        {/* Quick View Post Action Pill if post exists (only when not published yet) */}
+                        {post && !isTrulyPublished && (
                           <button
                             type="button"
                             onClick={() => setViewingTrend(trend)}

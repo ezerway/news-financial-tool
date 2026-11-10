@@ -45,39 +45,6 @@ if (!fs.existsSync(SCREENSHOTS_DIR)) {
   fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 }
 
-function normalizeReelUrl(rawHrefOrId: string): string {
-  try {
-    const trimmed = rawHrefOrId.trim();
-    // Case 0: Pure numeric ID (từ attribute [data-video-id])
-    if (/^\d+$/.test(trimmed)) {
-      return `https://www.facebook.com/reel/${trimmed}/`;
-    }
-
-    // Case 1: Extract numeric Reel ID from /reel/123456789/
-    const reelIdMatch = trimmed.match(/\/reel\/(\d+)/i);
-    if (reelIdMatch && reelIdMatch[1]) {
-      return `https://www.facebook.com/reel/${reelIdMatch[1]}/`;
-    }
-
-    // Case 2: Full URL with query params
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-      const u = new URL(trimmed);
-      u.searchParams.delete('__tn__');
-      u.searchParams.delete('__cft__[0]');
-      return u.toString();
-    }
-
-    // Case 3: Relative path
-    if (trimmed.startsWith('/')) {
-      return `https://www.facebook.com${trimmed}`;
-    }
-
-    return `https://www.facebook.com/reel/${trimmed}/`;
-  } catch {
-    return rawHrefOrId;
-  }
-}
-
 /**
  * Automate Facebook Reel posting:
  * 1. Open https://www.facebook.com/professional_dashboard/content/content_library/
@@ -408,7 +375,7 @@ export async function uploadFacebookReel(
 
     // Bước 14: Vào lại /professional_dashboard/content/content_library để lấy link reel
     let reelUrl: string | undefined;
-    const CHRONOLOGICAL_FEED_URL = 'https://www.facebook.com/professional_dashboard/content/content_library/?date_range=TODAY&filter=PUBLISHED&placement_type=ALL&post_type=ALL_CONTENT&post_types[0]=REELS&sort_by=DATE&sorting_method=METRICS_DESCENDING';
+    const CHRONOLOGICAL_FEED_URL = 'https://www.facebook.com/professional_dashboard/content/content_library/?date_range=TODAY&placement_type=ALL&post_type=ALL_CONTENT&post_types[0]=REELS&sort_by=DATE&sorting_method=METRICS_DESCENDING';
     try {
       notify(`Đang mở bảng tin gần đây nhất: ${CHRONOLOGICAL_FEED_URL}`);
       await page.goto(CHRONOLOGICAL_FEED_URL, {
