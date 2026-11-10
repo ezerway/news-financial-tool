@@ -117,7 +117,7 @@ export async function dismissBlockingPagePopups(page: any, targetPageName?: stri
 
   try {
     const notNowBtn = page.locator('div[role="dialog"] div[aria-label="Not now"]').first();
-    if (notNowBtn) {
+    if (await notNowBtn.isVisible().catch(() => false)) {
       logActivity('INFO', 'PUBLISH', 'Phát hiện popup...');
       logActivity('INFO', 'PUBLISH', `[Bypass Popup] Đang click nút "Not now"...`);
       await notNowBtn.click();
@@ -434,10 +434,10 @@ export async function executePublishAndComment(
 
         if (suggestionCount > 1) {
           // click second item
-          await mentionsSuggestions.first().locator('ul li').nth(1);
+          await mentionsSuggestions.first().locator('ul li div').nth(1);
         }
         else {
-          await mentionsSuggestions.first().locator('ul li').first().click();
+          await mentionsSuggestions.first().locator('ul li div').first().click();
         }
         await page.waitForTimeout(500);
 
@@ -449,80 +449,34 @@ export async function executePublishAndComment(
     }
     await page.waitForTimeout(2000);
 
-    await dismissBlockingPagePopups(page, pageName);
-
     // BƯỚC 3: Ấn Next, sau đó ấn Post
     logActivity('INFO', 'PUBLISH', '[Bước 3] Kiểm tra nút Next và nút Post để xuất bản bài viết...');
 
     // 3a. Tìm nút Next (nếu có trong wizard tạo bài của Fanpage)
-    const nextBtnSelectors = [
-      'div[role="dialog"] div[role="button"]:has-text("Next")',
-      'div[role="dialog"] div[role="button"]:has-text("Tiếp")',
-      'div[role="dialog"] button:has-text("Next")',
-      'div[role="dialog"] button:has-text("Tiếp")',
-      'div[role="button"]:has-text("Next")',
-      'div[role="button"]:has-text("Tiếp")',
-    ];
-
-    for (const nsel of nextBtnSelectors) {
-      const nBtn = page.locator(nsel).first();
-      if ((await nBtn.count()) > 0 && (await nBtn.isVisible({ timeout: 1500 }).catch(() => false))) {
-        logActivity('INFO', 'PUBLISH', 'Phát hiện bước chuyển tiếp, đang bấm nút "Next" / "Tiếp"...');
-        await nBtn.click().catch(() => nBtn.click({ force: true }));
-        await page.waitForTimeout(2500);
-        break;
-      }
+    const nBtn = page.locator('div[role="button"][aria-label="Next"]').first();
+    if (await nBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+      logActivity('INFO', 'PUBLISH', 'Phát hiện bước chuyển tiếp, đang bấm nút "Next" / "Tiếp"...');
+      await nBtn.click().catch(() => nBtn.click({ force: true }));
+      await page.waitForTimeout(2500);
     }
-
-    await dismissBlockingPagePopups(page, pageName);
 
     // 3b. Tìm nút Post
-    const submitBtnSelectors = [
-      'div[role="dialog"] div[aria-label="Post"]',
-      'div[role="dialog"] div[aria-label="Đăng"]',
-      'div[role="dialog"] div[role="button"]:has-text("Post")',
-      'div[role="dialog"] div[role="button"]:has-text("Đăng")',
-      'div[role="dialog"] button:has-text("Post")',
-      'div[role="dialog"] button:has-text("Đăng")',
-      'div[aria-label="Post"]',
-      'div[aria-label="Đăng"]',
-      'div[role="button"]:has-text("Post")',
-      'div[role="button"]:has-text("Đăng")',
-      'button:has-text("Post")',
-      'button:has-text("Đăng")',
-    ];
-
-    let submitBtn = null;
-    for (const sel of submitBtnSelectors) {
-      const els = page.locator(sel);
-      const count = await els.count();
-      for (let i = count - 1; i >= 0; i--) {
-        const el = els.nth(i);
-        if (await el.isVisible().catch(() => false)) {
-          submitBtn = el;
-          break;
-        }
-      }
-      if (submitBtn) break;
+    let submitBtn = page.locator('div[role="button"][aria-label="Post"]');
+    if (await submitBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+      logActivity('INFO', 'PUBLISH', `Kích hoạt nút Đăng (Post) lên ${targetType === 'page' ? 'Fanpage' : 'Facebook'}...`);
+      await submitBtn.click().catch(() => submitBtn.click({ force: true }));
+      await page.waitForTimeout(1000);
     }
-
-    if (!submitBtn) {
+    else {
       throw new Error('Không tìm thấy nút Đăng (Post) hợp lệ trên giao diện Facebook.');
     }
 
-    await dismissBlockingPagePopups(page, pageName);
-    await page.waitForTimeout(1000);
-
-    logActivity('INFO', 'PUBLISH', `Kích hoạt nút Đăng (Post) lên ${targetType === 'page' ? 'Fanpage' : 'Facebook'}...`);
-    await submitBtn.click().catch(() => submitBtn.click({ force: true }));
-
     // Giám sát tiến trình đăng bài
     logActivity('INFO', 'PUBLISH', 'Đang giám sát tiến trình xuất bản và tự động xử lý popup...');
-
     await dismissBlockingPagePopups(page, pageName);
 
-    // Đợi thêm 3.5 giây để máy chủ Facebook cập nhật vào feeds trước khi chuyển trang
-    await page.waitForTimeout(3500);
+    // Đợi thêm 5 giây để máy chủ Facebook cập nhật vào feeds trước khi chuyển trang
+    await page.waitForTimeout(5000);
 
     // BƯỚC 4: Sau khi post thành công, vào https://www.facebook.com/professional_dashboard/content/content_library tìm bài đã post
     logActivity('INFO', 'PUBLISH', '[Bước 4] Điều hướng đến /professional_dashboard/content/content_library để tìm bài viết vừa post...');
