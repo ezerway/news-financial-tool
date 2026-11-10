@@ -104,29 +104,17 @@ export async function handleProfileSwitcherModal(page: any, targetPageName?: str
  * Automatically dismiss any blocking popups such as WhatsApp button upsell ("Make it easier to contact you"),
  * messaging button prompts, profile switcher dialogs, or audience review dialogs that prevent posting.
  */
-export async function dismissBlockingPagePopups(page: any, targetPageName?: string): Promise<boolean> {
+export async function dismissBlockingPagePopups(page: any): Promise<boolean> {
   let dismissed = false;
-
-  if (targetPageName) {
-    // 1. Check for "Your profiles & Pages" modal
-    try {
-      const profileHandled = await handleProfileSwitcherModal(page, targetPageName);
-      if (profileHandled) dismissed = true;
-    } catch { }
-  }
-
   try {
-    const notNowCount = await page.locator('div[aria-label="Not now"]').count();
     const notNowBtn = page.locator('div[aria-label="Not now"]').first();
     if (notNowBtn) {
-      logActivity('INFO', 'PUBLISH', 'Phát hiện popup...');
-      logActivity('INFO', 'PUBLISH', `[Bypass Popup] Đang click nút "Not now"..., count: ${notNowCount}`);
+      logActivity('INFO', 'PUBLISH', `[Phát hiện popup] Đang click nút "Not now"...`);
       await notNowBtn.click();
       await page.waitForTimeout(1500);
       dismissed = true;
     } else {
       logActivity('INFO', 'PUBLISH', '[Bypass] Không tìm thấy nút "Not now"');
-      await page.waitForTimeout(10000);
     }
   } catch (err: any) {
     logActivity('WARN', 'PUBLISH', `Lỗi xử lý popup: ${err.message}`);
@@ -353,16 +341,7 @@ export async function executePublishAndComment(
 
     // Bypass Account Chooser / Continue splash screen if present
     await handleAccountChooserOrLogin(page, context, targetUrl);
-
-    // Step 0: Check if we are in Page mode and Facebook shows a "Switch to Page" prompt
-    if (targetType === 'page') {
-      logActivity('INFO', 'PUBLISH', `[Page Mode] Kiểm tra nút chuyển quyền sang Fanpage trên: ${targetUrl}`);
-      // Dismiss or select Page if "Your profiles & Pages" modal is showing
-      await handleProfileSwitcherModal(page, pageName);
-    }
-
-    // Dismiss any blocking popups before locating post trigger
-    await dismissBlockingPagePopups(page, pageName);
+    await handleProfileSwitcherModal(page, pageName);
 
     // BƯỚC 0: Vào trang đích (mặc định https://www.facebook.com/pages/?category=your_pages&ref=bookmarks)
     // (Đã điều hướng ở trên tới targetUrl)
@@ -396,8 +375,6 @@ export async function executePublishAndComment(
       'div[role="dialog"] div[contenteditable="true"]',
       'div[role="dialog"] div[role="textbox"]',
       'div[contenteditable="true"][role="textbox"]',
-      'div[aria-label*="What\'s on your mind"][role="textbox"]',
-      'div[aria-label*="Bạn đang nghĩ gì"][role="textbox"]',
       'div[contenteditable="true"]',
     ];
 
@@ -475,7 +452,7 @@ export async function executePublishAndComment(
 
     // Giám sát tiến trình đăng bài
     logActivity('INFO', 'PUBLISH', 'Đang giám sát tiến trình xuất bản và tự động xử lý popup...');
-    await dismissBlockingPagePopups(page, pageName);
+    await dismissBlockingPagePopups(page);
 
     // Đợi thêm 5 giây để máy chủ Facebook cập nhật vào feeds trước khi chuyển trang
     await page.waitForTimeout(5000);
