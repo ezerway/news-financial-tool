@@ -98,6 +98,9 @@ export function initSchema(database: Database.Database) {
         scheduled_at DATETIME,
         published_at DATETIME,
         fb_post_url TEXT,
+        tiktok_post_url TEXT,
+        tiktok_status TEXT DEFAULT 'idle',
+        tiktok_error_message TEXT,
         screenshot_path TEXT,
         debug_video_path TEXT,
         error_message TEXT,
@@ -125,6 +128,15 @@ export function initSchema(database: Database.Database) {
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN debug_video_path TEXT`);
   } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN tiktok_post_url TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN tiktok_status TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN tiktok_error_message TEXT`);
+  } catch {}
 
   // Insert default settings if not exists
   try {
@@ -134,6 +146,7 @@ export function initSchema(database: Database.Database) {
       post_tone: 'finance_news', // finance_news, viral_engaging, concise
       auto_mode: 'false',
       developer_mode: 'false',
+      tiktok_auto_post: 'true',
       fb_target_url: 'https://www.facebook.com/',
       crawler_interval_minutes: '60',
       filter_keywords: 'tài chính, chứng khoán, ngân hàng, bất động sản, kinh tế, crypto, usd, vàng, lạm phát',
@@ -373,6 +386,14 @@ export function resolveHeadless(preferredHeadless = true): boolean {
     return false;
   }
   return preferredHeadless;
+}
+
+export function isTikTokAutoPostEnabled(): boolean {
+  try {
+    return getSetting('tiktok_auto_post', 'true') === 'true';
+  } catch {
+    return true;
+  }
 }
 
 export default db;

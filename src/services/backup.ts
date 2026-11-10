@@ -384,6 +384,12 @@ export async function exportProfileZip(): Promise<Buffer> {
     zip.addLocalFile(sessionPath, '', 'fb-session.json');
   }
 
+  // Add tiktok-session.json if exists
+  const tiktokSessionPath = path.join(getStorageDir(), 'tiktok-session.json');
+  if (fs.existsSync(tiktokSessionPath)) {
+    zip.addLocalFile(tiktokSessionPath, '', 'tiktok-session.json');
+  }
+
   // Add browser-profile directory if exists (filtering out bulky Cache and lock files)
   if (fs.existsSync(userDataDir)) {
     cleanStaleChromeLocks(userDataDir);
@@ -459,6 +465,10 @@ export async function importProfile(fileBuffer: Buffer, fileName: string): Promi
         const content = entry.getData();
         fs.writeFileSync(sessionPath, content);
         foundSession = true;
+      }
+      if (entry.entryName === 'tiktok-session.json' || entry.entryName.endsWith('/tiktok-session.json')) {
+        const tiktokPath = path.join(getStorageDir(), 'tiktok-session.json');
+        fs.writeFileSync(tiktokPath, entry.getData());
       }
       if (entry.entryName.startsWith('browser-profile/')) {
         foundProfileDir = true;

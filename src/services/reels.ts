@@ -1,7 +1,8 @@
 import path from 'path';
 import fs from 'fs';
-import db, { logActivity, resolveHeadless } from '@/lib/db';
+import db, { logActivity, resolveHeadless, isTikTokAutoPostEnabled } from '@/lib/db';
 import { uploadFacebookReel, PostReelResult } from '@/services/playwright/fb-reel';
+import { uploadTikTokVideo } from '@/services/playwright/tiktok-reel';
 import { ReelItem } from '@/types';
 
 export function getReels(status?: string): ReelItem[] {
@@ -217,6 +218,46 @@ export async function publishReelById(
           ? `Xuất bản Reel Facebook thành công: ${reel.video_filename} (Link: ${result.reelUrl})`
           : `Xuất bản Reel Facebook thành công: ${reel.video_filename}`
       );
+
+      // Đăng đồng bộ lên TikTok nếu được bật cấu hình
+      if (isTikTokAutoPostEnabled()) {
+        try {
+          logActivity('INFO', 'POST_TIKTOK', `[TikTok] Bắt đầu đồng bộ đăng video lên TikTok cho Reel ${id}...`);
+          db.prepare(`UPDATE reels SET tiktok_status = 'publishing' WHERE id = ?`).run(id);
+
+          const ttResult = await uploadTikTokVideo({
+            reelId: reel.id,
+            filePath: reel.video_path,
+            content: reel.caption || '',
+            headless,
+          });
+
+          if (ttResult.success) {
+            db.prepare(`
+              UPDATE reels 
+              SET tiktok_post_url = ?, tiktok_status = 'published', tiktok_error_message = NULL 
+              WHERE id = ?
+            `).run(ttResult.tiktokUrl || null, id);
+            logActivity('SUCCESS', 'POST_TIKTOK', `[TikTok] Đã xuất bản video TikTok thành công: ${reel.video_filename} ${ttResult.tiktokUrl ? `(Link: ${ttResult.tiktokUrl})` : ''}`);
+          } else {
+            db.prepare(`
+              UPDATE reels 
+              SET tiktok_status = 'failed', tiktok_error_message = ? 
+              WHERE id = ?
+            `).run(ttResult.error || ttResult.message, id);
+            logActivity('WARN', 'POST_TIKTOK', `[TikTok] Đăng video lên TikTok thất bại: ${ttResult.error || ttResult.message}`);
+          }
+        } catch (ttErr: any) {
+          const ttErrMsg = ttErr?.message || String(ttErr);
+          db.prepare(`
+            UPDATE reels 
+            SET tiktok_status = 'failed', tiktok_error_message = ? 
+            WHERE id = ?
+          `).run(ttErrMsg, id);
+          logActivity('WARN', 'POST_TIKTOK', `[TikTok] Lỗi ngoại lệ khi đăng lên TikTok: ${ttErrMsg}`);
+        }
+      }
+
       return result;
     } else {
       const errorMsg = result.error || result.message;

@@ -3,8 +3,9 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { uploadFacebookReel } from '../src/services/playwright/fb-reel';
+import { uploadTikTokVideo } from '../src/services/playwright/tiktok-reel';
 import { createReel } from '../src/services/reels';
-import db, { logActivity, resolveHeadless, isDeveloperMode } from '../src/lib/db';
+import db, { logActivity, resolveHeadless, isDeveloperMode, isTikTokAutoPostEnabled } from '../src/lib/db';
 
 function askQuestion(rl: readline.Interface, query: string): Promise<string> {
   return new Promise((resolve) => rl.question(query, resolve));
@@ -211,6 +212,40 @@ async function main() {
       }
       console.log(`📊 Bản ghi bảng reels [${reel.id}] đã được cập nhật: status = 'published'`);
       console.log('======================================================\n');
+
+      if (isTikTokAutoPostEnabled()) {
+        console.log('🎬 [TikTok] Đang đồng bộ đăng video lên TikTok...');
+        try {
+          db.prepare(`UPDATE reels SET tiktok_status = 'publishing' WHERE id = ?`).run(reel.id);
+          const ttResult = await uploadTikTokVideo({
+            reelId: reel.id,
+            filePath: selectedFilePath,
+            content: selectedContent,
+            headless,
+          });
+
+          if (ttResult.success) {
+            db.prepare(`
+              UPDATE reels 
+              SET tiktok_post_url = ?, tiktok_status = 'published', tiktok_error_message = NULL 
+              WHERE id = ?
+            `).run(ttResult.tiktokUrl || null, reel.id);
+            console.log('🎉 [TikTok] Đăng TikTok thành công!');
+            if (ttResult.tiktokUrl) {
+              console.log('🔗 Link TikTok: ' + ttResult.tiktokUrl);
+            }
+          } else {
+            db.prepare(`
+              UPDATE reels 
+              SET tiktok_status = 'failed', tiktok_error_message = ? 
+              WHERE id = ?
+            `).run(ttResult.error || ttResult.message, reel.id);
+            console.warn('⚠️ [TikTok] Đăng TikTok thất bại:', ttResult.error || ttResult.message);
+          }
+        } catch (ttErr: any) {
+          console.warn('⚠️ [TikTok] Lỗi ngoại lệ TikTok:', ttErr.message);
+        }
+      }
 
       if (!headless) {
         console.log('💡 Trình duyệt đang được giữ mở để bạn kiểm tra nội dung hoặc bấm Đăng (Publish).');

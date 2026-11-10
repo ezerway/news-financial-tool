@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { formatDateTime, formatDateDDMMYYYY, replaceDateWildcards } from '@/lib/date';
 import Pagination from './Pagination';
+import TikTokIcon from './TikTokIcon';
 import { useI18n } from '@/context/I18nThemeContext';
 
 interface ReelsTabProps {
@@ -657,6 +658,38 @@ export default function ReelsTab({
                         <ExternalLink className="w-3.5 h-3.5" />
                         <span>{t('view_reel_button')}</span>
                       </a>
+                    )}
+
+                    {/* View on TikTok Link if available */}
+                    {reel.tiktok_post_url && (
+                      <a
+                        href={reel.tiktok_post_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-sm btn-ghost text-xs text-slate-800 dark:text-slate-100 hover:underline inline-flex items-center gap-1.5 font-semibold"
+                        title={lang === 'vi' ? 'Mở xem video trên TikTok' : 'Open video on TikTok'}
+                      >
+                        <TikTokIcon className="w-3.5 h-3.5 text-rose-500" />
+                        <span>TikTok</span>
+                        <ExternalLink className="w-3 h-3 text-slate-400" />
+                      </a>
+                    )}
+
+                    {reel.tiktok_status === 'publishing' && (
+                      <span className="text-[11px] text-amber-500 inline-flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>TikTok...</span>
+                      </span>
+                    )}
+
+                    {reel.tiktok_status === 'failed' && (
+                      <span
+                        className="text-[11px] text-rose-500 inline-flex items-center gap-1 cursor-help"
+                        title={reel.tiktok_error_message || 'Đăng TikTok lỗi'}
+                      >
+                        <AlertCircle className="w-3 h-3" />
+                        <span>Lỗi TikTok</span>
+                      </span>
                     )}
 
                     {/* Video quay lại quá trình đăng (Dev Mode hoặc Lưu vết) */}

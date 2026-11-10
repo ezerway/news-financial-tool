@@ -44,6 +44,7 @@ next-env.d.ts
 storage/*.db*
 storage/*.json
 storage/browser-profile/
+storage/tiktok-browser-profile/
 storage/screenshots/
 storage/videos/
 
