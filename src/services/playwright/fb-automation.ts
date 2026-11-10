@@ -120,7 +120,7 @@ export async function dismissBlockingPagePopups(page: any, targetPageName?: stri
     if (notNowBtn && await notNowBtn.isVisible({ timeout: 3000 })) {
       logActivity('INFO', 'PUBLISH', 'Phát hiện popup...');
       logActivity('INFO', 'PUBLISH', `[Bypass Popup] Đang click nút "Not now"...`);
-      await notNowBtn.click({ force: true }).catch(() => { });
+      await notNowBtn.click();
       await page.waitForTimeout(1500);
       dismissed = true;
     } else {
