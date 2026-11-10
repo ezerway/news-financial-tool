@@ -116,10 +116,11 @@ export async function dismissBlockingPagePopups(page: any, targetPageName?: stri
   }
 
   try {
-    const notNowBtn = page.locator('div[role="dialog"] div[aria-label="Not now"]').first();
-    if (await notNowBtn.isVisible().catch(() => false)) {
+    const notNowCount = await page.locator('div[aria-label="Not now"]').count();
+    const notNowBtn = page.locator('div[aria-label="Not now"]').first();
+    if (notNowBtn) {
       logActivity('INFO', 'PUBLISH', 'Phát hiện popup...');
-      logActivity('INFO', 'PUBLISH', `[Bypass Popup] Đang click nút "Not now"...`);
+      logActivity('INFO', 'PUBLISH', `[Bypass Popup] Đang click nút "Not now"..., count: ${notNowCount}`);
       await notNowBtn.click();
       await page.waitForTimeout(1500);
       dismissed = true;
