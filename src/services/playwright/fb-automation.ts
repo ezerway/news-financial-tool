@@ -103,15 +103,16 @@ export async function handleProfileSwitcherModal(page: any, targetPageName?: str
  * Automatically dismiss any blocking popups such as WhatsApp button upsell ("Make it easier to contact you"),
  * messaging button prompts, profile switcher dialogs, or audience review dialogs that prevent posting.
  */
-async function dismissBlockingPagePopups(page: any, targetPageName?: string): Promise<boolean> {
+export async function dismissBlockingPagePopups(page: any, targetPageName?: string): Promise<boolean> {
   let dismissed = false;
 
-  // 1. Check for "Your profiles & Pages" modal
-  try {
-    const profileHandled = await handleProfileSwitcherModal(page, targetPageName);
-    if (profileHandled) dismissed = true;
-  } catch { }
-
+  if (targetPageName) {
+    // 1. Check for "Your profiles & Pages" modal
+    try {
+      const profileHandled = await handleProfileSwitcherModal(page, targetPageName);
+      if (profileHandled) dismissed = true;
+    } catch { }
+  }
 
   try {
     const notNowBtn = page.locator('div[role="dialog"] div[role="button"][aria-label="Not now"]').first();

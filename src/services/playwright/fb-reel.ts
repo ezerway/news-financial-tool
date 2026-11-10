@@ -8,7 +8,7 @@ import {
   getChromiumLaunchArgs,
   injectSessionCookies,
 } from './session';
-import { dismissWhatsAppPopup } from './fb-automation';
+import { dismissBlockingPagePopups } from './fb-automation';
 import { logActivity, resolveHeadless, isDeveloperMode } from '@/lib/db';
 import { replaceDateWildcards } from '@/lib/date';
 
@@ -347,8 +347,8 @@ export async function uploadFacebookReel(
     notify('Đã click nút Next.');
     await page.waitForTimeout(2500);
 
-    // Bỏ qua popup WhatsApp nếu hiện sau Next
-    await dismissWhatsAppPopup(page);
+    // Bỏ qua popup nếu hiện sau Next
+    await dismissBlockingPagePopups(page);
 
     // Bước 11: Sau đó click '[aria-label="Post"][role="button"]'
     notify('Đang tìm và click nút [aria-label="Post"][role="button"]...');
@@ -358,16 +358,8 @@ export async function uploadFacebookReel(
     notify('Đã click nút Post để xuất bản Reel!', 'SUCCESS');
     await page.waitForTimeout(3000);
 
-    // Bước 12: Nếu Add WhatsApp modal hiện ra thì hãy Click Not Now
-    notify('Đang kiểm tra popup Add WhatsApp sau khi đăng...');
-    for (let attempt = 0; attempt < 6; attempt++) {
-      const dismissed = await dismissWhatsAppPopup(page);
-      if (dismissed) {
-        notify('Đã phát hiện và bấm "Not now" đóng popup Add WhatsApp.', 'SUCCESS');
-        break;
-      }
-      await page.waitForTimeout(1000);
-    }
+    // Bỏ qua popup nếu hiện sau Next
+    await dismissBlockingPagePopups(page);
 
     // Bước 13: Đợi khoảng 30 giây để Facebook xử lý video và xuất bản vào bảng tin
     notify('Đang đợi khoảng 30 giây để Facebook xử lý video và xuất bản Reel...');
