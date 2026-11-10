@@ -125,6 +125,7 @@ export async function dismissBlockingPagePopups(page: any, targetPageName?: stri
       dismissed = true;
     } else {
       logActivity('INFO', 'PUBLISH', '[Bypass] Không tìm thấy nút "Not now"');
+      await page.waitForTimeout(10000);
     }
   } catch (err: any) {
     logActivity('WARN', 'PUBLISH', `Lỗi xử lý popup: ${err.message}`);
