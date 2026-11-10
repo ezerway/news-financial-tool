@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { PostItem } from '@/types';
 import {
   Send,
-  Sparkles,
   ExternalLink,
   Trash2,
   Save,
@@ -28,7 +27,7 @@ import { useI18n } from '@/context/I18nThemeContext';
 
 interface PostsTabProps {
   posts: PostItem[];
-  onPublish: (postId: string, dryRun: boolean, force?: boolean) => Promise<void>;
+  onPublish: (postId: string, force?: boolean) => Promise<void>;
   onComment?: (postId: string, postUrl?: string) => Promise<void>;
   onUpdate: (postId: string, postContent: string, commentContent: string) => Promise<void>;
   onDelete: (postId: string) => Promise<void>;
@@ -433,18 +432,6 @@ export default function PostsTab({
                           </button>
                         )}
 
-                        {post.status !== 'published' && (
-                          <button
-                            type="button"
-                            onClick={() => onPublish(post.id, true)}
-                            disabled={isPublishing || isCommenting}
-                            className="btn btn-sm btn-secondary"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                            <span>{t('test_run')}</span>
-                          </button>
-                        )}
-
                         {/* Delete confirmation */}
                         {confirmDeleteId === post.id ? (
                           <div className="flex items-center gap-1.5">
@@ -487,7 +474,7 @@ export default function PostsTab({
                         {post.status === 'published' ? (
                           <button
                             type="button"
-                            onClick={() => onPublish(post.id, false, true)}
+                            onClick={() => onPublish(post.id, true)}
                             disabled={isPublishing || isCommenting}
                             className="btn btn-sm btn-secondary text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:border-indigo-400 dark:hover:border-indigo-600 w-full sm:w-auto justify-center order-last sm:order-none"
                             title={lang === 'vi' ? 'Đăng lại bài viết này lên Facebook' : 'Republish this post to Facebook'}
@@ -502,7 +489,7 @@ export default function PostsTab({
                         ) : (
                           <button
                             type="button"
-                            onClick={() => onPublish(post.id, false, post.status === 'failed')}
+                            onClick={() => onPublish(post.id, post.status === 'failed')}
                             disabled={isPublishing || isCommenting}
                             className="btn btn-sm btn-primary w-full sm:w-auto justify-center order-last sm:order-none"
                           >

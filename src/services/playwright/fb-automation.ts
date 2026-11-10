@@ -116,8 +116,8 @@ export async function dismissBlockingPagePopups(page: any, targetPageName?: stri
   }
 
   try {
-    const notNowBtn = page.locator('div[role="dialog"] div[role="button"][aria-label="Not now"]').first();
-    if (notNowBtn && (await notNowBtn.isVisible({ timeout: 800 }).catch(() => false))) {
+    const notNowBtn = page.locator('div[aria-label="Not now"]').first();
+    if (notNowBtn) {
       logActivity('INFO', 'PUBLISH', 'Phát hiện popup...');
       logActivity('INFO', 'PUBLISH', `[Bypass Popup] Đang click nút "Not now"...`);
       await notNowBtn.click({ force: true }).catch(() => { });
@@ -249,7 +249,6 @@ export function resolveTargetUrl(): { targetType: string; targetUrl: string; pag
 }
 
 export interface PublishOptions {
-  dryRun?: boolean;
   headless?: boolean;
   force?: boolean;
   recordVideo?: boolean;
@@ -259,15 +258,14 @@ export async function executePublishAndComment(
   post: PostItem,
   options?: PublishOptions
 ): Promise<PublishResult> {
-  const dryRun = options?.dryRun ?? false;
   const force = options?.force ?? false;
   const headless = resolveHeadless(options?.headless ?? true);
   const shouldRecordVideo =
     options?.recordVideo !== undefined
       ? Boolean(options.recordVideo)
       : post.record_video !== undefined && post.record_video !== null
-      ? Boolean(post.record_video)
-      : true;
+        ? Boolean(post.record_video)
+        : true;
 
   const { targetType, targetUrl, pageName } = resolveTargetUrl();
 
@@ -283,7 +281,7 @@ export async function executePublishAndComment(
   }
 
   // DEDUPLICATION GUARD: Check if post or topic was already published (bypass if force is true)
-  if (!dryRun && !force) {
+  if (!force) {
     const dupCheck = checkDuplicatePublish(post);
     if (dupCheck.isDuplicate) {
       const errorMsg = `Hủy đăng bài để tránh trùng lặp: ${dupCheck.reason}`;
@@ -295,43 +293,11 @@ export async function executePublishAndComment(
   logActivity(
     'INFO',
     'PUBLISH',
-    `Starting publish process for post ${post.id}: "${post.trend_title}" (Target: ${targetType === 'page' ? 'Fanpage (' + targetUrl + ')' : 'Trang cá nhân'
-    }, Mode: ${dryRun ? 'Dry Run' : 'Live'})`
+    `Starting publish process for post ${post.id}: "${post.trend_title}" (Target: ${targetType === 'page' ? 'Fanpage (' + targetUrl + ')' : 'Trang cá nhân'})`
   );
 
   // Update status to publishing
   db.prepare(`UPDATE posts SET status = 'publishing' WHERE id = ?`).run(post.id);
-
-  if (dryRun) {
-    // Simulate dry run
-    await new Promise((r) => setTimeout(r, 2000));
-    const mockScreenshot = `mock_${post.id}.png`;
-    const mockUrl = targetType === 'page'
-      ? `${targetUrl}/posts/mock_${Date.now()}`
-      : `https://facebook.com/permalink.php?story_fbid=mock_${Date.now()}`;
-
-    db.prepare(`
-      UPDATE posts 
-      SET status = 'published', fb_post_url = ?, published_at = CURRENT_TIMESTAMP, screenshot_path = ?
-      WHERE id = ?
-    `).run(mockUrl, mockScreenshot, post.id);
-
-    markTrendAsPublished({ trend_id: post.trend_id, trend_title: post.trend_title });
-
-    logActivity(
-      'SUCCESS',
-      'PUBLISH',
-      `[Dry Run] Simulated post and source comment successfully for "${post.trend_title}" on ${targetType === 'page' ? 'Fanpage' : 'Profile'}`
-    );
-
-    return {
-      success: true,
-      postId: post.id,
-      fbPostUrl: mockUrl,
-      commentSuccess: true,
-      screenshotPath: mockScreenshot,
-    };
-  }
 
   if (!isSessionAvailable()) {
     const errorMsg = 'Chưa thiết lập session Facebook. Vui lòng kết nối tài khoản Facebook trước.';
@@ -579,11 +545,14 @@ export async function executePublishAndComment(
       await handleProfileSwitcherModal(page, pageName);
 
       // Tìm URL bài viết trên feed gần đây nhất
-      const firstFeedPostLink = page.locator(
-        '[aria-label="Content Library"] [aria-colindex="2"] a[href*="content_id"]'
-      ).first();
+      let feedPostLinkCount = await page.locator('[aria-label="Content Library"] [aria-colindex="2"] a[href*="content_id"]').count();
 
-      if ((await firstFeedPostLink.count()) > 0 && (await firstFeedPostLink.isVisible({ timeout: 4000 }).catch(() => false))) {
+      if (!feedPostLinkCount) {
+        await page.reload();
+      }
+
+      const firstFeedPostLink = page.locator('[aria-label="Content Library"] [aria-colindex="2"] a[href*="content_id"]').first();
+      if (firstFeedPostLink && (await firstFeedPostLink.isVisible({ timeout: 4000 }).catch(() => false))) {
         await firstFeedPostLink.click();
       }
     } catch (feedNavErr: any) {

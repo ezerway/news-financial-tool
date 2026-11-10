@@ -9,7 +9,6 @@ function formatTime(date: Date): string {
 async function startDaemon() {
   let customLimit: number | undefined;
   let customIntervalMinutes: number | undefined;
-  const isDryRun = process.argv.includes('--dry-run');
   const forcePublish = process.argv.includes('--publish');
 
   for (let i = 0; i < process.argv.length; i++) {
@@ -73,7 +72,7 @@ async function startDaemon() {
     );
 
     try {
-      const res = await runAutomationCycle({ limit: customLimit, dryRun: isDryRun, forcePublish });
+      const res = await runAutomationCycle({ limit: customLimit, forcePublish });
       console.log(`✅ [${formatTime(new Date())}] Chu kỳ hoàn tất:`, JSON.stringify(res, null, 2));
     } catch (err: any) {
       console.error(`❌ [${formatTime(new Date())}] Lỗi thực thi chu kỳ:`, err.message);

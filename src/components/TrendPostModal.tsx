@@ -31,7 +31,7 @@ export interface TrendPostModalProps {
   post: PostItem | null;
   onGenerate?: (trendId: string) => Promise<void>;
   onRetryAndPublish?: (trendId: string) => Promise<void>;
-  onPublishPost?: (postId: string, dryRun: boolean, force?: boolean) => Promise<void>;
+  onPublishPost?: (postId: string, force?: boolean) => Promise<void>;
   onNavigateToPostsTab?: (postId?: string) => void;
   isGenerating?: boolean;
   isPublishing?: boolean;
@@ -357,7 +357,7 @@ export default function TrendPostModal({
                     <button
                       type="button"
                       onClick={async () => {
-                        await onPublishPost(post.id, false, true);
+                        await onPublishPost(post.id, true);
                       }}
                       disabled={isPublishing}
                       className="btn btn-sm btn-primary bg-indigo-600 hover:bg-indigo-700 text-white text-xs inline-flex items-center gap-1.5"
@@ -369,7 +369,7 @@ export default function TrendPostModal({
                     <button
                       type="button"
                       onClick={async () => {
-                        await onPublishPost(post.id, false);
+                        await onPublishPost(post.id);
                       }}
                       disabled={isPublishing}
                       className="btn btn-sm btn-primary text-xs inline-flex items-center gap-1.5"

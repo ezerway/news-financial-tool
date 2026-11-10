@@ -29,7 +29,7 @@ interface TrendsTabProps {
   onGenerate: (trendId: string) => Promise<void>;
   onFindSources?: (trendId: string) => Promise<void>;
   onRetryAndPublish?: (trendId?: string, allMissing?: boolean) => Promise<void>;
-  onPublishPost?: (postId: string, dryRun: boolean, force?: boolean) => Promise<void>;
+  onPublishPost?: (postId: string, force?: boolean) => Promise<void>;
   onNavigateToPostsTab?: (postId?: string) => void;
   isCrawling: boolean;
   generatingId: string | null;

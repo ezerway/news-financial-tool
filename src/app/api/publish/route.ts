@@ -5,7 +5,7 @@ import { PostItem } from '@/types';
 
 export async function POST(req: NextRequest) {
   try {
-    const { postId, dryRun, headless, force } = await req.json();
+    const { postId, headless, force } = await req.json();
 
     if (!postId) {
       return NextResponse.json({ success: false, error: 'postId is required' }, { status: 400 });
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       source_urls: row.source_urls ? JSON.parse(row.source_urls) : [],
     };
 
-    if (post.status === 'published' && !Boolean(dryRun) && !Boolean(force)) {
+    if (post.status === 'published' && !Boolean(force)) {
       return NextResponse.json({
         success: false,
         error: `Bài viết "${post.trend_title}" đã được xuất bản trước đó vào ${post.published_at || 'trước đây'}. Không thể đăng lại để tránh trùng lặp bài viết.`,
@@ -29,7 +29,6 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await executePublishAndComment(post, {
-      dryRun: Boolean(dryRun),
       headless: headless !== undefined ? Boolean(headless) : true,
       force: Boolean(force),
     });

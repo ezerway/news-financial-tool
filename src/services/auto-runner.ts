@@ -7,7 +7,6 @@ import { findDuplicatePost, getExistingPosts } from './dedup';
 
 export interface AutomationCycleOptions {
   forcePublish?: boolean;
-  dryRun?: boolean;
   limit?: number;
 }
 
@@ -23,7 +22,6 @@ export async function runAutomationCycle(options?: AutomationCycleOptions) {
   const geo = getSetting('target_geo', 'VN');
   const autoMode = getSetting('auto_mode', 'false') === 'true';
   const shouldPublish = options?.forcePublish ?? autoMode;
-  const dryRun = options?.dryRun ?? false;
 
   try {
     // Step 1: Crawl latest Google Trends Business & Finance (category=3)
@@ -147,7 +145,7 @@ export async function runAutomationCycle(options?: AutomationCycleOptions) {
 
       if (shouldPublish) {
         logActivity('INFO', 'AUTO', `${progressLabel} Đang tự động xuất bản bài viết ${post.id} lên Facebook...`);
-        const pubResult = await executePublishAndComment(post, { dryRun });
+        const pubResult = await executePublishAndComment(post);
         results.push({
           success: pubResult.success,
           trend: candidate,
@@ -157,7 +155,7 @@ export async function runAutomationCycle(options?: AutomationCycleOptions) {
 
         // Delay between posts to protect Facebook account from spam triggers
         if (i < candidates.length - 1) {
-          const pauseSec = dryRun ? 2 : 25;
+          const pauseSec = 25;
           logActivity(
             'INFO',
             'AUTO',
@@ -196,7 +194,6 @@ export interface RetryTrendOptions {
   trendId?: string;
   allMissing?: boolean;
   forcePublish?: boolean;
-  dryRun?: boolean;
   limit?: number;
 }
 
@@ -208,7 +205,6 @@ export async function retryTrendSourcesAndPublish(options: RetryTrendOptions): P
   // Sửa chữa các xu hướng bị đánh dấu nhầm 'published' khi thiếu source link
   repairInconsistentTrendStatuses(db);
 
-  const dryRun = options.dryRun ?? false;
   const forcePublish = options.forcePublish ?? true;
 
   // Trường hợp 1: Chạy lại cho 1 xu hướng cụ thể
@@ -259,7 +255,7 @@ export async function retryTrendSourcesAndPublish(options: RetryTrendOptions): P
     // B3: Đăng bài lên Facebook Fanpage (hoặc lưu nháp nếu không bật forcePublish)
     if (forcePublish) {
       logActivity('INFO', 'RETRY', `[Chạy lại] Đang xuất bản bài viết ${post.id} lên Facebook Fanpage...`);
-      const pubResult = await executePublishAndComment(post, { dryRun });
+      const pubResult = await executePublishAndComment(post);
       return {
         success: pubResult.success,
         trend: trendItem,
@@ -331,7 +327,6 @@ export async function retryTrendSourcesAndPublish(options: RetryTrendOptions): P
         const res = await retryTrendSourcesAndPublish({
           trendId: c.id,
           forcePublish,
-          dryRun,
         });
         results.push(res);
       } catch (err: any) {
@@ -345,7 +340,7 @@ export async function retryTrendSourcesAndPublish(options: RetryTrendOptions): P
 
       // Giãn cách giữa các bài để bảo vệ tài khoản Facebook khỏi checkpoint
       if (i < candidates.length - 1 && forcePublish) {
-        const pauseSec = dryRun ? 2 : 25;
+        const pauseSec = 25;
         logActivity(
           'INFO',
           'RETRY',

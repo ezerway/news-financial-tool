@@ -305,12 +305,10 @@ export default function DashboardPage() {
   };
 
   // Publish handler
-  const handlePublish = async (postId: string, dryRun: boolean, force = false) => {
+  const handlePublish = async (postId: string, force = false) => {
     setPublishingId(postId);
     showToast(
-      dryRun
-        ? 'Đang chạy mô phỏng Playwright (Dry Run)...'
-        : force
+      force
         ? 'Đang đăng lại bài viết lên Facebook...'
         : 'Đang mở Playwright để đăng bài & auto-comment...',
       'info'
@@ -319,7 +317,7 @@ export default function DashboardPage() {
       const res = await fetch('/api/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postId, dryRun, force }),
+        body: JSON.stringify({ postId, force }),
       });
       const data = await res.json();
       const postObj = posts.find((p) => p.id === postId);
@@ -327,9 +325,7 @@ export default function DashboardPage() {
 
       if (data.success) {
         showToast(
-          dryRun
-            ? 'Chạy thử mô phỏng thành công!'
-            : force
+          force
             ? 'Đã đăng lại bài viết lên Facebook thành công!'
             : 'Đã xuất bản bài viết và bình luận nguồn thành công!',
           'success'
@@ -464,14 +460,14 @@ export default function DashboardPage() {
   };
 
   // Run full cycle
-  const handleRunCycle = async (dryRun: boolean) => {
+  const handleRunCycle = async () => {
     setIsRunningCycle(true);
-    showToast(dryRun ? 'Đang chạy chu kỳ tự động (Mô phỏng)...' : 'Đang thực thi chu kỳ: Cào -> Viết -> Đăng...', 'info');
+    showToast('Đang thực thi chu kỳ: Cào -> Viết -> Đăng...', 'info');
     try {
       const res = await fetch('/api/run-cycle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dryRun, forcePublish: true }),
+        body: JSON.stringify({ forcePublish: true }),
       });
       const data = await res.json();
       if (data.success) {
@@ -765,7 +761,7 @@ export default function DashboardPage() {
                   </button>
 
                   <button
-                    onClick={() => handleRunCycle(false)}
+                    onClick={() => handleRunCycle()}
                     disabled={isRunningCycle}
                     className="btn btn-md btn-primary flex-1 md:flex-initial"
                   >

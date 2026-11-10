@@ -26,7 +26,7 @@ import { useI18n } from '@/context/I18nThemeContext';
 
 export interface HeaderProps {
   fbStatus: { loggedIn: boolean; username?: string; message: string };
-  onRunCycle: (dryRun: boolean) => void;
+  onRunCycle: () => void;
   onRefresh: () => void;
   onConnectFb: () => void;
   isRunning: boolean;

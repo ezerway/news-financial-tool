@@ -1,7 +1,6 @@
 import { runAutomationCycle, retryTrendSourcesAndPublish } from '../src/services/auto-runner';
 
 async function main() {
-  const isDryRun = process.argv.includes('--dry-run');
   const forcePublish = process.argv.includes('--publish');
   const isRetryMissing = process.argv.includes('--retry') || process.argv.includes('--retry-missing');
 
@@ -30,14 +29,12 @@ async function main() {
   if (isRetryMissing || customTrendId) {
     console.log(`=== Chạy lại tìm kiếm link nguồn báo chí và đăng bài ===`);
     console.log(`Mục tiêu: ${customTrendId ? `Xu hướng ID ${customTrendId}` : 'Tất cả các xu hướng chưa có nguồn / chưa đăng'}`);
-    console.log(`Chế độ: ${isDryRun ? 'Mô phỏng (Dry Run)' : 'Thực tế'}`);
     console.log(`Tự động xuất bản: ${forcePublish ? 'Có' : 'Có (mặc định cho retry)'}\n`);
 
     try {
       const res = await retryTrendSourcesAndPublish({
         trendId: customTrendId,
         allMissing: !customTrendId,
-        dryRun: isDryRun,
         forcePublish: true,
         limit: customLimit || 5,
       });
@@ -50,12 +47,11 @@ async function main() {
   }
 
   console.log(`=== Khởi động chu kỳ tự động hóa TrendPulse ===`);
-  console.log(`Chế độ: ${isDryRun ? 'Mô phỏng (Dry Run)' : 'Thực tế'}`);
   console.log(`Số bài viết mỗi chu kỳ: ${customLimit ? `${customLimit} bài (qua tham số CLI)` : 'Theo cấu hình trong Cài đặt DB'}`);
   console.log(`Tự động xuất bản: ${forcePublish ? 'Có' : 'Theo cài đặt trong DB'}\n`);
 
   try {
-    const res = await runAutomationCycle({ dryRun: isDryRun, forcePublish, limit: customLimit });
+    const res = await runAutomationCycle({ forcePublish, limit: customLimit });
     console.log('Kết quả:', JSON.stringify(res, null, 2));
     process.exit(0);
   } catch (err: any) {

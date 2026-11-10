@@ -4,7 +4,7 @@ import { retryTrendSourcesAndPublish } from '@/services/auto-runner';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { trendId, allMissing, dryRun, forcePublish, limit } = body;
+    const { trendId, allMissing, forcePublish, limit } = body;
 
     if (!trendId && !allMissing) {
       return NextResponse.json(
@@ -16,7 +16,6 @@ export async function POST(req: NextRequest) {
     const result = await retryTrendSourcesAndPublish({
       trendId,
       allMissing: Boolean(allMissing),
-      dryRun: Boolean(dryRun),
       forcePublish: forcePublish !== undefined ? Boolean(forcePublish) : true,
       limit: limit ? parseInt(limit, 10) : undefined,
     });
