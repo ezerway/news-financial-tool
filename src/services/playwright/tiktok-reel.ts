@@ -143,6 +143,7 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
     }
 
     await page.waitForTimeout(4000);
+    await dismissAllTooltip(page);
     notify('Đang kiểm tra giao diện chọn file video TikTok...');
 
     // Bước 3: Click "Select video" và đính kèm file

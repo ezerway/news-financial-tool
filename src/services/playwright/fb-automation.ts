@@ -689,27 +689,27 @@ export async function executePublishAndComment(
     // Đợi thêm 3.5 giây để máy chủ Facebook cập nhật vào feeds trước khi chuyển trang
     await page.waitForTimeout(3500);
 
-    // BƯỚC 4: Sau khi post thành công, vào https://www.facebook.com/?filter=all&sk=h_chr tìm bài đã post
-    logActivity('INFO', 'PUBLISH', '[Bước 4] Điều hướng đến https://www.facebook.com/?filter=all&sk=h_chr để tìm bài viết vừa post...');
+    // BƯỚC 4: Sau khi post thành công, vào https://www.facebook.com/professional_dashboard/content/content_library tìm bài đã post
+    logActivity('INFO', 'PUBLISH', '[Bước 4] Điều hướng đến /professional_dashboard/content/content_library để tìm bài viết vừa post...');
     let exactPostUrl = targetUrl;
 
     try {
-      await page.goto('https://www.facebook.com/?filter=all&sk=h_chr', { waitUntil: 'domcontentloaded', timeout: 45000 });
-      await page.waitForTimeout(3500);
+      await page.goto('https://www.facebook.com/professional_dashboard/content/content_library/?date_range=TODAY&filter=PUBLISHED&placement_type=ALL&post_types[0]=TEXT&sort_by=DATE&sorting_method=METRICS_DESCENDING', { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await page.waitForTimeout(1500);
 
       await handleAccountChooserOrLogin(page, context);
       await handleProfileSwitcherModal(page, pageName);
 
       // Tìm URL bài viết trên feed gần đây nhất
       const firstFeedPostLink = page.locator(
-        'a[href*="__tn__=%2CO%2CP-R"]'
+        '[aria-label="Content Library"] [aria-colindex="2"] a[href*="content_id"]'
       ).first();
 
       if ((await firstFeedPostLink.count()) > 0 && (await firstFeedPostLink.isVisible({ timeout: 4000 }).catch(() => false))) {
         await firstFeedPostLink.click();
       }
     } catch (feedNavErr: any) {
-      logActivity('WARN', 'PUBLISH', `Lỗi khi tải feed https://www.facebook.com/?filter=all&sk=h_chr: ${feedNavErr.message}`);
+      logActivity('WARN', 'PUBLISH', `Lỗi khi tải feed /professional_dashboard/content/content_library: ${feedNavErr.message}`);
     }
 
     let commentSuccess = false;
@@ -721,9 +721,9 @@ export async function executePublishAndComment(
       // Kiểm tra xem URL trên trình duyệt có cập nhật sang link bài viết trực tiếp không
       const currentUrl = page.url();
       if (
-        currentUrl && currentUrl.includes('/posts/')
+        currentUrl && currentUrl.includes('/content_id/')
       ) {
-        exactPostUrl = currentUrl.split('?')[0];
+        exactPostUrl = currentUrl;
         logActivity('SUCCESS', 'PUBLISH', `URL chính xác của bài viết từ modal: ${exactPostUrl}`);
       }
 
@@ -732,7 +732,7 @@ export async function executePublishAndComment(
       await handleProfileSwitcherModal(page, pageName);
 
 
-      let commentBox = page.locator('div[role="dialog"] div[contenteditable="true"]').first();
+      let commentBox = page.locator('div[contenteditable="true"]').first();
 
       if (commentBox) {
         await commentBox.click();
@@ -936,7 +936,7 @@ export async function executeCommentOnly(
     await page.waitForTimeout(3000);
     await handleProfileSwitcherModal(page, pageName);
 
-    let commentBox = page.locator('div[role="dialog"] div[contenteditable="true"]').first();
+    let commentBox = page.locator('div[contenteditable="true"]').first();
 
     if (commentBox) {
       await commentBox.click();
