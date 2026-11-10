@@ -695,7 +695,7 @@ export async function executePublishAndComment(
     let exactPostUrl = targetUrl;
 
     try {
-      await page.goto('https://www.facebook.com/professional_dashboard/content/content_library/?date_range=TODAY&filter=PUBLISHED&placement_type=ALL&post_types[0]=TEXT&sort_by=DATE&sorting_method=METRICS_DESCENDING', { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await page.goto('https://www.facebook.com/professional_dashboard/content/content_library/?date_range=TODAY&placement_type=ALL&post_types[0]=TEXT&sort_by=DATE&sorting_method=METRICS_DESCENDING', { waitUntil: 'domcontentloaded', timeout: 45000 });
       await page.waitForTimeout(1500);
 
       await handleAccountChooserOrLogin(page, context);
