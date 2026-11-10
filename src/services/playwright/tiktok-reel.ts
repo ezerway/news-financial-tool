@@ -548,4 +548,18 @@ async function dismissAllTooltip(page: Page) {
 
     await page.waitForTimeout(1000);
   }
+
+  const gotSelectors = 'button:has-text("Got it")';
+
+  for (let i = 0; i < 2; i++) {
+    if (await page.locator(gotSelectors).first().isVisible({ timeout: 1000 }).catch(() => false)) {
+      const gotItBtn = page.locator(gotSelectors).first();
+      if (gotItBtn) {
+        await gotItBtn.click();
+      }
+      break;
+    }
+
+    await page.waitForTimeout(1000);
+  }
 }
