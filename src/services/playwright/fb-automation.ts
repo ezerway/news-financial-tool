@@ -116,8 +116,8 @@ export async function dismissBlockingPagePopups(page: any, targetPageName?: stri
   }
 
   try {
-    const notNowBtn = page.locator('div[aria-label="Not now"]').first();
-    if (notNowBtn && await notNowBtn.isVisible({ timeout: 3000 })) {
+    const notNowBtn = page.locator('div[role="dialog"] div[aria-label="Not now"]').first();
+    if (notNowBtn) {
       logActivity('INFO', 'PUBLISH', 'Phát hiện popup...');
       logActivity('INFO', 'PUBLISH', `[Bypass Popup] Đang click nút "Not now"...`);
       await notNowBtn.click();
@@ -449,10 +449,7 @@ export async function executePublishAndComment(
     }
     await page.waitForTimeout(2000);
 
-    for (let w = 0; w < 4; w++) {
-      await dismissBlockingPagePopups(page, pageName);
-      await page.waitForTimeout(1000);
-    }
+    await dismissBlockingPagePopups(page, pageName);
 
     // BƯỚC 3: Ấn Next, sau đó ấn Post
     logActivity('INFO', 'PUBLISH', '[Bước 3] Kiểm tra nút Next và nút Post để xuất bản bài viết...');
@@ -477,10 +474,7 @@ export async function executePublishAndComment(
       }
     }
 
-    for (let w = 0; w < 4; w++) {
-      await dismissBlockingPagePopups(page, pageName);
-      await page.waitForTimeout(1000);
-    }
+    await dismissBlockingPagePopups(page, pageName);
 
     // 3b. Tìm nút Post
     const submitBtnSelectors = [
@@ -516,10 +510,8 @@ export async function executePublishAndComment(
       throw new Error('Không tìm thấy nút Đăng (Post) hợp lệ trên giao diện Facebook.');
     }
 
-    for (let w = 0; w < 4; w++) {
-      await dismissBlockingPagePopups(page, pageName);
-      await page.waitForTimeout(1000);
-    }
+    await dismissBlockingPagePopups(page, pageName);
+    await page.waitForTimeout(1000);
 
     logActivity('INFO', 'PUBLISH', `Kích hoạt nút Đăng (Post) lên ${targetType === 'page' ? 'Fanpage' : 'Facebook'}...`);
     await submitBtn.click().catch(() => submitBtn.click({ force: true }));
@@ -527,10 +519,7 @@ export async function executePublishAndComment(
     // Giám sát tiến trình đăng bài
     logActivity('INFO', 'PUBLISH', 'Đang giám sát tiến trình xuất bản và tự động xử lý popup...');
 
-    for (let w = 0; w < 4; w++) {
-      await dismissBlockingPagePopups(page, pageName);
-      await page.waitForTimeout(1000);
-    }
+    await dismissBlockingPagePopups(page, pageName);
 
     // Đợi thêm 3.5 giây để máy chủ Facebook cập nhật vào feeds trước khi chuyển trang
     await page.waitForTimeout(3500);
