@@ -561,15 +561,16 @@ export async function executePublishAndComment(
 
       if (isMentionsVisible) {
         logActivity('INFO', 'PUBLISH', 'Phát hiện [aria-label="Mentions suggestions"], đang đóng popup gợi ý...');
-        // Nhấn phím Escape để đóng popup suggestions mà không mất text đã nhập
-        await page.keyboard.press('Escape');
-        await page.waitForTimeout(600);
+        const suggestionCount = await mentionsSuggestions.first().locator('ul li').count();
 
-        // Nếu vẫn còn hiển thị, thử nhấn Escape lần nữa
-        if (await mentionsSuggestions.first().isVisible({ timeout: 500 }).catch(() => false)) {
-          await page.keyboard.press('Escape');
-          await page.waitForTimeout(500);
+        if (suggestionCount > 1) {
+          // click second item
+          await mentionsSuggestions.first().locator('ul li').nth(1);
         }
+        else {
+          await mentionsSuggestions.first().locator('ul li').first().click();
+        }
+        await page.waitForTimeout(500);
 
         await mentionsSuggestions.first().waitFor({ state: 'hidden', timeout: 5000 }).catch(() => { });
         logActivity('INFO', 'PUBLISH', 'Đã đóng popup Mentions suggestions thành công.');
