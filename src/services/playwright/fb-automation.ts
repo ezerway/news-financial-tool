@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import db, { logActivity, getSetting, resolveHeadless, isDeveloperMode } from '@/lib/db';
 import { PostItem } from '@/types';
-import { isSessionAvailable, getUserDataDir, injectSessionCookies, getSessionPath, getChromiumLaunchArgs } from './session';
+import { isSessionAvailable, getUserDataDir, injectSessionCookies, getSessionPath, getChromiumLaunchArgs, cleanStaleChromeLocks } from './session';
 import { checkDuplicatePublish, markTrendAsPublished } from '../dedup';
 import { sendServerPushNotification } from '../notifications';
 
@@ -321,6 +321,7 @@ export async function executePublishAndComment(
       };
     }
 
+    cleanStaleChromeLocks(getUserDataDir());
     context = await chromium.launchPersistentContext(getUserDataDir(), launchOptions);
 
     // Inject cookies from fb-session.json into context
@@ -712,6 +713,7 @@ export async function executeCommentOnly(
       };
     }
 
+    cleanStaleChromeLocks(getUserDataDir());
     context = await chromium.launchPersistentContext(getUserDataDir(), launchOptions);
 
     // Inject cookies from fb-session.json into context

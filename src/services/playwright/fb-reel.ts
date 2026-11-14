@@ -7,6 +7,7 @@ import {
   isSessionAvailable,
   getChromiumLaunchArgs,
   injectSessionCookies,
+  cleanStaleChromeLocks,
 } from './session';
 import { dismissBlockingPagePopups } from './fb-automation';
 import { logActivity, resolveHeadless, isDeveloperMode } from '@/lib/db';
@@ -115,6 +116,7 @@ export async function uploadFacebookReel(
     const launchArgs = getChromiumLaunchArgs(['--disable-notifications']);
 
     try {
+      cleanStaleChromeLocks(getUserDataDir());
       // Try launching with persistent context profile
       context = await chromium.launchPersistentContext(getUserDataDir(), {
         headless,

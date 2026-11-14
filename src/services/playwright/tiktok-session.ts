@@ -2,14 +2,17 @@ import { chromium } from 'playwright';
 import path from 'path';
 import fs from 'fs';
 import { logActivity } from '@/lib/db';
-import { getStorageDir, getChromiumLaunchArgs, cleanStaleChromeLocks } from './session';
+import { getStorageDir, getChromiumLaunchArgs, cleanStaleChromeLocks, getUserDataDir, isInteractiveSessionActive, setInteractiveSessionActive } from './session';
 
 export function getTikTokSessionPath(): string {
   return path.join(/*turbopackIgnore: true*/ getStorageDir(), 'tiktok-session.json');
 }
 
+/**
+ * Dùng chung browser-profile với Facebook và toàn bộ hệ thống (không tách riêng)
+ */
 export function getTikTokUserDataDir(): string {
-  return path.join(/*turbopackIgnore: true*/ getStorageDir(), 'tiktok-browser-profile');
+  return getUserDataDir();
 }
 
 export function isTikTokSessionAvailable(): boolean {
@@ -90,14 +93,12 @@ export async function checkTikTokLoginStatus(): Promise<TikTokStatusResult> {
   }
 }
 
-let isInteractiveTikTokLoginActive = false;
-
 export async function launchInteractiveTikTokLogin(targetUrl = 'https://www.tiktok.com/login'): Promise<string> {
-  if (isInteractiveTikTokLoginActive) {
-    return 'Cửa sổ trình duyệt TikTok đang được mở. Vui lòng thao tác trên cửa sổ đó!';
+  if (isInteractiveSessionActive()) {
+    return 'Cửa sổ trình duyệt đang được mở. Vui lòng thao tác trên cửa sổ đó!';
   }
 
-  isInteractiveTikTokLoginActive = true;
+  setInteractiveSessionActive(true);
   logActivity('INFO', 'AUTH', 'Khởi chạy trình duyệt tương tác để đăng nhập TikTok...');
 
   const launchArgs = getChromiumLaunchArgs();
@@ -112,7 +113,7 @@ export async function launchInteractiveTikTokLogin(targetUrl = 'https://www.tikt
       args: launchArgs,
     });
   } catch (err: unknown) {
-    isInteractiveTikTokLoginActive = false;
+    setInteractiveSessionActive(false);
     throw err;
   }
 
@@ -151,7 +152,7 @@ export async function launchInteractiveTikTokLogin(targetUrl = 'https://www.tikt
     return 'Đã lưu phiên làm việc TikTok thành công!';
   } finally {
     clearInterval(interval);
-    isInteractiveTikTokLoginActive = false;
+    setInteractiveSessionActive(false);
   }
 }
 

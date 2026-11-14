@@ -159,6 +159,14 @@ export async function checkFacebookLoginStatus(): Promise<{
 
 let isInteractiveLoginActive = false;
 
+export function isInteractiveSessionActive(): boolean {
+  return isInteractiveLoginActive;
+}
+
+export function setInteractiveSessionActive(val: boolean): void {
+  isInteractiveLoginActive = val;
+}
+
 export async function launchInteractiveLogin(initialUrl?: string): Promise<string> {
   if (isInteractiveLoginActive) {
     return 'Cửa sổ trình duyệt đang được mở. Vui lòng thao tác trên cửa sổ trình duyệt đã mở!';
