@@ -56,7 +56,7 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
     if (onProgress) onProgress(msg);
   };
 
-  const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
+  const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(/*turbopackIgnore: true*/ process.cwd(), filePath);
   if (!fs.existsSync(resolvedPath)) {
     const errorMsg = `Đường dẫn file video không hợp lệ hoặc không tồn tại: ${resolvedPath}`;
     notify(errorMsg, 'ERROR');
