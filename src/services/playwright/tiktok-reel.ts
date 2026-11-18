@@ -275,6 +275,15 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
     await page.waitForTimeout(2000);
     await dismissAllTooltip(page);
 
+    // mute video sound
+    const soundBtns = page.locator('.TrackOperation__item button');
+    const soundBtnsCount = await soundBtns.count();
+
+    if (soundBtnsCount) {
+      const muteBtn = soundBtnsCount.nth(0);
+      await muteBtn.click();
+    }
+
     const addBtns = page.locator('.MusicPanelMusicItem__operation button');
     // random click a addBtns
     const count = await addBtns.count();
