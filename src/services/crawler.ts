@@ -1,10 +1,50 @@
 import crypto from 'crypto';
+import net from 'net';
 import { chromium } from 'playwright';
 import * as cheerio from 'cheerio';
 import db, { logActivity, resolveHeadless } from '@/lib/db';
 import { TrendItem, NewsArticle } from '@/types';
 import { getChromiumLaunchArgs } from '@/services/playwright/session';
 import { findDuplicatePost, getExistingPosts } from './dedup';
+
+async function isPortOpen(host: string, port: number, timeout = 300): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(timeout);
+    socket.on('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.on('timeout', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.on('error', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.connect(port, host);
+  });
+}
+
+/**
+ * Get proxy configuration for Playwright crawler.
+ * Checks CRAWLER_PROXY / PLAYWRIGHT_PROXY env, or auto-detects local Cloudflare WARP proxy on 127.0.0.1:40000.
+ */
+export async function getCrawlerProxy(): Promise<{ server: string; username?: string; password?: string } | undefined> {
+  const envProxy = process.env.CRAWLER_PROXY || process.env.PLAYWRIGHT_PROXY;
+  if (envProxy) {
+    return { server: envProxy };
+  }
+
+  // Auto-detect local Cloudflare WARP SOCKS5 proxy on port 40000
+  const isWarpRunning = await isPortOpen('127.0.0.1', 40000, 300);
+  if (isWarpRunning) {
+    return { server: 'socks5://127.0.0.1:40000' };
+  }
+
+  return undefined;
+}
 
 function cleanHtmlText(str: string): string {
   if (!str) return '';
@@ -173,17 +213,30 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
   const targetUrl = `https://trends.google.com/trending?category=3&hours=4&geo=${encodeURIComponent(targetGeo)}&hl=en-US`;
   logActivity('INFO', 'CRAWL', `[Google Trends Finance] Đang mở danh mục Kinh doanh & Tài chính (category=3) cho ${targetGeo}: ${targetUrl}`);
 
+  const proxy = await getCrawlerProxy();
+  if (proxy) {
+    logActivity('INFO', 'CRAWL', `[Google Trends] Định tuyến qua Proxy / Cloudflare WARP (${proxy.server})`);
+  }
+
   const browser = await chromium.launch({
     headless: resolveHeadless(true),
     args: getChromiumLaunchArgs(),
+    ...(proxy ? { proxy } : {}),
   });
 
   try {
     const context = await browser.newContext({
       userAgent:
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
       locale: 'en-US',
       viewport: { width: 1440, height: 900 },
+    });
+
+    // Stealth Anti-Detection: hide webdriver & mimic real desktop browser
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      Object.defineProperty(navigator, 'languages', { get: () => ['vi-VN', 'vi', 'en-US', 'en'] });
+      (window as any).chrome = { runtime: {}, loadTimes: () => {}, csi: () => {}, app: {} };
     });
 
     const page = await context.newPage();
