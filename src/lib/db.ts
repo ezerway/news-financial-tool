@@ -403,6 +403,10 @@ export function isDeveloperMode(): boolean {
 
 export function resolveHeadless(preferredHeadless = true): boolean {
   if (isDeveloperMode()) {
+    // Trên Linux VPS không có màn hình GUI ($DISPLAY), nếu chưa cấu hình Xvfb ảo thì bắt buộc chạy headless để tránh crash
+    if (process.platform === 'linux' && !process.env.DISPLAY) {
+      return true;
+    }
     return false;
   }
   return preferredHeadless;
