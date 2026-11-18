@@ -378,10 +378,10 @@ export default function PostsTab({
                         type="button"
                         onClick={() => setPreviewVideo(post.video_path || null)}
                         className="inline-flex items-center gap-1.5 text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 font-semibold cursor-pointer"
-                        title="Xem video quay lại toàn bộ quá trình thực tế"
+                        title={lang === 'vi' ? 'Xem video quay lại toàn bộ quá trình thực tế' : 'Watch recorded execution video'}
                       >
                         <Video className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                        <span>Video quá trình</span>
+                        <span>{lang === 'vi' ? 'Video quá trình' : 'Execution Video'}</span>
                       </button>
                     )}
                   </div>
@@ -528,7 +528,7 @@ export default function PostsTab({
           <div className="relative max-w-4xl w-full bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden p-4 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-indigo-400" /> Ảnh chụp màn hình đối soát Playwright
+                <ImageIcon className="w-4 h-4 text-indigo-400" /> {lang === 'vi' ? 'Ảnh chụp màn hình đối soát Playwright' : 'Playwright Audit Screenshot'}
               </h3>
               <button
                 onClick={() => setPreviewScreenshot(null)}
@@ -555,7 +555,7 @@ export default function PostsTab({
           <div className="relative max-w-4xl w-full bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden p-5 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <Video className="w-4 h-4 text-rose-400" /> Video quay lại toàn bộ quá trình thực tế Playwright
+                <Video className="w-4 h-4 text-rose-400" /> {lang === 'vi' ? 'Video quay lại toàn bộ quá trình thực tế Playwright' : 'Playwright Execution Recording Video'}
               </h3>
               <div className="flex items-center gap-2">
                 <a
@@ -564,7 +564,7 @@ export default function PostsTab({
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Tải video</span>
+                  <span>{t('download_video')}</span>
                 </a>
                 <button
                   onClick={() => setPreviewVideo(null)}
@@ -581,7 +581,7 @@ export default function PostsTab({
                 src={`/api/videos/${previewVideo}`}
                 className="max-w-full max-h-[70vh] rounded-lg border border-slate-800 shadow-md"
               >
-                Trình duyệt không hỗ trợ phát trực tiếp video định dạng webm. Vui lòng bấm &quot;Tải video&quot; để xem trên máy.
+                {t('video_play_unsupported')}
               </video>
             </div>
           </div>
@@ -594,7 +594,7 @@ export default function PostsTab({
           <div className="relative max-w-lg w-full bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden p-5 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-emerald-400" /> Tự động gửi bình luận vào bài đã đăng
+                <MessageSquare className="w-4 h-4 text-emerald-400" /> {lang === 'vi' ? 'Tự động gửi bình luận vào bài đã đăng' : 'Auto-send comment to published post'}
               </h3>
               <button
                 onClick={() => setCommentModalPost(null)}
@@ -606,17 +606,17 @@ export default function PostsTab({
 
             <div className="mt-4 space-y-3.5 text-xs">
               <div>
-                <span className="text-slate-400 font-medium">Chủ đề bài viết:</span>
+                <span className="text-slate-400 font-medium">{lang === 'vi' ? 'Chủ đề bài viết:' : 'Post Topic:'}</span>
                 <p className="font-bold text-white mt-0.5">{commentModalPost.trend_title}</p>
               </div>
 
               <div>
                 <label className="block text-slate-300 font-medium mb-1">
-                  Đường dẫn bài viết Facebook (Tùy chọn):
+                  {lang === 'vi' ? 'Đường dẫn bài viết Facebook (Tùy chọn):' : 'Facebook Post URL (Optional):'}
                 </label>
                 <input
                   type="text"
-                  placeholder="https://www.facebook.com/... (để trống nếu muốn gửi vào bài mới nhất Fanpage)"
+                  placeholder={lang === 'vi' ? 'https://www.facebook.com/... (để trống nếu muốn gửi vào bài mới nhất Fanpage)' : 'https://www.facebook.com/... (leave blank to post to latest Page post)'}
                   value={customPostUrl}
                   onChange={(e) => setCustomPostUrl(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-hidden focus:border-emerald-500 font-mono"
@@ -624,7 +624,7 @@ export default function PostsTab({
               </div>
 
               <div>
-                <span className="text-slate-400 font-medium">Bình luận nguồn sẽ gửi:</span>
+                <span className="text-slate-400 font-medium">{lang === 'vi' ? 'Bình luận nguồn sẽ gửi:' : 'Source comment to send:'}</span>
                 <div className="mt-1 p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-emerald-300 font-mono whitespace-pre-wrap max-h-36 overflow-y-auto leading-relaxed">
                   {commentModalPost.comment_content}
                 </div>
@@ -635,7 +635,7 @@ export default function PostsTab({
                   onClick={() => setCommentModalPost(null)}
                   className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white"
                 >
-                  Hủy
+                  {t('btn_cancel')}
                 </button>
                 <button
                   onClick={async () => {
@@ -646,10 +646,10 @@ export default function PostsTab({
                       await onComment(postId, url);
                     }
                   }}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-xs"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-xs cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>Bắt đầu gửi bình luận</span>
+                  <span>{lang === 'vi' ? 'Bắt đầu gửi bình luận' : 'Send Comment'}</span>
                 </button>
               </div>
             </div>

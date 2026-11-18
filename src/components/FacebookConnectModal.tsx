@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useI18n } from '@/context/I18nThemeContext';
 import {
   X,
   Key,
@@ -30,6 +31,7 @@ export default function FacebookConnectModal({
   fbStatus,
   initialTargetUrl,
 }: FacebookConnectModalProps) {
+  const { lang } = useI18n();
   const [activeTab, setActiveTab] = useState<'cookies' | 'file' | 'browser'>('cookies');
   const [cookieInputMode, setCookieInputMode] = useState<'json' | 'fields'>('json');
   const [cUser, setCUser] = useState('');
@@ -65,7 +67,7 @@ export default function FacebookConnectModal({
     }
 
     if (!trimmedCUser || !trimmedXs) {
-      setErrorMessage('Vui lòng nhập cả 2 giá trị c_user và xs.');
+      setErrorMessage(lang === 'vi' ? 'Vui lòng nhập cả 2 giá trị c_user và xs.' : 'Please enter both c_user and xs values.');
       return;
     }
 
@@ -85,16 +87,16 @@ export default function FacebookConnectModal({
 
       const data = await res.json();
       if (data.success) {
-        setSuccessMessage(data.message || 'Đã lưu và kích hoạt phiên Facebook thành công!');
+        setSuccessMessage(data.message || (lang === 'vi' ? 'Đã lưu và kích hoạt phiên Facebook thành công!' : 'Saved and activated Facebook session successfully!'));
         setTimeout(() => {
           onSuccess();
           onClose();
         }, 1200);
       } else {
-        setErrorMessage(data.error || 'Không thể lưu cookie Facebook.');
+        setErrorMessage(data.error || (lang === 'vi' ? 'Không thể lưu cookie Facebook.' : 'Could not save Facebook cookie.'));
       }
     } catch (err: unknown) {
-      setErrorMessage(`Lỗi kết nối: ${err instanceof Error ? err.message : String(err)}`);
+      setErrorMessage(`${lang === 'vi' ? 'Lỗi kết nối' : 'Connection error'}: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -104,7 +106,7 @@ export default function FacebookConnectModal({
   const handleSaveRawJsonSubmit = async (rawInput?: string) => {
     const inputToUse = (typeof rawInput === 'string' ? rawInput : rawCookies).trim();
     if (!inputToUse) {
-      setErrorMessage('Vui lòng dán nội dung cookie (JSON hoặc chuỗi cookie).');
+      setErrorMessage(lang === 'vi' ? 'Vui lòng dán nội dung cookie (JSON hoặc chuỗi cookie).' : 'Please paste cookie content (JSON or cookie string).');
       return;
     }
 
@@ -123,16 +125,16 @@ export default function FacebookConnectModal({
 
       const data = await res.json();
       if (data.success) {
-        setSuccessMessage(data.message || 'Đã lưu và nạp đầy đủ cookies Facebook thành công!');
+        setSuccessMessage(data.message || (lang === 'vi' ? 'Đã lưu và nạp đầy đủ cookies Facebook thành công!' : 'Saved and loaded full Facebook cookies successfully!'));
         setTimeout(() => {
           onSuccess();
           onClose();
         }, 1200);
       } else {
-        setErrorMessage(data.error || 'Không thể đọc hoặc lưu cookies.');
+        setErrorMessage(data.error || (lang === 'vi' ? 'Không thể đọc hoặc lưu cookies.' : 'Could not read or save cookies.'));
       }
     } catch (err: unknown) {
-      setErrorMessage(`Lỗi kết nối: ${err instanceof Error ? err.message : String(err)}`);
+      setErrorMessage(`${lang === 'vi' ? 'Lỗi kết nối' : 'Connection error'}: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -153,15 +155,15 @@ export default function FacebookConnectModal({
 
       const data = await res.json();
       if (data.success) {
-        setSuccessMessage(data.message);
+        setSuccessMessage(data.message || (lang === 'vi' ? 'Đã kích hoạt mở trình duyệt trên máy chủ!' : 'Browser launched on server!'));
         setTimeout(() => {
           onSuccess();
         }, 1000);
       } else {
-        setErrorMessage(data.error || 'Không thể mở trình duyệt trên máy chủ.');
+        setErrorMessage(data.error || (lang === 'vi' ? 'Không thể mở trình duyệt trên máy chủ.' : 'Could not launch browser on server.'));
       }
     } catch (err: unknown) {
-      setErrorMessage(`Lỗi: ${err instanceof Error ? err.message : String(err)}`);
+      setErrorMessage(`${lang === 'vi' ? 'Lỗi' : 'Error'}: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -170,7 +172,7 @@ export default function FacebookConnectModal({
   // Handle File Upload
   const handleUploadFile = async () => {
     if (!selectedFile) {
-      setErrorMessage('Vui lòng chọn file fb-session.json hoặc ZIP profile.');
+      setErrorMessage(lang === 'vi' ? 'Vui lòng chọn file fb-session.json hoặc ZIP profile.' : 'Please select fb-session.json or profile ZIP file.');
       return;
     }
 
@@ -215,17 +217,17 @@ export default function FacebookConnectModal({
             </div>
             <div>
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
-                Kết nối Tài khoản Facebook
+                {lang === 'vi' ? 'Kết nối Tài khoản Facebook' : 'Connect Facebook Account'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Lưu phiên đăng nhập để bot tự động đăng bài &amp; bình luận Fanpage
+                {lang === 'vi' ? 'Lưu phiên đăng nhập để bot tự động đăng bài & bình luận Fanpage' : 'Save login session for auto-publishing and comments'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-            title="Đóng"
+            title={lang === 'vi' ? 'Đóng' : 'Close'}
           >
             <X className="w-5 h-5" />
           </button>
@@ -234,7 +236,7 @@ export default function FacebookConnectModal({
         {/* Status Bar */}
         <div className="px-5 sm:px-6 py-2.5 bg-slate-100/70 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800/60 flex items-center justify-between gap-3 text-xs">
           <span className="text-slate-600 dark:text-slate-400 font-medium shrink-0 whitespace-nowrap">
-            Trạng thái hiện tại:
+            {lang === 'vi' ? 'Trạng thái hiện tại:' : 'Current Status:'}
           </span>
           <div
             className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border truncate ${
@@ -270,7 +272,7 @@ export default function FacebookConnectModal({
               }`}
             >
               <Key className="w-3.5 h-3.5 shrink-0" />
-              <span>Dán Cookie</span>
+              <span>{lang === 'vi' ? 'Dán Cookie' : 'Paste Cookie'}</span>
               <span className={`hidden sm:inline text-[9px] px-1.5 py-0.2 rounded-full font-semibold ${
                 activeTab === 'cookies' ? 'bg-white/20 text-white' : 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300'
               }`}>
@@ -292,7 +294,7 @@ export default function FacebookConnectModal({
               }`}
             >
               <Upload className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">File Session</span>
+              <span className="truncate">{lang === 'vi' ? 'File Session' : 'Session File'}</span>
             </button>
 
             {/* Tab 3: Browser */}
@@ -309,7 +311,7 @@ export default function FacebookConnectModal({
               }`}
             >
               <Globe className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">Trình duyệt</span>
+              <span className="truncate">{lang === 'vi' ? 'Trình duyệt' : 'Browser'}</span>
             </button>
           </div>
         </div>

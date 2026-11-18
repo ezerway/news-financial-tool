@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useI18n } from '@/context/I18nThemeContext';
 import {
   TrendingUp,
   Lock,
@@ -12,12 +13,14 @@ import {
   AlertCircle,
   Loader2,
   ArrowRight,
+  Globe,
 } from 'lucide-react';
 
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get('redirect') || '/';
+  const { t, lang, toggleLang } = useI18n();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -29,7 +32,7 @@ export default function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password) {
-      setErrorMessage('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.');
+      setErrorMessage(lang === 'vi' ? 'Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.' : 'Please enter username and password.');
       return;
     }
 
@@ -54,10 +57,10 @@ export default function LoginForm() {
         router.push(redirectUrl);
         router.refresh();
       } else {
-        setErrorMessage(data.error || 'Tên đăng nhập hoặc mật khẩu không chính xác.');
+        setErrorMessage(data.error || (lang === 'vi' ? 'Tên đăng nhập hoặc mật khẩu không chính xác.' : 'Incorrect username or password.'));
       }
     } catch (err: unknown) {
-      setErrorMessage(`Lỗi kết nối máy chủ: ${err instanceof Error ? err.message : String(err)}`);
+      setErrorMessage(`${lang === 'vi' ? 'Lỗi kết nối máy chủ' : 'Server error'}: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsLoading(false);
     }
@@ -69,6 +72,19 @@ export default function LoginForm() {
       <div className="absolute -top-24 -left-24 w-48 h-48 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-blue-500/10 dark:bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
 
+      {/* Language Switch Button */}
+      <div className="absolute top-5 right-5 z-20">
+        <button
+          type="button"
+          onClick={toggleLang}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-700 transition cursor-pointer"
+          title={lang === 'vi' ? 'Chuyển sang Tiếng Anh' : 'Switch to Vietnamese'}
+        >
+          <Globe className="w-3.5 h-3.5" />
+          <span>{lang.toUpperCase()}</span>
+        </button>
+      </div>
+
       {/* Header & Logo */}
       <div className="text-center space-y-3 relative z-10">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 text-white shadow-xl shadow-indigo-500/25 mb-1">
@@ -79,13 +95,13 @@ export default function LoginForm() {
             TrendPulse <span className="text-indigo-600 dark:text-indigo-400">AI</span>
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">
-            Hệ thống Tự động hóa Google Trends &amp; Xuất bản Facebook
+            {t('login_subtitle')}
           </p>
         </div>
 
         <div className="app-tag inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          <span>Bảo mật Cổng Quản trị VPS</span>
+          <span>{t('login_badge')}</span>
         </div>
       </div>
 
@@ -102,7 +118,7 @@ export default function LoginForm() {
         {/* Username */}
         <div className="space-y-1.5">
           <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-            Tên đăng nhập
+            {t('login_username')}
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -123,7 +139,7 @@ export default function LoginForm() {
         {/* Password */}
         <div className="space-y-1.5">
           <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-            Mật khẩu
+            {t('login_password')}
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -157,7 +173,7 @@ export default function LoginForm() {
               onChange={(e) => setRememberMe(e.target.checked)}
               className="checkbox checkbox-xs rounded bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-700 checked:border-indigo-600 [--chkbg:theme(colors.indigo.600)]"
             />
-            <span>Ghi nhớ phiên (30 ngày)</span>
+            <span>{t('login_remember_me')}</span>
           </label>
         </div>
 
@@ -170,11 +186,11 @@ export default function LoginForm() {
           {isLoading ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Đang xác thực...</span>
+              <span>{t('login_authenticating')}</span>
             </>
           ) : (
             <>
-              <span>Đăng nhập vào hệ thống</span>
+              <span>{t('login_btn')}</span>
               <ArrowRight className="w-4 h-4" />
             </>
           )}
@@ -184,10 +200,10 @@ export default function LoginForm() {
       {/* Default credentials note */}
       <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/60 text-[11px] text-slate-600 dark:text-slate-400 text-center space-y-1 relative z-10">
         <div>
-          Tài khoản mặc định ban đầu: <span className="font-mono text-indigo-600 dark:text-indigo-300 font-bold">admin</span> / <span className="font-mono text-indigo-600 dark:text-indigo-300 font-bold">admin123456</span>
+          {t('login_default_creds')} <span className="font-mono text-indigo-600 dark:text-indigo-300 font-bold">admin</span> / <span className="font-mono text-indigo-600 dark:text-indigo-300 font-bold">admin123456</span>
         </div>
         <div className="text-[10px] text-slate-500">
-          (Bạn có thể đổi tài khoản và mật khẩu bất kỳ lúc nào tại tab Cài đặt)
+          {t('login_change_note')}
         </div>
       </div>
     </div>

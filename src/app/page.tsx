@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [activeTab, setActiveTab] = useState<'overview' | 'trends' | 'posts' | 'reels' | 'logs' | 'settings'>('overview');
   const [trends, setTrends] = useState<TrendItem[]>([]);
   const [posts, setPosts] = useState<PostItem[]>([]);
@@ -632,7 +632,7 @@ export default function DashboardPage() {
 
   const handlePublishReel = async (reelId: string) => {
     setPublishingReelId(reelId);
-    showToast('Đang khởi chạy Playwright Chromium để đăng Reel lên Facebook...', 'info');
+    showToast(lang === 'vi' ? 'Đang khởi chạy Playwright Chromium để đăng Reel lên Facebook...' : 'Launching Playwright Chromium to publish Facebook Reel...', 'info');
     try {
       const res = await fetch(`/api/reels/${reelId}/publish`, {
         method: 'POST',
@@ -641,26 +641,26 @@ export default function DashboardPage() {
       });
       const resData = await res.json();
       const reelObj = reels.find((r) => r.id === reelId);
-      const reelTitle = reelObj?.caption ? reelObj.caption.slice(0, 100) : (reelObj?.video_filename || 'Reel Facebook');
+      const reelTitle = reelObj?.caption ? reelObj.caption.slice(0, 100) : (reelObj?.video_filename || (lang === 'vi' ? 'Reel Facebook' : 'Facebook Reel'));
 
       if (res.ok && resData.success) {
-        showToast('Đã xuất bản Reel Facebook thành công!', 'success');
-        showBrowserNotification('✅ Đã xuất bản Reel Facebook thành công!', {
+        showToast(lang === 'vi' ? 'Đã xuất bản Reel Facebook thành công!' : 'Published Facebook Reel successfully!', 'success');
+        showBrowserNotification(lang === 'vi' ? '✅ Đã xuất bản Reel Facebook thành công!' : '✅ Published Facebook Reel successfully!', {
           body: reelTitle,
           url: resData.result?.reelUrl || undefined,
         });
         await fetchData(true);
       } else {
-        const errorMsg = resData.error || resData.result?.message || 'Có lỗi xảy ra';
-        showToast(`Xuất bản Reel thất bại: ${errorMsg}`, 'error');
-        showBrowserNotification('❌ Xuất bản Reel Facebook thất bại', {
+        const errorMsg = resData.error || resData.result?.message || (lang === 'vi' ? 'Có lỗi xảy ra' : 'An error occurred');
+        showToast(`${lang === 'vi' ? 'Xuất bản Reel thất bại: ' : 'Failed to publish Reel: '}${errorMsg}`, 'error');
+        showBrowserNotification(lang === 'vi' ? '❌ Xuất bản Reel Facebook thất bại' : '❌ Facebook Reel publish failed', {
           body: `${reelTitle}: ${errorMsg}`,
         });
         await fetchData(true);
       }
     } catch (err: any) {
-      showToast(`Lỗi xuất bản: ${err.message}`, 'error');
-      showBrowserNotification('❌ Lỗi xuất bản Reel Facebook', { body: err.message });
+      showToast(`${lang === 'vi' ? 'Lỗi xuất bản: ' : 'Publish error: '}${err.message}`, 'error');
+      showBrowserNotification(lang === 'vi' ? '❌ Lỗi xuất bản Reel Facebook' : '❌ Facebook Reel publish error', { body: err.message });
       await fetchData(true);
     } finally {
       setPublishingReelId(null);
@@ -669,7 +669,7 @@ export default function DashboardPage() {
 
   const handlePublishTikTok = async (reelId: string) => {
     setPublishingTikTokId(reelId);
-    showToast('Đang khởi chạy Playwright Chromium để đăng video lên TikTok...', 'info');
+    showToast(lang === 'vi' ? 'Đang khởi chạy Playwright Chromium để đăng video lên TikTok...' : 'Launching Playwright Chromium to publish TikTok video...', 'info');
     try {
       const res = await fetch(`/api/reels/${reelId}/publish-tiktok`, {
         method: 'POST',
@@ -678,26 +678,26 @@ export default function DashboardPage() {
       });
       const resData = await res.json();
       const reelObj = reels.find((r) => r.id === reelId);
-      const reelTitle = reelObj?.caption ? reelObj.caption.slice(0, 100) : (reelObj?.video_filename || 'Video TikTok');
+      const reelTitle = reelObj?.caption ? reelObj.caption.slice(0, 100) : (reelObj?.video_filename || (lang === 'vi' ? 'Video TikTok' : 'TikTok Video'));
 
       if (res.ok && resData.success) {
-        showToast('Đã xuất bản video lên TikTok thành công!', 'success');
-        showBrowserNotification('✅ Đã xuất bản video lên TikTok thành công!', {
+        showToast(lang === 'vi' ? 'Đã xuất bản video lên TikTok thành công!' : 'Published TikTok video successfully!', 'success');
+        showBrowserNotification(lang === 'vi' ? '✅ Đã xuất bản video lên TikTok thành công!' : '✅ Published TikTok video successfully!', {
           body: reelTitle,
           url: resData.result?.tiktokUrl || undefined,
         });
         await fetchData(true);
       } else {
-        const errorMsg = resData.error || resData.result?.message || 'Có lỗi xảy ra';
-        showToast(`Xuất bản TikTok thất bại: ${errorMsg}`, 'error');
-        showBrowserNotification('❌ Xuất bản video TikTok thất bại', {
+        const errorMsg = resData.error || resData.result?.message || (lang === 'vi' ? 'Có lỗi xảy ra' : 'An error occurred');
+        showToast(`${lang === 'vi' ? 'Xuất bản TikTok thất bại: ' : 'TikTok publish failed: '}${errorMsg}`, 'error');
+        showBrowserNotification(lang === 'vi' ? '❌ Xuất bản video TikTok thất bại' : '❌ TikTok publish failed', {
           body: `${reelTitle}: ${errorMsg}`,
         });
         await fetchData(true);
       }
     } catch (err: any) {
-      showToast(`Lỗi xuất bản TikTok: ${err.message}`, 'error');
-      showBrowserNotification('❌ Lỗi xuất bản video TikTok', { body: err.message });
+      showToast(`${lang === 'vi' ? 'Lỗi xuất bản TikTok: ' : 'TikTok publish error: '}${err.message}`, 'error');
+      showBrowserNotification(lang === 'vi' ? '❌ Lỗi xuất bản video TikTok' : '❌ TikTok publish error', { body: err.message });
       await fetchData(true);
     } finally {
       setPublishingTikTokId(null);
@@ -706,7 +706,7 @@ export default function DashboardPage() {
 
   const handleCommentReel = async (reelId: string) => {
     setCommentingReelId(reelId);
-    showToast('Đang mở Playwright để gửi bình luận vào Reel Facebook...', 'info');
+    showToast(lang === 'vi' ? 'Đang mở Playwright để gửi bình luận vào Reel Facebook...' : 'Opening Playwright to post comment to Facebook Reel...', 'info');
     try {
       const res = await fetch(`/api/reels/${reelId}/comment`, {
         method: 'POST',
@@ -714,14 +714,14 @@ export default function DashboardPage() {
       });
       const resData = await res.json();
       if (res.ok && resData.success) {
-        showToast('Đã gửi bình luận vào Reel Facebook thành công!', 'success');
+        showToast(lang === 'vi' ? 'Đã gửi bình luận vào Reel Facebook thành công!' : 'Commented on Facebook Reel successfully!', 'success');
         await fetchData(true);
       } else {
-        showToast(`Lỗi bình luận Reel: ${resData.error || resData.message}`, 'error');
+        showToast(`${lang === 'vi' ? 'Lỗi bình luận Reel: ' : 'Reel comment error: '}${resData.error || resData.message}`, 'error');
         await fetchData(true);
       }
     } catch (err: any) {
-      showToast(`Lỗi kết nối bình luận Reel: ${err.message}`, 'error');
+      showToast(`${lang === 'vi' ? 'Lỗi kết nối bình luận Reel: ' : 'Reel comment connection error: '}${err.message}`, 'error');
       await fetchData(true);
     } finally {
       setCommentingReelId(null);
@@ -730,7 +730,7 @@ export default function DashboardPage() {
 
   const handleCommentTikTokReel = async (reelId: string) => {
     setCommentingTikTokId(reelId);
-    showToast('Đang mở Playwright để gửi bình luận vào video TikTok...', 'info');
+    showToast(lang === 'vi' ? 'Đang mở Playwright để gửi bình luận vào video TikTok...' : 'Opening Playwright to post comment to TikTok video...', 'info');
     try {
       const res = await fetch(`/api/reels/${reelId}/comment-tiktok`, {
         method: 'POST',
@@ -738,14 +738,14 @@ export default function DashboardPage() {
       });
       const resData = await res.json();
       if (res.ok && resData.success) {
-        showToast('Đã gửi bình luận vào video TikTok thành công!', 'success');
+        showToast(lang === 'vi' ? 'Đã gửi bình luận vào video TikTok thành công!' : 'Commented on TikTok video successfully!', 'success');
         await fetchData(true);
       } else {
-        showToast(`Lỗi bình luận TikTok: ${resData.error || resData.message}`, 'error');
+        showToast(`${lang === 'vi' ? 'Lỗi bình luận TikTok: ' : 'TikTok comment error: '}${resData.error || resData.message}`, 'error');
         await fetchData(true);
       }
     } catch (err: any) {
-      showToast(`Lỗi kết nối bình luận TikTok: ${err.message}`, 'error');
+      showToast(`${lang === 'vi' ? 'Lỗi kết nối bình luận TikTok: ' : 'TikTok comment connection error: '}${err.message}`, 'error');
       await fetchData(true);
     } finally {
       setCommentingTikTokId(null);

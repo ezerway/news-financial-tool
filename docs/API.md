@@ -231,6 +231,38 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
 ### 5.5. Quét video hẹn giờ (`POST /api/reels/check-scheduled`)
 - Kích hoạt kiểm tra và đăng tất cả các Reel đã đến giờ hẹn.
 
+### 5.6. Gửi bình luận vào Reel Facebook (`POST /api/reels/[id]/comment`)
+- Tự động điều hướng đến liên kết công khai của Reel Facebook (hoặc tự trích xuất qua `m.facebook.com`) và đăng bình luận (first comment).
+- **Request Body** (Tùy chọn):
+  ```json
+  {
+    "comment": "Nội dung bình luận tùy chọn (nếu bỏ trống sẽ dùng first_comment_content của Reel)"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Đã gửi bình luận vào Facebook Reel thành công!"
+  }
+  ```
+
+### 5.7. Gửi bình luận vào video TikTok (`POST /api/reels/[id]/comment-tiktok`)
+- Tự động mở video TikTok trên trình duyệt Playwright, nhập và gửi bình luận với cơ chế kiểm tra và chống checkpoint/captcha thông minh.
+- **Request Body** (Tùy chọn):
+  ```json
+  {
+    "comment": "Nội dung bình luận tùy chọn (nếu bỏ trống sẽ dùng first_comment_content của Reel)"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Đã gửi bình luận vào video TikTok thành công!"
+  }
+  ```
+
 ---
 
 ## 6. Phiên làm việc Mạng Xã Hội (`/api/fb-session`, `/api/tiktok-session`)
@@ -254,10 +286,30 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
 - **Response**:
   ```json
   {
-    "isSessionAvailable": true,
-    "loggedIn": true,
-    "username": "@ezerway_finance"
+    "success": true,
+    "status": {
+      "isSessionAvailable": true,
+      "loggedIn": true,
+      "username": "@ezerway_finance",
+      "avatarUrl": "https://..."
+    },
+    "isHeadless": false
   }
+  ```
+
+### 6.4. Nhập Cookie hoặc Mở trình duyệt đăng nhập TikTok (`POST /api/tiktok-session`)
+- **Cách 1: Nhập chuỗi Cookie / JSON**:
+  ```json
+  {
+    "rawCookies": "[{\"name\":\"sessionid\",\"value\":\"...\",\"domain\":\".tiktok.com\"}]"
+  }
+  ```
+- **Cách 2: Mở trình duyệt GUI (Chỉ khả dụng khi có màn hình hoặc GUI)**:
+  ```json
+  {
+    "url": "https://www.tiktok.com/login"
+  }
+  ```
   ```
 
 ---

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import { useI18n } from '@/context/I18nThemeContext';
 import {
   CheckCircle2,
   AlertCircle,
@@ -26,6 +27,7 @@ interface ToastProps {
 }
 
 export const ToastCard: React.FC<ToastProps> = ({ toast, onDismiss }) => {
+  const { lang } = useI18n();
   const [isExiting, setIsExiting] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const duration = toast.duration || 4500;
@@ -65,7 +67,7 @@ export const ToastCard: React.FC<ToastProps> = ({ toast, onDismiss }) => {
       gradient: 'from-emerald-500/[0.12] via-emerald-500/[0.03] to-transparent',
       bar: 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
       titleColor: 'text-emerald-400 dark:text-emerald-300',
-      defaultTitle: 'Thành công',
+      defaultTitle: lang === 'vi' ? 'Thành công' : 'Success',
       icon: <CheckCircle2 className="w-4 h-4 shrink-0 animate-in zoom-in-75 duration-200" />,
     },
     error: {
@@ -74,7 +76,7 @@ export const ToastCard: React.FC<ToastProps> = ({ toast, onDismiss }) => {
       gradient: 'from-rose-500/[0.12] via-rose-500/[0.03] to-transparent',
       bar: 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
       titleColor: 'text-rose-400 dark:text-rose-300',
-      defaultTitle: 'Lỗi phát sinh',
+      defaultTitle: lang === 'vi' ? 'Lỗi phát sinh' : 'Error',
       icon: <AlertCircle className="w-4 h-4 shrink-0 animate-in zoom-in-75 duration-200" />,
     },
     warning: {
@@ -83,7 +85,7 @@ export const ToastCard: React.FC<ToastProps> = ({ toast, onDismiss }) => {
       gradient: 'from-amber-500/[0.12] via-amber-500/[0.03] to-transparent',
       bar: 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_8px_rgba(245,158,11,0.5)]',
       titleColor: 'text-amber-400 dark:text-amber-300',
-      defaultTitle: 'Cảnh báo',
+      defaultTitle: lang === 'vi' ? 'Cảnh báo' : 'Warning',
       icon: <AlertTriangle className="w-4 h-4 shrink-0 animate-in zoom-in-75 duration-200" />,
     },
     info: {
@@ -92,7 +94,7 @@ export const ToastCard: React.FC<ToastProps> = ({ toast, onDismiss }) => {
       gradient: 'from-indigo-500/[0.12] via-indigo-500/[0.03] to-transparent',
       bar: 'bg-gradient-to-r from-indigo-500 via-sky-400 to-cyan-400 shadow-[0_0_8px_rgba(99,102,241,0.5)]',
       titleColor: 'text-indigo-400 dark:text-indigo-300',
-      defaultTitle: 'Thông báo',
+      defaultTitle: lang === 'vi' ? 'Thông báo' : 'Notice',
       icon: <Info className="w-4 h-4 shrink-0 animate-in zoom-in-75 duration-200" />,
     },
   }[toast.type];
@@ -151,7 +153,7 @@ export const ToastCard: React.FC<ToastProps> = ({ toast, onDismiss }) => {
           type="button"
           onClick={handleDismiss}
           className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 dark:hover:bg-slate-700/50 transition-colors shrink-0 -mr-1 -mt-1 cursor-pointer"
-          aria-label="Đóng thông báo"
+          aria-label={lang === 'vi' ? 'Đóng thông báo' : 'Close notification'}
         >
           <X className="w-3.5 h-3.5" />
         </button>

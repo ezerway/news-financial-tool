@@ -37,6 +37,8 @@
    - Quản lý kho video ngắn, tải lên trực tiếp từ Dashboard hoặc qua CLI `pnpm post-reel`.
    - Hỗ trợ **hẹn giờ đăng tự động (Scheduled Reels)** chạy ngầm bởi daemon.
    - Đăng đồng thời lên **Facebook Reels** và **TikTok Web**.
+   - **Tự động chèn nhạc nền TikTok**: Tự động tìm kiếm và áp dụng nhạc nền thịnh hành (Background Music) từ thư viện TikTok Studio giúp tăng đề xuất mà không bị bản quyền âm thanh.
+   - **Auto-Comment Reel & Video**: Tự động trích xuất link công khai sau khi đăng và gửi bình luận đầu tiên (First Comment) trên cả Facebook Reels và video TikTok. Hỗ trợ nút bình luận/bình luận lại thủ công ngay trên giao diện.
 
 5. **Ghi hình & Chụp ảnh đối soát (Audit Trail)**:
    - Tùy chọn bật/tắt ghi video (MP4) và chụp ảnh màn hình (Screenshot) toàn bộ phiên tự động hóa để kiểm tra, xem lại trực tiếp trên Dashboard.
@@ -44,7 +46,8 @@
 6. **Hệ thống thông báo tức thời (Multi-Channel Notifications)**:
    - Gửi thông báo kết quả đăng bài (kèm link bài viết, ảnh, thời gian hoặc chi tiết lỗi) qua **Telegram Bot**, **Slack Incoming Webhook**, và **Browser Web Push Notifications**.
 
-7. **Dashboard quản trị PWA (Next.js 16 + Astryx Design)**:
+7. **Dashboard quản trị PWA & Đa ngôn ngữ (i18n)**:
+   - Hỗ trợ đầy đủ **Đa ngôn ngữ (Tiếng Việt & English)** với nút chuyển đổi tức thì trên Header và Form đăng nhập.
    - Giao diện Dark Mode chuẩn hiện đại, responsive hoàn hảo cho cả Mobile & Desktop.
    - Hỗ trợ cài đặt như ứng dụng di động **PWA (Progressive Web App)** không cần thông qua App Store.
    - Phân quyền bảo mật xác thực Admin, hệ thống Backup & Restore SQLite 1-click.
@@ -165,6 +168,8 @@ Dự án cung cấp bộ công cụ toàn diện cho Video ngắn:
 - **Đăng chéo Facebook & TikTok**:
   - Tự động tải video lên Facebook Reels (Page hoặc cá nhân).
   - Tự động đăng tiếp lên TikTok Web nếu bật cấu hình `tiktok_auto_post`.
+  - Tự động chèn nhạc nền thịnh hành từ thư viện TikTok Studio (hỗ trợ điều chỉnh volume, giảm âm thanh gốc hoặc hòa âm).
+  - Tự động bình luận đầu tiên (First Comment) sau khi đăng thành công trên cả Facebook Reel và TikTok.
   - Ghi hình video debug và ảnh screenshot đối soát kết quả đăng trên cả 2 nền tảng.
 
 ---

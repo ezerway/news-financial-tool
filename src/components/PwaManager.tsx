@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Download, X, Smartphone, Check, Sparkles, Monitor } from 'lucide-react';
+import { useI18n } from '@/context/I18nThemeContext';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -9,6 +10,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export default function PwaManager() {
+  const { t, lang } = useI18n();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isIos, setIsIos] = useState(false);
@@ -125,9 +127,9 @@ export default function PwaManager() {
                 <Smartphone className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">Cài đặt trên iPhone/iPad (Safari)</h3>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">{t('pwa_modal_safari_title')}</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                  Để dùng TrendPulse như ứng dụng độc lập trên màn hình chính:
+                  {t('pwa_modal_safari_desc')}
                 </p>
               </div>
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-left text-xs text-slate-700 dark:text-slate-300 space-y-3">
@@ -136,7 +138,7 @@ export default function PwaManager() {
                     1
                   </span>
                   <span>
-                    Bấm vào nút <strong>Chia sẻ (Share icon 📤)</strong> ở thanh dưới trình duyệt Safari.
+                    {t('pwa_step_1_safari')}
                   </span>
                 </div>
                 <div className="flex items-start gap-2.5">
@@ -144,7 +146,7 @@ export default function PwaManager() {
                     2
                   </span>
                   <span>
-                    Cuộn xuống và chọn <strong>Thêm vào MH chính (Add to Home Screen)</strong>.
+                    {t('pwa_step_2_safari')}
                   </span>
                 </div>
               </div>
@@ -152,7 +154,7 @@ export default function PwaManager() {
                 onClick={() => setShowIosPrompt(false)}
                 className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-lg shadow-indigo-600/25"
               >
-                Đã hiểu
+                {t('pwa_got_it')}
               </button>
             </div>
           </div>
@@ -166,9 +168,9 @@ export default function PwaManager() {
                 <Monitor className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">Cài đặt ứng dụng TrendPulse</h3>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">{t('pwa_modal_general_title')}</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                  Cách cài đặt trực tiếp từ trình duyệt của bạn:
+                  {t('pwa_modal_general_desc')}
                 </p>
               </div>
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-left text-xs text-slate-700 dark:text-slate-300 space-y-3">
@@ -177,7 +179,7 @@ export default function PwaManager() {
                     1
                   </span>
                   <span>
-                    Bấm vào <strong>menu 3 chấm (⋮)</strong> ở góc trên bên phải trình duyệt (hoặc icon cài đặt trên thanh địa chỉ URL).
+                    {t('pwa_step_1_general')}
                   </span>
                 </div>
                 <div className="flex items-start gap-2.5">
@@ -185,7 +187,7 @@ export default function PwaManager() {
                     2
                   </span>
                   <span>
-                    Chọn <strong>&quot;Cài đặt ứng dụng&quot;</strong> hoặc <strong>&quot;Thêm vào màn hình chính&quot;</strong> (Install app).
+                    {t('pwa_step_2_general')}
                   </span>
                 </div>
               </div>
@@ -193,7 +195,7 @@ export default function PwaManager() {
                 onClick={() => setShowGeneralGuide(false)}
                 className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-lg shadow-indigo-600/25"
               >
-                Đã hiểu
+                {t('pwa_got_it')}
               </button>
             </div>
           </div>
@@ -213,13 +215,13 @@ export default function PwaManager() {
             </div>
             <div className="text-left min-w-0">
               <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <span className="truncate">Cài đặt TrendPulse</span>
+                <span className="truncate">{t('pwa_banner_title')}</span>
                 <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 shrink-0">
                   PWA
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                Mượt mà như App trên điện thoại
+                {t('pwa_banner_desc')}
               </p>
             </div>
           </div>
@@ -230,7 +232,7 @@ export default function PwaManager() {
               className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white !text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition active:scale-95 whitespace-nowrap"
             >
               <Download className="w-3.5 h-3.5 text-white" />
-              <span className="text-white">Cài đặt</span>
+              <span className="text-white">{t('pwa_banner_btn')}</span>
             </button>
             <button
               onClick={() => {
@@ -240,7 +242,7 @@ export default function PwaManager() {
                 setDismissed(true);
               }}
               className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-              title="Đóng"
+              title={lang === 'vi' ? 'Đóng' : 'Close'}
             >
               <X className="w-4 h-4" />
             </button>

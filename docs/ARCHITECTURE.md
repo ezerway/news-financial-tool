@@ -90,9 +90,15 @@ Tài liệu này mô tả chi tiết kiến trúc kĩ thuật, luồng dữ li�
             │
             ▼ (Đến giờ hẹn)
       [ uploadFacebookReel ] ──> Đăng lên Fanpage/Cá nhân
+            │                       │
+            │                       ▼
+            │               [ Auto-Comment FB Reel ] ──> Lấy link công khai & bình luận
             │
             ▼ (Nếu bật TikTok Auto Post)
-      [ uploadTikTokVideo ] ──> Đăng lên TikTok Web
+      [ uploadTikTokVideo ] ──> Chèn nhạc nền thịnh hành & Đăng lên TikTok Web
+            │                       │
+            │                       ▼
+            │               [ Auto-Comment TikTok ] ──> Tự động gửi bình luận & xử lý captcha
             │
             ▼
       [ Chụp ảnh / Video đối soát ] ──> Lưu vào DB
@@ -100,6 +106,12 @@ Tài liệu này mô tả chi tiết kiến trúc kĩ thuật, luồng dữ li�
             ▼
       [ Gửi thông báo Telegram/Slack ]
 ```
+
+#### Các Module Playwright chuyên biệt:
+- `uploadFacebookReel`: Xử lý upload video, nhập caption, chọn ảnh bìa và bấm đăng Reel.
+- `commentFacebookReelOnly`: Tự động tìm liên kết công khai của Reel Facebook (hoặc trích xuất qua `m.facebook.com`) và bình luận nội dung đầu tiên.
+- `uploadTikTokVideo`: Mở trang upload TikTok Creator Center, tải file video, tìm kiếm và chèn bài nhạc nền thịnh hành từ thư viện TikTok Studio, điều chỉnh âm lượng gốc/nhạc nền và đăng video.
+- `commentTikTokVideoOnly`: Mở video TikTok đã đăng, kiểm tra trạng thái video công khai, focus ô nhập bình luận và gửi bình luận (hỗ trợ phát hiện cảnh báo captcha/anti-bot).
 
 ---
 

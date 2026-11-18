@@ -160,10 +160,10 @@ export default function SettingsTab({
         setTimeout(() => setTiktokMsg(null), 8000);
         setTimeout(fetchTiktokStatus, 10000);
       } else {
-        setTiktokMsg(data.error || 'Không thể mở trình duyệt');
+        setTiktokMsg(data.error || (lang === 'vi' ? 'Không thể mở trình duyệt' : 'Could not open browser'));
       }
     } catch (err: any) {
-      setTiktokMsg('Lỗi kết nối: ' + err.message);
+      setTiktokMsg((lang === 'vi' ? 'Lỗi kết nối: ' : 'Connection error: ') + err.message);
     } finally {
       setIsOpeningTiktok(false);
     }
@@ -185,10 +185,10 @@ export default function SettingsTab({
         setRawTiktokCookies('');
         if (data.status) setTiktokStatus(data.status);
       } else {
-        alert(data.error || data.message || 'Lỗi lưu cookie');
+        alert(data.error || data.message || (lang === 'vi' ? 'Lỗi lưu cookie' : 'Failed to save cookie'));
       }
     } catch (err: any) {
-      alert('Lỗi: ' + err.message);
+      alert((lang === 'vi' ? 'Lỗi: ' : 'Error: ') + err.message);
     } finally {
       setIsSavingTiktokCookies(false);
     }
@@ -212,15 +212,15 @@ export default function SettingsTab({
     const perm = await requestBrowserNotificationPermission();
     setNotificationPermission(perm);
     if (perm === 'granted') {
-      await showBrowserNotification('🔔 TrendPulse - Đã kích hoạt thông báo!', {
-        body: 'Thông báo đẩy trình duyệt đã sẵn sàng nhận kết quả đăng bài & Reel.',
+      await showBrowserNotification(lang === 'vi' ? '🔔 TrendPulse - Đã kích hoạt thông báo!' : '🔔 TrendPulse - Notifications Activated!', {
+        body: lang === 'vi' ? 'Thông báo đẩy trình duyệt đã sẵn sàng nhận kết quả đăng bài & Reel.' : 'Browser push notifications are ready for post & reel updates.',
       });
     }
   };
 
   const handleTestBrowserNotification = async () => {
-    const success = await showBrowserNotification('🔔 TrendPulse - Thử nghiệm thông báo đẩy', {
-      body: 'Thông báo hoạt động tốt! Bạn sẽ nhận được tin nhắn khi đăng bài thành công hoặc gặp sự cố.',
+    const success = await showBrowserNotification(lang === 'vi' ? '🔔 TrendPulse - Thử nghiệm thông báo đẩy' : '🔔 TrendPulse - Push Notification Test', {
+      body: lang === 'vi' ? 'Thông báo hoạt động tốt! Bạn sẽ nhận được tin nhắn khi đăng bài thành công hoặc gặp sự cố.' : 'Notifications work properly! You will receive alerts on publishing success or errors.',
       url: typeof window !== 'undefined' ? window.location.origin : undefined,
     });
     if (!success && notificationPermission !== 'granted') {

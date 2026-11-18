@@ -534,7 +534,7 @@ export default function ReelsTab({
                             title={t('debug_video_title')}
                           >
                             <Video className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                            <span>Video lỗi FB</span>
+                            <span>{t('fb_video_error')}</span>
                           </button>
                         )}
                         {reel.tiktok_debug_video_path && (
@@ -542,10 +542,10 @@ export default function ReelsTab({
                             type="button"
                             onClick={() => setPreviewDebugVideo(reel.tiktok_debug_video_path || null)}
                             className="inline-flex items-center gap-1.5 font-semibold text-rose-700 hover:text-rose-900 dark:text-rose-300 dark:hover:text-rose-100 hover:underline cursor-pointer"
-                            title="Xem video quá trình lỗi TikTok"
+                            title={lang === 'vi' ? 'Xem video quá trình lỗi TikTok' : 'Watch TikTok error video'}
                           >
                             <Video className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                            <span>Video lỗi TikTok</span>
+                            <span>{t('tiktok_video_error')}</span>
                           </button>
                         )}
                         {reel.screenshot_path && (
@@ -556,7 +556,7 @@ export default function ReelsTab({
                             title={t('debug_screenshot_title')}
                           >
                             <ImageIcon className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                            <span>Ảnh FB</span>
+                            <span>{lang === 'vi' ? 'Ảnh FB' : 'FB Screenshot'}</span>
                           </button>
                         )}
                         {reel.tiktok_screenshot_path && (
@@ -564,10 +564,10 @@ export default function ReelsTab({
                             type="button"
                             onClick={() => setPreviewScreenshot(reel.tiktok_screenshot_path || null)}
                             className="inline-flex items-center gap-1.5 font-semibold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:underline cursor-pointer"
-                            title="Ảnh chụp lỗi TikTok"
+                            title={t('tiktok_screenshot_error')}
                           >
                             <ImageIcon className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                            <span>Ảnh TikTok</span>
+                            <span>{lang === 'vi' ? 'Ảnh TikTok' : 'TikTok Screenshot'}</span>
                           </button>
                         )}
                       </div>
@@ -842,10 +842,10 @@ export default function ReelsTab({
                     {reel.tiktok_status === 'failed' && (
                       <span
                         className="text-[11px] text-rose-500 inline-flex items-center gap-1 cursor-help"
-                        title={reel.tiktok_error_message || 'Đăng TikTok lỗi'}
+                        title={reel.tiktok_error_message || (lang === 'vi' ? 'Đăng TikTok lỗi' : 'TikTok post failed')}
                       >
                         <AlertCircle className="w-3 h-3" />
-                        <span>Lỗi TikTok</span>
+                        <span>{t('tiktok_status_failed')}</span>
                       </span>
                     )}
 
@@ -1463,7 +1463,7 @@ export default function ReelsTab({
                 src={`/api/videos/${encodeURIComponent(previewDebugVideo)}`}
                 className="max-w-full max-h-[70vh] rounded-lg border border-slate-800 shadow-md"
               >
-                Trình duyệt không hỗ trợ phát trực tiếp video định dạng webm. Vui lòng bấm &quot;Tải video&quot; để xem trên máy.
+                {t('video_play_unsupported')}
               </video>
             </div>
           </div>
