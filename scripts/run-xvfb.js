@@ -25,10 +25,10 @@ let vncProcess = null;
 
 // Khởi chạy x11vnc để hỗ trợ kết nối tương tác trực tiếp
 setTimeout(() => {
-  console.log('[x11vnc] Khởi chạy VNC Server trên cổng 5900 cho màn hình :99...');
+  console.log('[x11vnc] Khởi chạy VNC Server trên cổng 5900 cho màn hình :99 (Password: trendpulse)...');
   vncProcess = spawn(
     'x11vnc',
-    ['-display', ':99', '-forever', '-shared', '-rfbport', '5900', '-localhost', '-nopw'],
+    ['-display', ':99', '-forever', '-shared', '-rfbport', '5900', '-localhost', '-passwd', 'trendpulse'],
     {
       stdio: 'ignore',
     }
