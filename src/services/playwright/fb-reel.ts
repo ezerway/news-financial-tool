@@ -17,6 +17,7 @@ export interface PostReelOptions {
   reelId?: string;
   filePath: string;
   content?: string;
+  comment?: string;
   headless?: boolean;
   timeout?: number;
   onProgress?: (message: string) => void;
@@ -29,6 +30,7 @@ export interface PostReelResult {
   filePath: string;
   error?: string;
   reelUrl?: string;
+  commentSuccess?: boolean;
   screenshotPath?: string;
   debugVideoPath?: string;
 }
@@ -56,7 +58,7 @@ if (!fs.existsSync(SCREENSHOTS_DIR)) {
 export async function uploadFacebookReel(
   options: PostReelOptions
 ): Promise<PostReelResult> {
-  const { filePath, content = '', headless: requestedHeadless = false, onProgress, keepOpen = false } = options;
+  const { filePath, content = '', comment = '', headless: requestedHeadless = false, onProgress, keepOpen = false } = options;
   const headless = resolveHeadless(requestedHeadless);
 
   const idTag = options.reelId ? options.reelId.replace(/[^a-zA-Z0-9_-]/g, '_') : 'standalone';
@@ -401,6 +403,122 @@ export async function uploadFacebookReel(
       notify(`Không thể lấy link Reel sau khi đăng: ${fetchErr.message}`, 'WARN');
     }
 
+    // Bước 15: Tự động bình luận (Auto-comment) vào Reel nếu có nội dung bình luận
+    let commentSuccess = false;
+    const finalComment = comment ? replaceDateWildcards(comment).trim() : '';
+
+    if (finalComment && page && !page.isClosed()) {
+      notify('Bắt đầu quy trình tự động bình luận (Auto-comment) cho Reel...');
+      try {
+        await page.waitForTimeout(2000);
+
+        // Helper tìm ô nhập bình luận contenteditable="true"
+        const findCommentBox = async () => {
+          if (!page || page.isClosed()) return null;
+          const candidates = page.locator('div[contenteditable="true"]');
+          const count = await candidates.count();
+          for (let i = count - 1; i >= 0; i--) {
+            const el = candidates.nth(i);
+            if (await el.isVisible({ timeout: 1500 }).catch(() => false)) {
+              return el;
+            }
+          }
+          return null;
+        };
+
+        let commentBox = await findCommentBox();
+
+        // Nếu chưa thấy ô nhập bình luận, thử click icon/nút bình luận
+        if (!commentBox) {
+          const commentTriggers = [
+            '[aria-label="Comment" i]',
+            '[aria-label="Bình luận" i]',
+            '[aria-label="Leave a comment" i]',
+            '[aria-label*="Viết bình luận" i]',
+            '[aria-label*="Write a comment" i]',
+          ];
+          for (const triggerSel of commentTriggers) {
+            const trigger = page.locator(triggerSel).first();
+            if ((await trigger.count()) > 0 && (await trigger.isVisible({ timeout: 1500 }).catch(() => false))) {
+              await trigger.click().catch(() => {});
+              await page.waitForTimeout(1500);
+              break;
+            }
+          }
+          commentBox = await findCommentBox();
+        }
+
+        // Nếu vẫn chưa thấy và có reelUrl, điều hướng trực tiếp đến reelUrl
+        if (!commentBox && reelUrl && page.url() !== reelUrl) {
+          notify(`Điều hướng trực tiếp đến link Reel để gửi bình luận: ${reelUrl}`);
+          await page.goto(reelUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+          await page.waitForTimeout(3000);
+          commentBox = await findCommentBox();
+
+          if (!commentBox) {
+            const commentTriggers = [
+              '[aria-label="Comment" i]',
+              '[aria-label="Bình luận" i]',
+              '[aria-label="Leave a comment" i]',
+              '[aria-label*="Viết bình luận" i]',
+            ];
+            for (const triggerSel of commentTriggers) {
+              const trigger = page.locator(triggerSel).first();
+              if ((await trigger.count()) > 0 && (await trigger.isVisible({ timeout: 1500 }).catch(() => false))) {
+                await trigger.click().catch(() => {});
+                await page.waitForTimeout(1500);
+                break;
+              }
+            }
+            commentBox = await findCommentBox();
+          }
+        }
+
+        if (commentBox) {
+          await commentBox.scrollIntoViewIfNeeded().catch(() => {});
+          await commentBox.click();
+          await page.waitForTimeout(600);
+          await page.keyboard.insertText(finalComment);
+          await page.waitForTimeout(1500);
+
+          // Tìm nút gửi bình luận hoặc gửi bằng phím Enter
+          const postCommentBtnSelectors = [
+            '[aria-label="Post comment" i]',
+            '[aria-label="Đăng bình luận" i]',
+            '[aria-label="Bình luận" i][role="button"]',
+            '[aria-label*="gửi bình luận" i]',
+          ];
+
+          let postCommentBtn = null;
+          for (const sel of postCommentBtnSelectors) {
+            const el = page.locator(sel).first();
+            if ((await el.count()) > 0 && (await el.isVisible({ timeout: 1500 }).catch(() => false))) {
+              postCommentBtn = el;
+              break;
+            }
+          }
+
+          if (postCommentBtn) {
+            notify('Đã tìm thấy nút gửi bình luận, đang bấm gửi...');
+            await postCommentBtn.click();
+            await page.waitForTimeout(3000);
+            commentSuccess = true;
+          } else {
+            notify('Không tìm thấy nút gửi riêng, gửi bình luận bằng phím Enter...');
+            await page.keyboard.press('Enter');
+            await page.waitForTimeout(3000);
+            commentSuccess = true;
+          }
+
+          notify('Đã tự động gửi bình luận thành công cho Reel!', 'SUCCESS');
+        } else {
+          notify('Không tìm thấy ô nhập bình luận sau khi đăng Reel.', 'WARN');
+        }
+      } catch (cmErr: any) {
+        notify(`Lỗi trong quá trình tự động bình luận Reel: ${cmErr.message}`, 'WARN');
+      }
+    }
+
     // Save session state to keep cookies fresh
     try {
       if (context) {
@@ -445,6 +563,7 @@ export async function uploadFacebookReel(
         : 'Đã xuất bản Reel Facebook thành công!',
       filePath: resolvedPath,
       reelUrl,
+      commentSuccess,
       debugVideoPath: savedSuccessVideoFileName,
     };
   } catch (error: any) {

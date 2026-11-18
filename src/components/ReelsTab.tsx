@@ -40,12 +40,13 @@ interface ReelsTabProps {
   onDeleteReel: (reelId: string) => Promise<void>;
   onUpdateReel: (
     reelId: string,
-    data: { caption?: string; scheduled_at?: string | null; status?: string }
+    data: { caption?: string; comment_content?: string | null; scheduled_at?: string | null; status?: string }
   ) => Promise<void>;
   onCreateReel: (data: {
     video_path: string;
     video_filename?: string;
     caption: string;
+    comment_content?: string | null;
     scheduled_at?: string | null;
     status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
   }) => Promise<void>;
@@ -77,6 +78,7 @@ export default function ReelsTab({
   // Edit modal
   const [editingReel, setEditingReel] = useState<ReelItem | null>(null);
   const [editCaption, setEditCaption] = useState('');
+  const [editCommentContent, setEditCommentContent] = useState('');
   const [editIsScheduled, setEditIsScheduled] = useState(false);
   const [editScheduledAt, setEditScheduledAt] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -95,6 +97,7 @@ export default function ReelsTab({
   const [uploadedFilename, setUploadedFilename] = useState<string>('');
   const [localFilePath, setLocalFilePath] = useState<string>('');
   const [caption, setCaption] = useState<string>('');
+  const [commentContent, setCommentContent] = useState<string>('');
   const [isScheduled, setIsScheduled] = useState<boolean>(false);
   const [scheduledAt, setScheduledAt] = useState<string>('');
   const [isUploading, setIsUploading] = useState<boolean>(false);
@@ -130,6 +133,7 @@ export default function ReelsTab({
     setUploadedFilename('');
     setLocalFilePath('');
     setCaption('');
+    setCommentContent('');
     setIsScheduled(false);
     // Default scheduled time to 1 hour from now
     const nextHour = new Date(Date.now() + 60 * 60 * 1000);
@@ -212,6 +216,7 @@ export default function ReelsTab({
         video_path: finalPath,
         video_filename: finalFilename,
         caption: caption.trim(),
+        comment_content: commentContent.trim() || null,
         scheduled_at: scheduleIso,
         status,
       });
@@ -232,6 +237,7 @@ export default function ReelsTab({
   const handleStartEdit = (reel: ReelItem) => {
     setEditingReel(reel);
     setEditCaption(reel.caption || '');
+    setEditCommentContent(reel.comment_content || '');
     if (reel.scheduled_at) {
       setEditIsScheduled(true);
       const d = new Date(reel.scheduled_at);
@@ -267,6 +273,7 @@ export default function ReelsTab({
 
       await onUpdateReel(editingReel.id, {
         caption: editCaption.trim(),
+        comment_content: editCommentContent.trim() || null,
         scheduled_at: scheduledIso,
         status: newStatus,
       });
@@ -312,6 +319,14 @@ export default function ReelsTab({
 
   const appendEditWildcard = (wc: string) => {
     setEditCaption((prev) => (prev.trim() ? `${prev.trim()} ${wc}` : wc));
+  };
+
+  const appendCommentWildcard = (wc: string) => {
+    setCommentContent((prev) => (prev.trim() ? `${prev.trim()} ${wc}` : wc));
+  };
+
+  const appendEditCommentWildcard = (wc: string) => {
+    setEditCommentContent((prev) => (prev.trim() ? `${prev.trim()} ${wc}` : wc));
   };
 
   const filterLabels: Record<string, string> = {
@@ -611,6 +626,42 @@ export default function ReelsTab({
                     <p className="text-xs text-slate-400 italic">{t('no_caption_content')}</p>
                   )}
                 </div>
+
+                {/* Auto Comment Preview */}
+                {reel.comment_content && (
+                  <div className="space-y-1 bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-lg border border-[var(--app-border)]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                        💬 {lang === 'vi' ? 'Bình luận tự động' : 'Auto Comment'}
+                      </span>
+                      {reel.comment_status && (
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                            reel.comment_status === 'commented'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : reel.comment_status === 'failed'
+                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                              : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+                          }`}
+                        >
+                          {reel.comment_status === 'commented'
+                            ? (lang === 'vi' ? '✓ Đã bình luận' : '✓ Commented')
+                            : reel.comment_status === 'failed'
+                            ? (lang === 'vi' ? '✗ Lỗi bình luận' : '✗ Failed')
+                            : (lang === 'vi' ? '○ Chờ bình luận' : '○ Pending')}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
+                      {reel.comment_content}
+                    </p>
+                    {reel.status !== 'published' && /%%DATE%%/i.test(reel.comment_content) && (
+                      <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-mono mt-0.5">
+                        ⚡ %%DATE%% → {formatDateDDMMYYYY()}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Bottom Actions */}
                 <div className="pt-2 border-t border-[var(--app-border)] flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
@@ -966,6 +1017,43 @@ export default function ReelsTab({
               )}
             </div>
 
+            {/* Auto Comment Area */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-[var(--app-text)] flex items-center gap-1">
+                  💬 {lang === 'vi' ? 'Bình luận tự động (First Comment - Tùy chọn)' : 'Auto Comment (Optional)'}
+                </label>
+                <span className="text-[11px] text-[var(--app-text-muted)] font-mono">
+                  {commentContent.length} {t('char_count')}
+                </span>
+              </div>
+              <textarea
+                value={commentContent}
+                onChange={(e) => setCommentContent(e.target.value)}
+                rows={3}
+                placeholder={lang === 'vi' ? 'Nhập nội dung bình luận tự động ngay sau khi đăng Reel (hỗ trợ %%DATE%%, link nguồn, hashtag)...' : 'Auto comment content after Reel is published (supports %%DATE%%, links, hashtags)...'}
+                className="app-input w-full text-xs p-2.5 rounded-lg border border-[var(--app-border)] text-[var(--app-text)] placeholder:text-[var(--app-text-muted)] resize-none leading-relaxed"
+              />
+
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => appendCommentWildcard('%%DATE%%')}
+                  className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:border-indigo-400 transition-colors"
+                  title={lang === 'vi' ? 'Chèn wildcard %%DATE%% (tự động thay bằng ngày hiện tại DD/MM/YYYY)' : 'Insert %%DATE%% wildcard (auto replaced with DD/MM/YYYY)'}
+                >
+                  ✨ %%DATE%% ({formatDateDDMMYYYY()})
+                </button>
+              </div>
+
+              {/%%DATE%%/i.test(commentContent) && (
+                <p className="text-[11px] text-indigo-600 dark:text-indigo-400 font-mono bg-indigo-50/50 dark:bg-indigo-950/30 p-2 rounded-lg border border-indigo-200/50 dark:border-indigo-800/50">
+                  <span className="font-semibold">{lang === 'vi' ? 'Xem trước bình luận:' : 'Preview comment:'}</span>{' '}
+                  {replaceDateWildcards(commentContent)}
+                </p>
+              )}
+            </div>
+
             {/* Scheduling Section */}
             <div className="p-4 rounded-xl app-subcard space-y-3.5 border border-[var(--app-border)]">
               <div className="flex items-center justify-between gap-3">
@@ -1140,6 +1228,38 @@ export default function ReelsTab({
                 <p className="text-[11px] text-indigo-600 dark:text-indigo-400 font-mono bg-indigo-50/50 dark:bg-indigo-950/30 p-2 rounded-lg border border-indigo-200/50 dark:border-indigo-800/50">
                   <span className="font-semibold">{lang === 'vi' ? 'Xem trước khi xuất bản:' : 'Preview when published:'}</span>{' '}
                   {replaceDateWildcards(editCaption)}
+                </p>
+              )}
+            </div>
+
+            {/* Auto Comment Area */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--app-text)] flex items-center gap-1">
+                💬 {lang === 'vi' ? 'Bình luận tự động (First Comment - Tùy chọn)' : 'Auto Comment (Optional)'}
+              </label>
+              <textarea
+                value={editCommentContent}
+                onChange={(e) => setEditCommentContent(e.target.value)}
+                rows={3}
+                placeholder={lang === 'vi' ? 'Nhập nội dung bình luận tự động ngay sau khi đăng Reel (hỗ trợ %%DATE%%, link nguồn, hashtag)...' : 'Auto comment content after Reel is published (supports %%DATE%%, links, hashtags)...'}
+                className="app-input w-full text-xs p-2.5 rounded-lg border border-[var(--app-border)] text-[var(--app-text)] placeholder:text-[var(--app-text-muted)] resize-none leading-relaxed"
+              />
+
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => appendEditCommentWildcard('%%DATE%%')}
+                  className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:border-indigo-400 transition-colors"
+                  title={lang === 'vi' ? 'Chèn wildcard %%DATE%% (tự động thay bằng ngày hiện tại DD/MM/YYYY)' : 'Insert %%DATE%% wildcard (auto replaced with DD/MM/YYYY)'}
+                >
+                  ✨ %%DATE%% ({formatDateDDMMYYYY()})
+                </button>
+              </div>
+
+              {/%%DATE%%/i.test(editCommentContent) && (
+                <p className="text-[11px] text-indigo-600 dark:text-indigo-400 font-mono bg-indigo-50/50 dark:bg-indigo-950/30 p-2 rounded-lg border border-indigo-200/50 dark:border-indigo-800/50">
+                  <span className="font-semibold">{lang === 'vi' ? 'Xem trước bình luận:' : 'Preview comment:'}</span>{' '}
+                  {replaceDateWildcards(editCommentContent)}
                 </p>
               )}
             </div>

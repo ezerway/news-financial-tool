@@ -564,6 +564,7 @@ export default function DashboardPage() {
     video_path: string;
     video_filename?: string;
     caption: string;
+    comment_content?: string | null;
     scheduled_at?: string | null;
     status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
   }) => {
@@ -592,7 +593,7 @@ export default function DashboardPage() {
 
   const handleUpdateReel = async (
     reelId: string,
-    data: { caption?: string; scheduled_at?: string | null; status?: string }
+    data: { caption?: string; comment_content?: string | null; scheduled_at?: string | null; status?: string }
   ) => {
     try {
       const res = await fetch(`/api/reels/${reelId}`, {

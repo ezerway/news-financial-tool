@@ -31,6 +31,7 @@ function parseCliArgs() {
   const args = process.argv.slice(2);
   let filePath = '';
   let content = '';
+  let comment: string | undefined;
   let headless = false;
   let scheduledAt: string | undefined;
   let isDraft = false;
@@ -56,12 +57,17 @@ function parseCliArgs() {
     } else if (arg === '-c' || arg === '--content') {
       content = args[i + 1] || '';
       i++;
+    } else if (arg.startsWith('--comment=')) {
+      comment = arg.slice(10);
+    } else if (arg === '-cm' || arg === '--comment') {
+      comment = args[i + 1] || '';
+      i++;
     } else if (!arg.startsWith('-') && !filePath) {
       filePath = arg;
     }
   }
 
-  return { filePath, content, headless, scheduledAt, isDraft };
+  return { filePath, content, comment, headless, scheduledAt, isDraft };
 }
 
 async function main() {
@@ -69,7 +75,7 @@ async function main() {
   console.log('       Facebook Reel Automation - Upload Video        ');
   console.log('======================================================\n');
 
-  const { filePath: cliPath, content: cliContent, headless, scheduledAt, isDraft } = parseCliArgs();
+  const { filePath: cliPath, content: cliContent, comment: cliComment, headless, scheduledAt, isDraft } = parseCliArgs();
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -78,6 +84,7 @@ async function main() {
 
   let selectedFilePath = cliPath;
   let selectedContent = cliContent;
+  let selectedComment = cliComment;
 
   // Step 1: Prompt user for file path if not provided in CLI arguments
   if (!selectedFilePath) {
@@ -122,11 +129,25 @@ async function main() {
     selectedContent = contentAnswer.trim();
   }
 
+  // Step 3: Prompt user for Reel comment (auto comment) if not provided in CLI arguments
+  if (selectedComment === undefined) {
+    const commentAnswer = await askQuestion(
+      rl,
+      '➤ Nhập nội dung bình luận tự động (auto comment) cho Reel (nhấn Enter nếu không có): '
+    );
+    selectedComment = commentAnswer.trim();
+  }
+
   console.log(`\n📁 File video đã chọn: ${selectedFilePath}`);
   if (selectedContent) {
     console.log(`📝 Nội dung Reel: "${selectedContent}"`);
   } else {
     console.log('📝 Nội dung Reel: (Trống)');
+  }
+  if (selectedComment) {
+    console.log(`💬 Bình luận tự động: "${selectedComment}"`);
+  } else {
+    console.log('💬 Bình luận tự động: (Không)');
   }
   const effectiveHeadless = resolveHeadless(headless);
   const devNotice = isDeveloperMode() ? ' (Ghi đè bởi Developer Mode)' : '';
@@ -139,6 +160,7 @@ async function main() {
       video_path: selectedFilePath,
       video_filename: path.basename(selectedFilePath),
       caption: selectedContent,
+      comment_content: selectedComment || null,
       status: 'draft',
     });
     console.log('======================================================');
@@ -154,6 +176,7 @@ async function main() {
       video_path: selectedFilePath,
       video_filename: path.basename(selectedFilePath),
       caption: selectedContent,
+      comment_content: selectedComment || null,
       status: 'scheduled',
       scheduled_at: scheduledAt,
     });
@@ -169,6 +192,7 @@ async function main() {
     video_path: selectedFilePath,
     video_filename: path.basename(selectedFilePath),
     caption: selectedContent,
+    comment_content: selectedComment || null,
     status: 'publishing',
   });
   console.log(`🎬 Đã tạo dữ liệu trong bảng reels: ID [${reel.id}] (Trạng thái: publishing)`);
@@ -178,21 +202,27 @@ async function main() {
       reelId: reel.id,
       filePath: selectedFilePath,
       content: selectedContent,
+      comment: selectedComment || '',
       headless: effectiveHeadless,
       keepOpen: false,
     });
 
     if (result.success) {
+      const commentStatus = selectedComment
+        ? (result.commentSuccess ? 'commented' : 'failed')
+        : null;
+
       db.prepare(`
         UPDATE reels
         SET status = 'published',
             published_at = CURRENT_TIMESTAMP,
             fb_post_url = ?,
+            comment_status = COALESCE(?, comment_status),
             screenshot_path = NULL,
             debug_video_path = ?,
             error_message = NULL
         WHERE id = ?
-      `).run(result.reelUrl || null, result.debugVideoPath || null, reel.id);
+      `).run(result.reelUrl || null, commentStatus, result.debugVideoPath || null, reel.id);
 
       logActivity(
         'SUCCESS',

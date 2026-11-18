@@ -30,6 +30,7 @@ export function createReel(data: {
   video_path: string;
   video_filename?: string | null;
   caption?: string;
+  comment_content?: string | null;
   scheduled_at?: string | null;
   status?: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
 }): ReelItem {
@@ -37,12 +38,14 @@ export function createReel(data: {
   const status = data.status || (data.scheduled_at ? 'scheduled' : 'draft');
   const videoFilename = data.video_filename || path.basename(data.video_path);
   const caption = data.caption || '';
+  const commentContent = data.comment_content || null;
+  const commentStatus = commentContent ? 'idle' : null;
   const scheduledAt = data.scheduled_at || null;
 
   db.prepare(`
-    INSERT INTO reels (id, video_path, video_filename, caption, status, scheduled_at, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-  `).run(id, data.video_path, videoFilename, caption, status, scheduledAt);
+    INSERT INTO reels (id, video_path, video_filename, caption, comment_content, comment_status, status, scheduled_at, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  `).run(id, data.video_path, videoFilename, caption, commentContent, commentStatus, status, scheduledAt);
 
   logActivity(
     'INFO',
@@ -55,7 +58,7 @@ export function createReel(data: {
 
 export function updateReel(
   id: string,
-  data: Partial<Pick<ReelItem, 'caption' | 'scheduled_at' | 'status' | 'video_path' | 'video_filename' | 'fb_post_url' | 'screenshot_path' | 'debug_video_path'>>
+  data: Partial<Pick<ReelItem, 'caption' | 'comment_content' | 'comment_status' | 'scheduled_at' | 'status' | 'video_path' | 'video_filename' | 'fb_post_url' | 'screenshot_path' | 'debug_video_path'>>
 ): ReelItem | null {
   const current = getReelById(id);
   if (!current) return null;
@@ -66,6 +69,14 @@ export function updateReel(
   if (data.caption !== undefined) {
     updates.push('caption = ?');
     values.push(data.caption);
+  }
+  if (data.comment_content !== undefined) {
+    updates.push('comment_content = ?');
+    values.push(data.comment_content);
+  }
+  if (data.comment_status !== undefined) {
+    updates.push('comment_status = ?');
+    values.push(data.comment_status);
   }
   if (data.scheduled_at !== undefined) {
     updates.push('scheduled_at = ?');
@@ -180,6 +191,7 @@ export async function publishReelById(
       reelId: reel.id,
       filePath: reel.video_path,
       content: reel.caption || '',
+      comment: reel.comment_content || '',
       headless,
     });
 
@@ -201,16 +213,21 @@ export async function publishReelById(
         } catch {}
       }
 
+      const commentStatus = reel.comment_content
+        ? (result.commentSuccess ? 'commented' : 'failed')
+        : (reel.comment_status || 'idle');
+
       db.prepare(`
         UPDATE reels
         SET status = 'published',
             published_at = CURRENT_TIMESTAMP,
             fb_post_url = ?,
+            comment_status = ?,
             screenshot_path = NULL,
             debug_video_path = ?,
             error_message = NULL
         WHERE id = ?
-      `).run(result.reelUrl || null, result.debugVideoPath || null, id);
+      `).run(result.reelUrl || null, commentStatus, result.debugVideoPath || null, id);
 
       logActivity(
         'SUCCESS',

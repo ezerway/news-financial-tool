@@ -43,6 +43,8 @@ export interface ReelItem {
   video_path: string;
   video_filename?: string | null;
   caption: string;
+  comment_content?: string | null;
+  comment_status?: 'idle' | 'commented' | 'failed' | null;
   status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
   scheduled_at?: string | null;
   published_at?: string | null;

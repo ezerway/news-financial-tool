@@ -95,6 +95,8 @@ export function initSchema(database: Database.Database) {
         video_path TEXT NOT NULL,
         video_filename TEXT,
         caption TEXT,
+        comment_content TEXT,
+        comment_status TEXT DEFAULT 'idle',
         status TEXT DEFAULT 'draft',
         scheduled_at DATETIME,
         published_at DATETIME,
@@ -148,6 +150,12 @@ export function initSchema(database: Database.Database) {
   } catch {}
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN tiktok_screenshot_path TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN comment_content TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN comment_status TEXT DEFAULT 'idle'`);
   } catch {}
 
   // Insert default settings if not exists

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { video_path, video_filename, caption, scheduled_at, status } = body;
+    const { video_path, video_filename, caption, comment_content, scheduled_at, status } = body;
 
     if (!video_path || typeof video_path !== 'string') {
       return NextResponse.json(
@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
       video_path,
       video_filename,
       caption,
+      comment_content,
       scheduled_at,
       status,
     });
