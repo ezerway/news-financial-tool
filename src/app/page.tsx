@@ -992,10 +992,10 @@ export default function DashboardPage() {
                 isActive ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
               }`}
             >
-              <div className="relative">
+              <div className="relative inline-flex items-center justify-center">
                 <Icon className="w-4 h-4" />
                 {tab.count !== undefined && tab.count > 0 && (
-                  <span className="absolute -top-1.5 -right-2 px-1 min-w-[14px] h-3.5 rounded-full bg-indigo-600 text-[9px] font-bold text-white flex items-center justify-center">
+                  <span className="absolute -top-1 -right-2.5 px-1 min-w-[15px] h-3.5 rounded-full bg-indigo-600 text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-white dark:ring-slate-900 pointer-events-none">
                     {tab.count > 99 ? '99+' : tab.count}
                   </span>
                 )}

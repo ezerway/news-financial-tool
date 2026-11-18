@@ -346,10 +346,147 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
 }
 
 /**
- * Main crawl entry point
+ * Crawl Google Trends via official RSS feed.
+ * Highly robust, lightweight, and resilient to cloud VPS / datacenter IP blocks (no RpcError).
  */
-export async function crawlGoogleTrends(geo = 'VN', _method?: string): Promise<TrendItem[]> {
-  return crawlGoogleTrendsCategory3(geo);
+export async function crawlGoogleTrendsRSS(geo = 'VN'): Promise<TrendItem[]> {
+  const targetGeo = geo === 'all' ? 'VN' : geo.toUpperCase();
+  logActivity('INFO', 'CRAWL', `[Google Trends RSS] Bắt đầu cào dữ liệu qua RSS feed cho khu vực ${targetGeo}...`);
+
+  try {
+    const rssUrl = `https://trends.google.com/trending/rss?geo=${targetGeo}`;
+    const res = await fetch(rssUrl, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        Accept: 'application/rss+xml, application/xml, text/xml, */*',
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`Google Trends RSS HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const xml = await res.text();
+    const $ = cheerio.load(xml, { xmlMode: true });
+
+    const existingPosts = getExistingPosts();
+    const trendList: TrendItem[] = [];
+
+    const items = $('item').toArray();
+    for (const el of items) {
+      const title = $(el).find('title').first().text().trim();
+      if (!title) continue;
+
+      const approxTraffic = $(el).find('ht\\:approx_traffic').first().text().trim() || '500+';
+      const pubDate = $(el).find('pubDate').first().text().trim() || new Date().toISOString();
+
+      const articles: NewsArticle[] = [];
+      $(el).find('ht\\:news_item').each((_, ni) => {
+        const nTitle = cleanHtmlText($(ni).find('ht\\:news_item_title').first().text().trim());
+        const nUrl = $(ni).find('ht\\:news_item_url').first().text().trim();
+        const nSource = cleanHtmlText($(ni).find('ht\\:news_item_source').first().text().trim()) || 'Báo chí';
+        const nSnippet = cleanHtmlText($(ni).find('ht\\:news_item_snippet').first().text().trim());
+
+        if (nUrl && !nUrl.includes('google.com') && !nUrl.includes('google.')) {
+          articles.push({
+            title: nTitle,
+            url: nUrl,
+            source: nSource,
+            snippet: nSnippet,
+          });
+        }
+      });
+
+      // Nếu RSS không đính kèm bài báo nguồn hoặc nguồn bị thiếu, tìm thêm nguồn báo chí chính thống
+      if (articles.length === 0) {
+        try {
+          const fallbackArticles = await findExactNewsSources(title, targetGeo, 3);
+          articles.push(...fallbackArticles);
+        } catch { }
+      }
+
+      const normalizedTitle = title.trim().toLowerCase();
+      const id = 'trend_' + crypto.createHash('md5').update(`${targetGeo}_${normalizedTitle}`).digest('hex').substring(0, 12);
+      const hasValidSources = articles.some((a) => a.url && !a.url.includes('google.com'));
+
+      const dupCheck = findDuplicatePost({ id, title, articles }, existingPosts);
+      let initialStatus: 'discovered' | 'drafted' | 'published' = 'discovered';
+
+      if (dupCheck.isDuplicate && dupCheck.matchedPost) {
+        if (hasValidSources && dupCheck.matchedPost.status === 'published' && dupCheck.matchType !== 'keyword_similarity') {
+          initialStatus = 'published';
+        } else if (dupCheck.matchedPost.status === 'draft') {
+          initialStatus = 'drafted';
+        }
+      } else {
+        const existingRow = db.prepare('SELECT status, articles_json FROM trends WHERE id = ?').get(id) as { status: string; articles_json?: string } | undefined;
+        if (existingRow && existingRow.status !== 'discovered') {
+          let hasExistingSources = false;
+          try {
+            const parsed = JSON.parse(existingRow.articles_json || '[]');
+            hasExistingSources = Array.isArray(parsed) && parsed.some((a: any) => a.url && !a.url.includes('google.com'));
+          } catch { }
+
+          if (existingRow.status === 'published' && (!hasValidSources && !hasExistingSources)) {
+            initialStatus = 'discovered';
+          } else {
+            initialStatus = existingRow.status as any;
+          }
+        }
+      }
+
+      trendList.push({
+        id,
+        title,
+        geo: targetGeo,
+        approx_traffic: approxTraffic,
+        pub_date: pubDate,
+        articles,
+        category: 'finance',
+        status: initialStatus,
+      });
+    }
+
+    if (trendList.length === 0) {
+      logActivity('WARN', 'CRAWL', `[Google Trends RSS] Không tìm thấy xu hướng nào trong RSS feed cho ${targetGeo}.`);
+      return [];
+    }
+
+    const savedCount = saveTrendsToDatabase(trendList, targetGeo);
+    logActivity('SUCCESS', 'CRAWL', `[Google Trends RSS] Đã cào và lưu thành công ${savedCount} xu hướng cho khu vực ${targetGeo} (chống RpcError VPS).`);
+
+    return trendList;
+  } catch (err: any) {
+    logActivity('ERROR', 'CRAWL', `[Google Trends RSS] Lỗi khi cào dữ liệu qua RSS: ${err.message}`);
+    throw err;
+  }
+}
+
+/**
+ * Main crawl entry point with automatic fallback from Playwright browser to RSS feed.
+ */
+export async function crawlGoogleTrends(geo = 'VN', method?: string): Promise<TrendItem[]> {
+  if (method === 'rss') {
+    return crawlGoogleTrendsRSS(geo);
+  }
+
+  try {
+    const results = await crawlGoogleTrendsCategory3(geo);
+    if (results && results.length > 0) {
+      return results;
+    }
+    logActivity('WARN', 'CRAWL', `[Google Trends] Web UI không trả về xu hướng nào. Tự động chuyển sang Google Trends RSS...`);
+    return await crawlGoogleTrendsRSS(geo);
+  } catch (err: any) {
+    const errMsg = err?.message || String(err);
+    logActivity(
+      'WARN',
+      'CRAWL',
+      `[Google Trends] Phát hiện lỗi / chặn từ Google Trends web (${errMsg}). Tự động kích hoạt cơ chế dự phòng RSS Feed (chống RpcError VPS)...`
+    );
+    return await crawlGoogleTrendsRSS(geo);
+  }
 }
 
 export function getStoredTrends(options?: { geo?: string; category?: string; status?: string; limit?: number }): TrendItem[] {
