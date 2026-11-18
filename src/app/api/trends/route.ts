@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { crawlGoogleTrends, getStoredTrends } from '@/services/crawler';
-import { getSetting } from '@/lib/db';
+import db, { getSetting } from '@/lib/db';
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,6 +24,34 @@ export async function POST(req: NextRequest) {
 
     const trends = await crawlGoogleTrends(geo);
     return NextResponse.json({ success: true, count: trends.length, trends });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const status = searchParams.get('status');
+    const all = searchParams.get('all') === 'true';
+
+    if (id) {
+      db.prepare('DELETE FROM trends WHERE id = ?').run(id);
+      return NextResponse.json({ success: true, message: 'Đã xóa xu hướng thành công' });
+    }
+
+    if (all) {
+      db.prepare('DELETE FROM trends').run();
+      return NextResponse.json({ success: true, message: 'Đã xóa tất cả xu hướng' });
+    }
+
+    if (status) {
+      const res = db.prepare('DELETE FROM trends WHERE status = ?').run(status);
+      return NextResponse.json({ success: true, message: `Đã xóa ${res.changes} xu hướng có trạng thái ${status}` });
+    }
+
+    return NextResponse.json({ success: false, error: 'Vui lòng cung cấp id hoặc status hoặc all=true' }, { status: 400 });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }

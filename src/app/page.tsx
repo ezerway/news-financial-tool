@@ -304,6 +304,27 @@ export default function DashboardPage() {
     }
   };
 
+  // Delete trend handler
+  const handleDeleteTrend = async (trendId: string) => {
+    // Optimistic update
+    setTrends((prev) => prev.filter((t) => t.id !== trendId));
+
+    try {
+      const res = await fetch(`/api/trends/${trendId}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        showToast(data.message || 'Đã xóa xu hướng thành công!', 'success');
+        await fetchData();
+      } else {
+        showToast(`Lỗi xóa xu hướng: ${data.error || 'Không thể xóa'}`, 'error');
+        await fetchData();
+      }
+    } catch (err: any) {
+      showToast(`Lỗi kết nối: ${err.message}`, 'error');
+      await fetchData();
+    }
+  };
+
   // Publish handler
   const handlePublish = async (postId: string, force = false) => {
     setPublishingId(postId);
@@ -898,6 +919,7 @@ export default function DashboardPage() {
               onRetryAndPublish={handleRetryAndPublish}
               onPublishPost={handlePublish}
               onNavigateToPostsTab={() => setActiveTab('posts')}
+              onDeleteTrend={handleDeleteTrend}
               isCrawling={isCrawling}
               generatingId={generatingId}
               retryingId={retryingId}

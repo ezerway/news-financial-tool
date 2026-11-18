@@ -19,6 +19,7 @@ import {
   Clock,
   Image as ImageIcon,
   Video,
+  Trash2,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import { formatDateTime } from '@/lib/date';
@@ -33,6 +34,7 @@ export interface TrendPostModalProps {
   onRetryAndPublish?: (trendId: string) => Promise<void>;
   onPublishPost?: (postId: string, force?: boolean) => Promise<void>;
   onNavigateToPostsTab?: (postId?: string) => void;
+  onDeleteTrend?: (trendId: string) => Promise<void>;
   isGenerating?: boolean;
   isPublishing?: boolean;
 }
@@ -46,6 +48,7 @@ export default function TrendPostModal({
   onRetryAndPublish,
   onPublishPost,
   onNavigateToPostsTab,
+  onDeleteTrend,
   isGenerating = false,
   isPublishing = false,
 }: TrendPostModalProps) {
@@ -327,13 +330,32 @@ export default function TrendPostModal({
 
         {/* Footer Actions */}
         <div className="p-3.5 sm:p-4 border-t border-slate-200 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/40 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn btn-sm btn-secondary text-xs"
-          >
-            {lang === 'vi' ? 'Đóng' : 'Close'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-sm btn-secondary text-xs"
+            >
+              {lang === 'vi' ? 'Đóng' : 'Close'}
+            </button>
+
+            {onDeleteTrend && trend && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (confirm(lang === 'vi' ? `Bạn có chắc chắn muốn xóa bản ghi xu hướng "${trend.title}"?` : `Are you sure you want to delete trend "${trend.title}"?`)) {
+                    onClose();
+                    await onDeleteTrend(trend.id);
+                  }
+                }}
+                className="btn btn-sm btn-ghost text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs inline-flex items-center gap-1.5"
+                title={lang === 'vi' ? 'Xóa bản ghi xu hướng này' : 'Delete this trend'}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{lang === 'vi' ? 'Xóa xu hướng' : 'Delete trend'}</span>
+              </button>
+            )}
+          </div>
 
           <div className="flex items-center gap-2 flex-wrap">
             {post ? (

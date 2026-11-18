@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Eye,
   FileText,
+  Trash2,
 } from 'lucide-react';
 import Pagination from './Pagination';
 import TrendPostModal from './TrendPostModal';
@@ -31,6 +32,7 @@ interface TrendsTabProps {
   onRetryAndPublish?: (trendId?: string, allMissing?: boolean) => Promise<void>;
   onPublishPost?: (postId: string, force?: boolean) => Promise<void>;
   onNavigateToPostsTab?: (postId?: string) => void;
+  onDeleteTrend?: (trendId: string) => Promise<void>;
   isCrawling: boolean;
   generatingId: string | null;
   retryingId?: string | null;
@@ -47,6 +49,7 @@ export default function TrendsTab({
   onRetryAndPublish,
   onPublishPost,
   onNavigateToPostsTab,
+  onDeleteTrend,
   isCrawling,
   generatingId,
   retryingId,
@@ -59,6 +62,8 @@ export default function TrendsTab({
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'drafted' | 'unprocessed'>('all');
   const [expandedTrendIds, setExpandedTrendIds] = useState<Record<string, boolean>>({});
   const [searchingSourceId, setSearchingSourceId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
   const [viewingTrend, setViewingTrend] = useState<TrendItem | null>(null);
@@ -400,64 +405,113 @@ export default function TrendsTab({
 
                   {/* Right: Actions (Full-width on mobile, top-aligned on desktop) */}
                   <div className="w-full sm:w-auto shrink-0 sm:self-start pt-1 sm:pt-0">
-                    {isTrulyPublished ? (
-                      <button
-                        type="button"
-                        onClick={() => setViewingTrend(trend)}
-                        className="w-full sm:w-auto h-9 sm:h-8 px-3 rounded-lg text-xs font-semibold text-emerald-600 dark:text-emerald-400 inline-flex items-center justify-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition cursor-pointer"
-                        title={lang === 'vi' ? 'Bấm để xem bài viết' : 'Click to view post'}
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>{t('status_published')} • {lang === 'vi' ? 'Xem bài' : 'View'}</span>
-                      </button>
-                    ) : hasSourceLinks ? (
-                      <button
-                        onClick={() => onGenerate(trend.id)}
-                        disabled={isGenerating || isRetryingThis}
-                        className="btn btn-md sm:btn-sm btn-primary w-full sm:w-auto justify-center font-semibold text-xs shadow-xs active:scale-[0.98]"
-                      >
-                        <Sparkles className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
-                        <span>
-                          {isGenerating
-                            ? t('generating_post')
-                            : trend.status === 'drafted'
-                            ? (lang === 'vi' ? 'Xem / Viết lại' : 'View / Rewrite')
-                            : t('generate_post_btn')}
-                        </span>
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-1.5 w-full sm:w-auto">
-                        {onRetryAndPublish && (
+                    <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                      {isTrulyPublished ? (
+                        <button
+                          type="button"
+                          onClick={() => setViewingTrend(trend)}
+                          className="flex-1 sm:flex-initial h-9 sm:h-8 px-3 rounded-lg text-xs font-semibold text-emerald-600 dark:text-emerald-400 inline-flex items-center justify-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition cursor-pointer"
+                          title={lang === 'vi' ? 'Bấm để xem bài viết' : 'Click to view post'}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{t('status_published')} • {lang === 'vi' ? 'Xem bài' : 'View'}</span>
+                        </button>
+                      ) : hasSourceLinks ? (
+                        <button
+                          onClick={() => onGenerate(trend.id)}
+                          disabled={isGenerating || isRetryingThis}
+                          className="btn btn-md sm:btn-sm btn-primary flex-1 sm:flex-initial justify-center font-semibold text-xs shadow-xs active:scale-[0.98]"
+                        >
+                          <Sparkles className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
+                          <span>
+                            {isGenerating
+                              ? t('generating_post')
+                              : trend.status === 'drafted'
+                              ? (lang === 'vi' ? 'Xem / Viết lại' : 'View / Rewrite')
+                              : t('generate_post_btn')}
+                          </span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+                          {onRetryAndPublish && (
+                            <button
+                              onClick={() => onRetryAndPublish(trend.id)}
+                              disabled={isRetryingThis || isGenerating}
+                              className="btn btn-md sm:btn-sm btn-primary flex-1 sm:flex-initial justify-center font-semibold text-xs bg-amber-600 hover:bg-amber-700 text-white border-amber-500 shadow-xs active:scale-[0.98]"
+                              title={lang === 'vi' ? 'Tự động tìm kiếm nguồn báo chí chính thống và xuất bản lên Facebook Fanpage' : 'Find sources and publish to Facebook'}
+                            >
+                              <Zap className={`w-3.5 h-3.5 ${isRetryingThis ? 'animate-spin' : ''}`} />
+                              <span>{isRetryingThis ? t('retrying_sources_and_publish') : t('find_sources_and_publish_btn')}</span>
+                            </button>
+                          )}
+                          {onFindSources && (
+                            <button
+                              onClick={async () => {
+                                setSearchingSourceId(trend.id);
+                                try {
+                                  await onFindSources(trend.id);
+                                } finally {
+                                  setSearchingSourceId(null);
+                                }
+                              }}
+                              disabled={isSearchingSource || isRetryingThis}
+                              className="btn btn-md sm:btn-sm btn-secondary justify-center font-semibold text-xs shadow-xs active:scale-[0.98]"
+                              title={lang === 'vi' ? 'Chỉ tìm kiếm link bài báo nguồn' : 'Only find sources'}
+                            >
+                              <Search className={`w-3.5 h-3.5 ${isSearchingSource ? 'animate-spin' : ''}`} />
+                              <span className="hidden sm:inline">{isSearchingSource ? t('searching_sources') : t('find_sources_btn')}</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Delete Trend Button */}
+                      {onDeleteTrend && (
+                        confirmDeleteId === trend.id ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                setIsDeletingId(trend.id);
+                                try {
+                                  await onDeleteTrend(trend.id);
+                                } finally {
+                                  setIsDeletingId(null);
+                                  setConfirmDeleteId(null);
+                                }
+                              }}
+                              disabled={isDeletingId === trend.id}
+                              className="btn btn-sm btn-danger px-2 text-[11px] h-9 sm:h-8"
+                            >
+                              {isDeletingId === trend.id ? '...' : (t('btn_delete') || 'Xóa')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmDeleteId(null);
+                              }}
+                              className="btn btn-sm btn-secondary px-2 text-[11px] h-9 sm:h-8"
+                            >
+                              {t('btn_cancel') || 'Hủy'}
+                            </button>
+                          </div>
+                        ) : (
                           <button
-                            onClick={() => onRetryAndPublish(trend.id)}
-                            disabled={isRetryingThis || isGenerating}
-                            className="btn btn-md sm:btn-sm btn-primary flex-1 sm:flex-initial justify-center font-semibold text-xs bg-amber-600 hover:bg-amber-700 text-white border-amber-500 shadow-xs active:scale-[0.98]"
-                            title={lang === 'vi' ? 'Tự động tìm kiếm nguồn báo chí chính thống và xuất bản lên Facebook Fanpage' : 'Find sources and publish to Facebook'}
-                          >
-                            <Zap className={`w-3.5 h-3.5 ${isRetryingThis ? 'animate-spin' : ''}`} />
-                            <span>{isRetryingThis ? t('retrying_sources_and_publish') : t('find_sources_and_publish_btn')}</span>
-                          </button>
-                        )}
-                        {onFindSources && (
-                          <button
-                            onClick={async () => {
-                              setSearchingSourceId(trend.id);
-                              try {
-                                await onFindSources(trend.id);
-                              } finally {
-                                setSearchingSourceId(null);
-                              }
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDeleteId(trend.id);
                             }}
-                            disabled={isSearchingSource || isRetryingThis}
-                            className="btn btn-md sm:btn-sm btn-secondary justify-center font-semibold text-xs shadow-xs active:scale-[0.98]"
-                            title={lang === 'vi' ? 'Chỉ tìm kiếm link bài báo nguồn' : 'Only find sources'}
+                            className="h-9 w-9 sm:h-8 sm:w-8 rounded-lg inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors shrink-0"
+                            title={lang === 'vi' ? 'Xóa bản ghi xu hướng này' : 'Delete this trend'}
                           >
-                            <Search className={`w-3.5 h-3.5 ${isSearchingSource ? 'animate-spin' : ''}`} />
-                            <span className="hidden sm:inline">{isSearchingSource ? t('searching_sources') : t('find_sources_btn')}</span>
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
-                        )}
-                      </div>
-                    )}
+                        )
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -517,6 +571,7 @@ export default function TrendsTab({
         onRetryAndPublish={onRetryAndPublish}
         onPublishPost={onPublishPost}
         onNavigateToPostsTab={onNavigateToPostsTab}
+        onDeleteTrend={onDeleteTrend}
         isGenerating={!!generatingId && viewingTrend?.id === generatingId}
         isPublishing={!!publishingId && (findPostForTrend(viewingTrend!)?.id === publishingId)}
       />
