@@ -190,16 +190,42 @@ export function parseAndSaveTikTokCookies(rawCookiesInput: string): { success: b
     }
 
     const oneYearLater = Math.floor(Date.now() / 1000) + 365 * 24 * 3600;
-    const normalizedCookies = cookies.map((c: any) => ({
-      name: c.name,
-      value: c.value,
-      domain: c.domain?.startsWith('.') ? c.domain : (c.domain ? `.${c.domain.replace(/^\.+/, '')}` : '.tiktok.com'),
-      path: c.path || '/',
-      expires: typeof c.expires === 'number' ? c.expires : (c.expirationDate ? Math.floor(c.expirationDate) : oneYearLater),
-      httpOnly: Boolean(c.httpOnly),
-      secure: Boolean(c.secure ?? true),
-      sameSite: (c.sameSite === 'Strict' || c.sameSite === 'Lax' || c.sameSite === 'None') ? c.sameSite : 'None',
-    }));
+    const normalizedCookies = cookies
+      .filter((c: any) => c && c.name && c.value)
+      .map((c: any) => {
+        const name = String(c.name).trim();
+        const value = String(c.value).trim();
+        const isHostCookie = name.startsWith('__Host-');
+        const isSecure = Boolean(c.secure ?? true);
+
+        let sameSite: 'Strict' | 'Lax' | 'None' = 'Lax';
+        if (c.sameSite === 'Strict' || c.sameSite === 'Lax') {
+          sameSite = c.sameSite;
+        } else if (c.sameSite === 'None' || c.sameSite === 'no_restriction') {
+          sameSite = isSecure ? 'None' : 'Lax';
+        }
+
+        const rawDomain = c.domain ? String(c.domain).trim() : '.tiktok.com';
+        const domain = rawDomain.startsWith('.') ? rawDomain : `.${rawDomain.replace(/^\.+/, '')}`;
+        const rawExpires = typeof c.expires === 'number' ? c.expires : (c.expirationDate ? Number(c.expirationDate) : oneYearLater);
+        const expires = Math.floor(rawExpires);
+
+        const cookieObj: any = {
+          name,
+          value,
+          path: c.path || '/',
+          expires,
+          httpOnly: Boolean(c.httpOnly),
+          secure: isSecure,
+          sameSite,
+        };
+
+        if (!isHostCookie) {
+          cookieObj.domain = domain;
+        }
+
+        return cookieObj;
+      });
 
     const sessionData = {
       cookies: normalizedCookies,
@@ -237,23 +263,72 @@ export async function injectTikTokSessionCookies(context: { addCookies: (cookies
     if (!Array.isArray(cookies) || cookies.length === 0) return 0;
 
     const oneYearLater = Math.floor(Date.now() / 1000) + 365 * 24 * 3600;
-    const validCookies = cookies
-      .filter((c: any) => c.name && c.value)
-      .map((c: any) => ({
-        name: c.name,
-        value: c.value,
-        domain: c.domain?.startsWith('.') ? c.domain : (c.domain ? `.${c.domain.replace(/^\.+/, '')}` : '.tiktok.com'),
-        path: c.path || '/',
-        expires: typeof c.expires === 'number' ? c.expires : (c.expirationDate ? Math.floor(c.expirationDate) : oneYearLater),
-        httpOnly: Boolean(c.httpOnly),
-        secure: Boolean(c.secure ?? true),
-        sameSite: (c.sameSite === 'Strict' || c.sameSite === 'Lax' || c.sameSite === 'None') ? c.sameSite : 'None',
-      }));
+    const isTikTokDomain = (d?: string) => {
+      if (!d) return true;
+      const lower = d.toLowerCase();
+      return (
+        lower.includes('tiktok.com') ||
+        lower.includes('byteoversea.com') ||
+        lower.includes('ibytedtos.com') ||
+        lower.includes('tiktokcdn.com')
+      );
+    };
 
-    if (validCookies.length > 0) {
+    const validCookies = cookies
+      .filter((c: any) => c && c.name && c.value && isTikTokDomain(c.domain))
+      .map((c: any) => {
+        const name = String(c.name).trim();
+        const value = String(c.value).trim();
+        const isHostCookie = name.startsWith('__Host-');
+        const isSecure = Boolean(c.secure ?? true);
+
+        let sameSite: 'Strict' | 'Lax' | 'None' = 'Lax';
+        if (c.sameSite === 'Strict' || c.sameSite === 'Lax') {
+          sameSite = c.sameSite;
+        } else if (c.sameSite === 'None' || c.sameSite === 'no_restriction') {
+          sameSite = isSecure ? 'None' : 'Lax';
+        }
+
+        const rawDomain = c.domain ? String(c.domain).trim() : '.tiktok.com';
+        const domain = rawDomain.startsWith('.') ? rawDomain : `.${rawDomain.replace(/^\.+/, '')}`;
+        const rawExpires = typeof c.expires === 'number' ? c.expires : (c.expirationDate ? Number(c.expirationDate) : oneYearLater);
+        const expires = Math.floor(rawExpires);
+
+        const cookieObj: any = {
+          name,
+          value,
+          path: c.path || '/',
+          expires,
+          httpOnly: Boolean(c.httpOnly),
+          secure: isSecure,
+          sameSite,
+        };
+
+        if (!isHostCookie) {
+          cookieObj.domain = domain;
+        }
+
+        return cookieObj;
+      });
+
+    let loadedCount = 0;
+    // Thử nạp hàng loạt trước để tối ưu tốc độ
+    try {
       await context.addCookies(validCookies);
-      return validCookies.length;
+      loadedCount = validCookies.length;
+    } catch {
+      // Nếu có bất kỳ cookie nào lỗi định dạng, chuyển sang nạp từng cookie độc lập
+      for (const cookie of validCookies) {
+        try {
+          await context.addCookies([cookie]);
+          loadedCount++;
+        } catch {
+          // Bỏ qua cookie không hợp lệ để không ảnh hưởng đến các cookie khác
+        }
+      }
     }
+
+    return loadedCount;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     logActivity('WARN', 'AUTH', `Không thể nạp cookies TikTok từ session file: ${msg}`);

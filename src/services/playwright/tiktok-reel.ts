@@ -450,24 +450,34 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
       notify(`[Bước 7/7] Đang tự động bình luận lên video TikTok...`);
       try {
         await page.goto(tiktokVideoUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
-        await page.waitForTimeout(3000);
+        await page.waitForTimeout(4000);
         await page.keyboard.press('Escape');
         await page.waitForTimeout(500);
 
-        const commentIcon = page.locator('[data-e2e="comment-icon"]').first();
-        if (await commentIcon.isVisible({ timeout: 5000 }).catch(() => false)) {
-          await commentIcon.click();
-          await page.waitForTimeout(1500);
+        // Kiểm tra xem nút post bình luận hoặc khung soạn thảo đã mở sẵn chưa
+        let hasPostBtn = (await page.locator('[data-e2e="comment-post"]').count()) > 0;
+        if (!hasPostBtn) {
+          const commentIcon = page.locator('[data-e2e="comment-icon"]').first();
+          if ((await commentIcon.count()) > 0) {
+            try {
+              await commentIcon.click({ timeout: 5000 });
+            } catch {
+              await page.evaluate(() => {
+                const icon = document.querySelector('[data-e2e="comment-icon"]');
+                if (icon) (icon as HTMLElement).click();
+              });
+            }
+            await page.waitForTimeout(2000);
+          }
         }
 
-        const inputContainer = page.locator('[data-e2e="comment-text"]').first();
-        if (await inputContainer.isVisible({ timeout: 5000 }).catch(() => false)) {
-          await inputContainer.click({ force: true });
-          await page.waitForTimeout(500);
+        const editorSelector = '.public-DraftEditor-content, div[contenteditable="true"], [data-e2e="comment-text"]';
+        const editor = page.locator(editorSelector).first();
 
+        if (await editor.count() > 0) {
           const commentText = options.comment.trim();
           await page.evaluate((text: string) => {
-            const el = document.querySelector('.public-DraftEditor-content');
+            const el = document.querySelector('.public-DraftEditor-content') || document.querySelector('div[contenteditable="true"]');
             if (el) {
               (el as HTMLElement).focus();
               const dt = new DataTransfer();
@@ -484,15 +494,32 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
           await page.waitForTimeout(1000);
 
           const postBtn = page.locator('[data-e2e="comment-post"]').first();
-          if (await postBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+          if (await postBtn.count() > 0) {
             const isDisabled = await postBtn.isDisabled().catch(() => false);
             if (!isDisabled) {
-              await postBtn.click();
-              await page.waitForTimeout(3000);
+              try {
+                await postBtn.click({ timeout: 4000 });
+              } catch {
+                await page.evaluate(() => {
+                  const btn = document.querySelector('[data-e2e="comment-post"]');
+                  if (btn) (btn as HTMLElement).click();
+                });
+              }
+              await page.waitForTimeout(3500);
 
-              const captcha = page.locator('#captcha-verify-container-main-page, .captcha-verify-container');
-              if (await captcha.count() > 0) {
-                notify('TikTok yêu cầu giải captcha khi bình luận web. Bình luận chưa thể hoàn tất tự động.', 'WARN');
+              const isCaptcha = await page.evaluate(() => {
+                const text = (document.body?.innerText || '').toLowerCase();
+                return (
+                  text.includes('drag the slider') ||
+                  text.includes('fit the puzzle') ||
+                  text.includes('trượt thanh trượt') ||
+                  text.includes('ghép hình') ||
+                  Boolean(document.querySelector('#captcha-verify-container-main-page, .captcha-verify-container, [id*="captcha"]'))
+                );
+              });
+
+              if (isCaptcha) {
+                notify('TikTok yêu cầu giải captcha chống bot (Ghép mảnh ghép). Bình luận chưa thể hoàn tất tự động.', 'WARN');
                 commentSuccess = false;
               } else {
                 commentSuccess = true;
@@ -663,36 +690,86 @@ export async function commentTikTokVideoOnly(
     logActivity('INFO', 'COMMENT_TIKTOK', `Đang mở trình duyệt để bình luận video TikTok: ${videoUrl}`);
     context = await chromium.launchPersistentContext(userDataDir, {
       headless,
-      viewport: { width: 1280, height: 900 },
+      viewport: { width: 1440, height: 900 },
       userAgent:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       args: getChromiumLaunchArgs(['--disable-notifications', '--disable-blink-features=AutomationControlled']),
     });
 
-    await injectTikTokSessionCookies(context);
+    const loadedCookies = await injectTikTokSessionCookies(context);
+    logActivity('INFO', 'COMMENT_TIKTOK', `Đã nạp ${loadedCookies} cookies TikTok vào trình duyệt`);
+
     page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
 
     await page.goto(videoUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(4000);
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
 
-    const commentIcon = page.locator('[data-e2e="comment-icon"]').first();
-    if (await commentIcon.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await commentIcon.click();
-      await page.waitForTimeout(1500);
+    // Kiểm tra sớm nếu trang bị chặn Captcha hoặc yêu cầu đăng nhập
+    const earlyCheck = await page.evaluate(() => {
+      const text = (document.body?.innerText || '').toLowerCase();
+      if (
+        text.includes('drag the slider') ||
+        text.includes('fit the puzzle') ||
+        text.includes('trượt thanh trượt') ||
+        text.includes('ghép hình') ||
+        Boolean(document.querySelector('#captcha-verify-container-main-page, .captcha-verify-container, [id*="captcha"]'))
+      ) {
+        return { isCaptcha: true };
+      }
+      const loginModal = document.querySelector('#login-modal, [data-e2e="login-modal"]');
+      if (loginModal) {
+        return { isLogin: true };
+      }
+      return {};
+    });
+
+    if (earlyCheck.isCaptcha) {
+      logActivity('WARN', 'COMMENT_TIKTOK', 'TikTok kích hoạt xác minh Captcha chống bot (Ghép mảnh ghép).');
+      return {
+        success: false,
+        message: 'TikTok yêu cầu giải Captcha chống bot (Ghép mảnh ghép). Vui lòng đăng nhập hoặc bình luận thủ công.',
+        error: 'CAPTCHA_REQUIRED',
+      };
     }
 
-    const inputContainer = page.locator('[data-e2e="comment-text"]').first();
-    if (!await inputContainer.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (earlyCheck.isLogin) {
+      logActivity('WARN', 'COMMENT_TIKTOK', 'TikTok yêu cầu đăng nhập. Phiên cookie chưa hợp lệ.');
+      return {
+        success: false,
+        message: 'TikTok yêu cầu đăng nhập (phiên chưa được xác thực hoặc cookie đã hết hạn). Vui lòng cập nhật cookie TikTok.',
+        error: 'LOGIN_REQUIRED',
+      };
+    }
+
+    // Kiểm tra xem nút post bình luận hoặc khung soạn thảo đã mở sẵn chưa
+    let hasPostBtn = (await page.locator('[data-e2e="comment-post"]').count()) > 0;
+    if (!hasPostBtn) {
+      const commentIcon = page.locator('[data-e2e="comment-icon"]').first();
+      if ((await commentIcon.count()) > 0) {
+        try {
+          await commentIcon.click({ timeout: 5000 });
+        } catch {
+          await page.evaluate(() => {
+            const icon = document.querySelector('[data-e2e="comment-icon"]');
+            if (icon) (icon as HTMLElement).click();
+          });
+        }
+        await page.waitForTimeout(2000);
+      }
+    }
+
+    const editorSelector = '.public-DraftEditor-content, div[contenteditable="true"], [data-e2e="comment-text"]';
+    const editor = page.locator(editorSelector).first();
+
+    if ((await editor.count()) === 0) {
       throw new Error('Không tìm thấy khung nhập bình luận trên video TikTok');
     }
 
-    await inputContainer.click({ force: true });
-    await page.waitForTimeout(500);
-
+    const commentText = comment.trim();
     await page.evaluate((text: string) => {
-      const el = document.querySelector('.public-DraftEditor-content');
+      const el = document.querySelector('.public-DraftEditor-content') || document.querySelector('div[contenteditable="true"]');
       if (el) {
         (el as HTMLElement).focus();
         const dt = new DataTransfer();
@@ -704,30 +781,58 @@ export async function commentTikTokVideoOnly(
         });
         el.dispatchEvent(ev);
       }
-    }, comment.trim());
+    }, commentText);
 
     await page.waitForTimeout(1000);
 
     const postBtn = page.locator('[data-e2e="comment-post"]').first();
-    if (!await postBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if ((await postBtn.count()) === 0) {
       throw new Error('Không tìm thấy nút gửi bình luận TikTok');
     }
 
     const isDisabled = await postBtn.isDisabled().catch(() => false);
     if (isDisabled) {
-      throw new Error('Nút gửi bình luận TikTok đang bị disable');
+      // Thử gõ thêm một dấu cách nếu Draft.js chưa kịp bắt sự kiện
+      await editor.focus().catch(() => {});
+      await page.keyboard.type(' ').catch(() => {});
+      await page.waitForTimeout(500);
+
+      const stillDisabled = await postBtn.isDisabled().catch(() => false);
+      if (stillDisabled) {
+        throw new Error('Nút gửi bình luận TikTok đang bị disable');
+      }
     }
 
-    await postBtn.click();
-    await page.waitForTimeout(3000);
+    // Nhấp nút gửi bình luận với cơ chế dự phòng evaluate để tránh timeout khi có overlay
+    try {
+      await postBtn.click({ timeout: 4000 });
+    } catch {
+      await page.evaluate(() => {
+        const btn = document.querySelector('[data-e2e="comment-post"]');
+        if (btn) (btn as HTMLElement).click();
+      });
+    }
 
-    const captcha = page.locator('#captcha-verify-container-main-page, .captcha-verify-container');
-    if (await captcha.count() > 0) {
-      logActivity('WARN', 'COMMENT_TIKTOK', 'TikTok yêu cầu giải captcha khi bình luận web. Bình luận chưa thể hoàn tất tự động.');
+    await page.waitForTimeout(3500);
+
+    // Kiểm tra xem sau khi click có xuất hiện captcha chống bot không
+    const isCaptchaAfter = await page.evaluate(() => {
+      const text = (document.body?.innerText || '').toLowerCase();
+      return (
+        text.includes('drag the slider') ||
+        text.includes('fit the puzzle') ||
+        text.includes('trượt thanh trượt') ||
+        text.includes('ghép hình') ||
+        Boolean(document.querySelector('#captcha-verify-container-main-page, .captcha-verify-container, [id*="captcha"]'))
+      );
+    });
+
+    if (isCaptchaAfter) {
+      logActivity('WARN', 'COMMENT_TIKTOK', 'TikTok yêu cầu giải Captcha chống bot (Ghép mảnh ghép/Slider Puzzle) khi gửi bình luận.');
       return {
         success: false,
-        message: 'TikTok yêu cầu giải captcha chống bot. Vui lòng mở trình duyệt đăng nhập hoặc bình luận thủ công.',
-        error: 'CAPTCHA_REQUIRED'
+        message: 'TikTok yêu cầu giải Captcha chống bot (Ghép mảnh ghép). Vui lòng xác thực tài khoản hoặc bình luận thủ công.',
+        error: 'CAPTCHA_REQUIRED',
       };
     }
 
