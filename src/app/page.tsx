@@ -55,6 +55,8 @@ export default function DashboardPage() {
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [publishingReelId, setPublishingReelId] = useState<string | null>(null);
   const [publishingTikTokId, setPublishingTikTokId] = useState<string | null>(null);
+  const [commentingReelId, setCommentingReelId] = useState<string | null>(null);
+  const [commentingTikTokId, setCommentingTikTokId] = useState<string | null>(null);
   const [commentingId, setCommentingId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isFbModalOpen, setIsFbModalOpen] = useState(false);
@@ -702,6 +704,54 @@ export default function DashboardPage() {
     }
   };
 
+  const handleCommentReel = async (reelId: string) => {
+    setCommentingReelId(reelId);
+    showToast('Đang mở Playwright để gửi bình luận vào Reel Facebook...', 'info');
+    try {
+      const res = await fetch(`/api/reels/${reelId}/comment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        showToast('Đã gửi bình luận vào Reel Facebook thành công!', 'success');
+        await fetchData(true);
+      } else {
+        showToast(`Lỗi bình luận Reel: ${resData.error || resData.message}`, 'error');
+        await fetchData(true);
+      }
+    } catch (err: any) {
+      showToast(`Lỗi kết nối bình luận Reel: ${err.message}`, 'error');
+      await fetchData(true);
+    } finally {
+      setCommentingReelId(null);
+    }
+  };
+
+  const handleCommentTikTokReel = async (reelId: string) => {
+    setCommentingTikTokId(reelId);
+    showToast('Đang mở Playwright để gửi bình luận vào video TikTok...', 'info');
+    try {
+      const res = await fetch(`/api/reels/${reelId}/comment-tiktok`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        showToast('Đã gửi bình luận vào video TikTok thành công!', 'success');
+        await fetchData(true);
+      } else {
+        showToast(`Lỗi bình luận TikTok: ${resData.error || resData.message}`, 'error');
+        await fetchData(true);
+      }
+    } catch (err: any) {
+      showToast(`Lỗi kết nối bình luận TikTok: ${err.message}`, 'error');
+      await fetchData(true);
+    } finally {
+      setCommentingTikTokId(null);
+    }
+  };
+
   const handleConnectFb = (url?: string) => {
     setFbTargetUrlForModal(url);
     setIsFbModalOpen(true);
@@ -954,6 +1004,10 @@ export default function DashboardPage() {
               onCreateReel={handleCreateReel}
               publishingReelId={publishingReelId}
               publishingTikTokId={publishingTikTokId}
+              onCommentReel={handleCommentReel}
+              commentingReelId={commentingReelId}
+              onCommentTikTokReel={handleCommentTikTokReel}
+              commentingTikTokId={commentingTikTokId}
             />
           )}
 

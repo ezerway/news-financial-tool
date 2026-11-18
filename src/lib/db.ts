@@ -157,6 +157,9 @@ export function initSchema(database: Database.Database) {
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN comment_status TEXT DEFAULT 'idle'`);
   } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN tiktok_comment_status TEXT DEFAULT 'idle'`);
+  } catch {}
 
   // Insert default settings if not exists
   try {

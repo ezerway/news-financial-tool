@@ -26,6 +26,7 @@ import {
   Video,
   Image as ImageIcon,
   Download,
+  MessageSquare,
 } from 'lucide-react';
 import { formatDateTime, formatDateDDMMYYYY, replaceDateWildcards } from '@/lib/date';
 import Pagination from './Pagination';
@@ -52,6 +53,10 @@ interface ReelsTabProps {
   }) => Promise<void>;
   publishingReelId: string | null;
   publishingTikTokId?: string | null;
+  onCommentReel?: (reelId: string) => Promise<void>;
+  commentingReelId?: string | null;
+  onCommentTikTokReel?: (reelId: string) => Promise<void>;
+  commentingTikTokId?: string | null;
 }
 
 export default function ReelsTab({
@@ -64,6 +69,10 @@ export default function ReelsTab({
   onCreateReel,
   publishingReelId,
   publishingTikTokId,
+  onCommentReel,
+  commentingReelId,
+  onCommentTikTokReel,
+  commentingTikTokId,
 }: ReelsTabProps) {
   const { t, lang, theme } = useI18n();
 
@@ -634,23 +643,42 @@ export default function ReelsTab({
                       <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
                         💬 {lang === 'vi' ? 'Bình luận tự động' : 'Auto Comment'}
                       </span>
-                      {reel.comment_status && (
-                        <span
-                          className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
-                            reel.comment_status === 'commented'
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {reel.comment_status && (
+                          <span
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                              reel.comment_status === 'commented'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                : reel.comment_status === 'failed'
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+                            }`}
+                          >
+                            {reel.comment_status === 'commented'
+                              ? (lang === 'vi' ? '✓ FB: Đã bình luận' : '✓ FB: Commented')
                               : reel.comment_status === 'failed'
-                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                              : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
-                          }`}
-                        >
-                          {reel.comment_status === 'commented'
-                            ? (lang === 'vi' ? '✓ Đã bình luận' : '✓ Commented')
-                            : reel.comment_status === 'failed'
-                            ? (lang === 'vi' ? '✗ Lỗi bình luận' : '✗ Failed')
-                            : (lang === 'vi' ? '○ Chờ bình luận' : '○ Pending')}
-                        </span>
-                      )}
+                              ? (lang === 'vi' ? '✗ FB: Lỗi' : '✗ FB: Failed')
+                              : (lang === 'vi' ? '○ FB: Chờ' : '○ FB: Pending')}
+                          </span>
+                        )}
+                        {reel.tiktok_status === 'published' && reel.tiktok_comment_status && (
+                          <span
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                              reel.tiktok_comment_status === 'commented'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                : reel.tiktok_comment_status === 'failed'
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+                            }`}
+                          >
+                            {reel.tiktok_comment_status === 'commented'
+                              ? (lang === 'vi' ? '✓ TT: Đã bình luận' : '✓ TT: Commented')
+                              : reel.tiktok_comment_status === 'failed'
+                              ? (lang === 'vi' ? '✗ TT: Lỗi' : '✗ TT: Failed')
+                              : (lang === 'vi' ? '○ TT: Chờ' : '○ TT: Pending')}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-xs text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
                       {reel.comment_content}
@@ -722,6 +750,58 @@ export default function ReelsTab({
                       <Edit3 className="w-3.5 h-3.5" />
                       <span>{reel.status === 'scheduled' ? t('btn_reschedule') : t('btn_edit')}</span>
                     </button>
+
+                    {/* Manual Comment Button */}
+                    {reel.status === 'published' && onCommentReel && (
+                      <button
+                        onClick={() => onCommentReel(reel.id)}
+                        disabled={isPublishingThis || isPublishingTikTokThis || commentingReelId === reel.id}
+                        className="btn btn-sm btn-secondary text-xs inline-flex items-center gap-1.5"
+                        title={lang === 'vi' ? 'Gửi bình luận vào Reel Facebook' : 'Comment on Facebook Reel'}
+                      >
+                        {commentingReelId === reel.id ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>{lang === 'vi' ? 'Đang gửi...' : 'Commenting...'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <MessageSquare className="w-3.5 h-3.5 text-indigo-500" />
+                            <span>
+                              {reel.comment_status === 'commented'
+                                ? (lang === 'vi' ? 'Bình luận lại FB' : 'Re-comment FB')
+                                : (lang === 'vi' ? 'Bình luận FB' : 'Comment FB')}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {/* Manual Comment TikTok Button */}
+                    {reel.tiktok_status === 'published' && onCommentTikTokReel && (
+                      <button
+                        onClick={() => onCommentTikTokReel(reel.id)}
+                        disabled={isPublishingThis || isPublishingTikTokThis || commentingTikTokId === reel.id}
+                        className="btn btn-sm btn-secondary text-xs inline-flex items-center gap-1.5"
+                        title={lang === 'vi' ? 'Gửi bình luận vào video TikTok' : 'Comment on TikTok video'}
+                      >
+                        {commentingTikTokId === reel.id ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>{lang === 'vi' ? 'Đang gửi...' : 'Commenting...'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <MessageSquare className="w-3.5 h-3.5 text-rose-500" />
+                            <span>
+                              {reel.tiktok_comment_status === 'commented'
+                                ? (lang === 'vi' ? 'Bình luận lại TT' : 'Re-comment TT')
+                                : (lang === 'vi' ? 'Bình luận TT' : 'Comment TT')}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    )}
 
                     {/* View on Facebook Link if available */}
                     {reel.fb_post_url && (

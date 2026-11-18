@@ -1,8 +1,8 @@
 import path from 'path';
 import fs from 'fs';
 import db, { logActivity, resolveHeadless, isTikTokAutoPostEnabled } from '@/lib/db';
-import { uploadFacebookReel, PostReelResult } from '@/services/playwright/fb-reel';
-import { uploadTikTokVideo, PostTikTokResult } from '@/services/playwright/tiktok-reel';
+import { uploadFacebookReel, commentFacebookReelOnly, PostReelResult } from '@/services/playwright/fb-reel';
+import { uploadTikTokVideo, commentTikTokVideoOnly, PostTikTokResult } from '@/services/playwright/tiktok-reel';
 import { sendServerPushNotification } from './notifications';
 import { ReelItem } from '@/types';
 
@@ -255,19 +255,24 @@ export async function publishReelById(
             reelId: reel.id,
             filePath: reel.video_path,
             content: reel.caption || '',
+            comment: reel.comment_content || '',
             headless,
           });
 
           if (ttResult.success) {
+            const ttCommentStatus = reel.comment_content
+              ? (ttResult.commentSuccess ? 'commented' : 'failed')
+              : (reel.tiktok_comment_status || 'idle');
             db.prepare(`
               UPDATE reels 
               SET tiktok_post_url = ?, 
                   tiktok_status = 'published', 
+                  tiktok_comment_status = ?,
                   tiktok_debug_video_path = ?,
                   tiktok_screenshot_path = NULL,
                   tiktok_error_message = NULL 
               WHERE id = ?
-            `).run(ttResult.tiktokUrl || null, ttResult.debugVideoPath || null, id);
+            `).run(ttResult.tiktokUrl || null, ttCommentStatus, ttResult.debugVideoPath || null, id);
             logActivity('SUCCESS', 'POST_TIKTOK', `[TikTok] Đã xuất bản video TikTok thành công: ${reel.video_filename} ${ttResult.tiktokUrl ? `(Link: ${ttResult.tiktokUrl})` : ''}`);
 
             // Gửi push notification khi video TikTok xuất bản thành công
@@ -379,19 +384,24 @@ export async function publishTikTokReelById(
       reelId: reel.id,
       filePath: reel.video_path,
       content: reel.caption || '',
+      comment: reel.comment_content || '',
       headless,
     });
 
     if (result.success) {
+      const ttCommentStatus = reel.comment_content
+        ? (result.commentSuccess ? 'commented' : 'failed')
+        : (reel.tiktok_comment_status || 'idle');
       db.prepare(`
         UPDATE reels 
         SET tiktok_post_url = ?, 
             tiktok_status = 'published', 
+            tiktok_comment_status = ?,
             tiktok_debug_video_path = ?,
             tiktok_screenshot_path = NULL,
             tiktok_error_message = NULL 
         WHERE id = ?
-      `).run(result.tiktokUrl || null, result.debugVideoPath || null, id);
+      `).run(result.tiktokUrl || null, ttCommentStatus, result.debugVideoPath || null, id);
       logActivity(
         'SUCCESS',
         'POST_TIKTOK',
@@ -518,6 +528,93 @@ export async function processScheduledReels(): Promise<{
   }
 
   return { processed, successful, failed };
+}
+
+/**
+ * Thực hiện bình luận thủ công hoặc chạy lại bình luận cho Reel đã xuất bản
+ */
+export async function postCommentToReel(
+  id: string,
+  customComment?: string
+): Promise<{ success: boolean; message: string; error?: string }> {
+  const reel = getReelById(id);
+  if (!reel) {
+    return { success: false, message: 'Reel không tồn tại' };
+  }
+
+  const commentToPost = customComment || reel.comment_content;
+  if (!commentToPost) {
+    return { success: false, message: 'Reel chưa có nội dung bình luận' };
+  }
+
+  if (!reel.fb_post_url) {
+    return { success: false, message: 'Reel chưa có liên kết Facebook để bình luận' };
+  }
+
+  const result = await commentFacebookReelOnly({
+    reelUrl: reel.fb_post_url,
+    comment: commentToPost,
+  });
+
+  if (result.success) {
+    db.prepare(`
+      UPDATE reels
+      SET comment_content = ?,
+          comment_status = 'commented',
+          fb_post_url = COALESCE(?, fb_post_url)
+      WHERE id = ?
+    `).run(commentToPost, result.realReelUrl || null, id);
+
+    logActivity('SUCCESS', 'COMMENT', `Bình luận thành công cho Reel [${id}]: ${commentToPost}`);
+    return { success: true, message: 'Đã gửi bình luận thành công cho Reel!' };
+  } else {
+    db.prepare(`UPDATE reels SET comment_status = 'failed' WHERE id = ?`).run(id);
+    logActivity('WARN', 'COMMENT', `Bình luận cho Reel [${id}] thất bại: ${result.error}`);
+    return { success: false, message: result.error || 'Bình luận thất bại', error: result.error };
+  }
+}
+
+/**
+ * Thực hiện bình luận thủ công hoặc chạy lại bình luận cho video TikTok
+ */
+export async function postCommentToTikTokReel(
+  id: string,
+  customComment?: string
+): Promise<{ success: boolean; message: string; error?: string }> {
+  const reel = getReelById(id);
+  if (!reel) {
+    return { success: false, message: 'Reel không tồn tại' };
+  }
+
+  const commentToPost = customComment || reel.comment_content;
+  if (!commentToPost) {
+    return { success: false, message: 'Reel chưa có nội dung bình luận' };
+  }
+
+  if (!reel.tiktok_post_url) {
+    return { success: false, message: 'Video chưa có liên kết TikTok để bình luận' };
+  }
+
+  const result = await commentTikTokVideoOnly(
+    reel.tiktok_post_url,
+    commentToPost
+  );
+
+  if (result.success) {
+    db.prepare(`
+      UPDATE reels
+      SET comment_content = ?,
+          tiktok_comment_status = 'commented'
+      WHERE id = ?
+    `).run(commentToPost, id);
+
+    logActivity('SUCCESS', 'COMMENT_TIKTOK', `Bình luận thành công cho video TikTok [${id}]: ${commentToPost}`);
+    return { success: true, message: 'Đã gửi bình luận thành công cho video TikTok!' };
+  } else {
+    db.prepare(`UPDATE reels SET tiktok_comment_status = 'failed' WHERE id = ?`).run(id);
+    logActivity('WARN', 'COMMENT_TIKTOK', `Bình luận cho video TikTok [${id}] thất bại: ${result.error || result.message}`);
+    return { success: false, message: result.message || 'Bình luận TikTok thất bại', error: result.error };
+  }
 }
 
 // Background scheduler singleton in Node.js runtime
