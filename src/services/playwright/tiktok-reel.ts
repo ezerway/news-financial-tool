@@ -280,7 +280,7 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
     const soundBtnsCount = await soundBtns.count();
 
     if (soundBtnsCount) {
-      const muteBtn = soundBtnsCount.nth(0);
+      const muteBtn = soundBtns.nth(0);
       await muteBtn.click();
     }
 
