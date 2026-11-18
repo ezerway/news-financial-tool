@@ -44,6 +44,24 @@ export function cleanStaleChromeLocks(userDataDir: string = getUserDataDir()): v
         }
       } catch {}
     }
+
+    // Clean up stale orphan 0-byte SQLite journal and lock files in Default directory
+    // which cause Chromium to report: "Something went wrong when opening your profile"
+    const defaultDir = path.join(/*turbopackIgnore: true*/ userDataDir, 'Default');
+    if (fs.existsSync(/*turbopackIgnore: true*/ defaultDir)) {
+      const entries = fs.readdirSync(/*turbopackIgnore: true*/ defaultDir);
+      for (const entry of entries) {
+        if (entry.endsWith('-journal') || entry === 'LOCK') {
+          const filePath = path.join(/*turbopackIgnore: true*/ defaultDir, entry);
+          try {
+            const stat = fs.statSync(/*turbopackIgnore: true*/ filePath);
+            if (stat.size === 0) {
+              fs.unlinkSync(/*turbopackIgnore: true*/ filePath);
+            }
+          } catch {}
+        }
+      }
+    }
   } catch {}
 }
 

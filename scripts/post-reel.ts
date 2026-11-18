@@ -179,7 +179,7 @@ async function main() {
       filePath: selectedFilePath,
       content: selectedContent,
       headless: effectiveHeadless,
-      keepOpen: !effectiveHeadless,
+      keepOpen: false,
     });
 
     if (result.success) {
