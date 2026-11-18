@@ -16,10 +16,28 @@ for (const file of lockFiles) {
   } catch {}
 }
 
-console.log('[Xvfb] Khởi chạy màn hình ảo :99 (1280x800x24) cho Playwright...');
-const xvfb = spawn('Xvfb', [':99', '-screen', '0', '1280x800x24', '-ac'], {
+console.log('[Xvfb] Khởi chạy màn hình ảo :99 (1440x900x24) cho Playwright...');
+const xvfb = spawn('Xvfb', [':99', '-screen', '0', '1440x900x24', '-ac'], {
   stdio: 'inherit',
 });
+
+let vncProcess = null;
+
+// Khởi chạy x11vnc để hỗ trợ kết nối tương tác trực tiếp
+setTimeout(() => {
+  console.log('[x11vnc] Khởi chạy VNC Server trên cổng 5900 cho màn hình :99...');
+  vncProcess = spawn(
+    'x11vnc',
+    ['-display', ':99', '-forever', '-shared', '-rfbport', '5900', '-localhost', '-nopw'],
+    {
+      stdio: 'ignore',
+    }
+  );
+
+  vncProcess.on('error', (err) => {
+    console.warn('[x11vnc] Cảnh báo x11vnc:', err.message);
+  });
+}, 1500);
 
 xvfb.on('error', (err) => {
   console.warn('[Xvfb] Cảnh báo: Không thể khởi chạy Xvfb. Hãy đảm bảo đã cài đặt (sudo apt install -y xvfb):', err.message);
@@ -29,15 +47,24 @@ xvfb.on('error', (err) => {
 
 xvfb.on('exit', (code) => {
   console.log('[Xvfb] Tiến trình Xvfb kết thúc với mã:', code);
+  if (vncProcess) {
+    try { vncProcess.kill('SIGTERM'); } catch {}
+  }
   process.exit(code || 0);
 });
 
 process.on('SIGTERM', () => {
+  if (vncProcess) {
+    try { vncProcess.kill('SIGTERM'); } catch {}
+  }
   try { xvfb.kill('SIGTERM'); } catch {}
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
+  if (vncProcess) {
+    try { vncProcess.kill('SIGINT'); } catch {}
+  }
   try { xvfb.kill('SIGINT'); } catch {}
   process.exit(0);
 });
