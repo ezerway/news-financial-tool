@@ -27,6 +27,7 @@ export interface PostTikTokResult {
   filePath: string;
   tiktokUrl?: string;
   commentSuccess?: boolean;
+  commentError?: string;
   error?: string;
   screenshotPath?: string;
   debugVideoPath?: string;
@@ -649,6 +650,7 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
   let context: any = null;
   let page: any = null;
   let video: any = null;
+  let tiktokVideoUrl: string | undefined = undefined;
 
   try {
     notify(`Bắt đầu tiến trình tải video lên TikTok (headless: ${headless})...`);
@@ -976,7 +978,7 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
     await page.goto('https://www.tiktok.com/tiktokstudio/content', { waitUntil: 'domcontentloaded', timeout: 45000 });
     await page.waitForTimeout(5000);
 
-    let tiktokVideoUrl: string | undefined = undefined;
+    tiktokVideoUrl = undefined;
     const cleanMatchText = finalCaption.replace(/#\S+/g, '').trim().toLowerCase().slice(0, 25);
     const cleanFileName = path.basename(resolvedPath, path.extname(resolvedPath)).toLowerCase().slice(0, 20);
 
@@ -1023,10 +1025,30 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
     }
 
     let commentSuccess: boolean | undefined = undefined;
+    let commentErrorMsg: string | undefined = undefined;
+    let commentScreenshotFileName: string | undefined = undefined;
+
     if (options.comment && options.comment.trim()) {
       notify(`[Bước 7/7] Đang tự động bình luận lên video TikTok qua TikTok Studio...`);
-      const commentRes = await postCommentsOnTikTokStudio(page, options.comment, notify, tiktokVideoUrl, true);
-      commentSuccess = commentRes.success;
+      try {
+        const commentRes = await postCommentsOnTikTokStudio(page, options.comment, notify, tiktokVideoUrl, true);
+        commentSuccess = commentRes.success;
+        if (!commentRes.success) {
+          commentErrorMsg = commentRes.error || 'Bình luận TikTok thất bại';
+        }
+      } catch (cmtErr: any) {
+        commentSuccess = false;
+        commentErrorMsg = cmtErr?.message || String(cmtErr);
+        notify(`Lỗi khi bình luận TikTok: ${commentErrorMsg}`, 'WARN');
+
+        if (page && !page.isClosed()) {
+          try {
+            await page.screenshot({ path: screenshotFullPath, fullPage: false }).catch(() => { });
+            commentScreenshotFileName = screenshotFileName;
+            notify(`Đã lưu ảnh chụp lỗi bình luận TikTok tại: ${screenshotFileName}`);
+          } catch { }
+        }
+      }
     }
 
     // Đóng tất cả pages để Playwright flush và hoàn tất video artifact
@@ -1070,11 +1092,13 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
     return {
       success: true,
       message: tiktokVideoUrl
-        ? `Đã xuất bản video TikTok thành công! Link: ${tiktokVideoUrl}`
+        ? `Đã xuất bản video TikTok thành công! Link: ${tiktokVideoUrl}${commentSuccess === false ? ` (Lỗi bình luận: ${commentErrorMsg})` : ''}`
         : 'Đã xuất bản video TikTok thành công!',
       filePath: resolvedPath,
       tiktokUrl: tiktokVideoUrl,
       commentSuccess,
+      commentError: commentErrorMsg,
+      screenshotPath: commentScreenshotFileName,
       debugVideoPath: savedVideoFileName,
     };
   } catch (error: any) {
@@ -1123,6 +1147,7 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
       success: false,
       message: `Đăng TikTok thất bại: ${errMsg}`,
       filePath: resolvedPath,
+      tiktokUrl: tiktokVideoUrl,
       error: errMsg,
       screenshotPath: savedScreenshotFileName,
       debugVideoPath: savedVideoFileName,
@@ -1189,6 +1214,7 @@ export async function commentTikTokVideoOnly(
   let context: any = null;
   let page: any = null;
   let video: any = null;
+  let tiktokVideoUrl: string | undefined = undefined;
 
   try {
     logActivity('INFO', 'COMMENT_TIKTOK', `Đang mở trình duyệt để bình luận video TikTok: ${videoUrl}`);

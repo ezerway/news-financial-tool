@@ -422,20 +422,32 @@ export async function publishTikTokReelById(
       const ttCommentStatus = reel.comment_content
         ? (result.commentSuccess ? 'commented' : 'failed')
         : (reel.tiktok_comment_status || 'idle');
+
+      const ttErrorMsg = result.commentSuccess === false && result.commentError
+        ? `Lỗi bình luận: ${result.commentError}`
+        : null;
+
       db.prepare(`
         UPDATE reels 
         SET tiktok_post_url = ?, 
             tiktok_status = 'published', 
             tiktok_comment_status = ?,
             tiktok_debug_video_path = ?,
-            tiktok_screenshot_path = NULL,
-            tiktok_error_message = NULL 
+            tiktok_screenshot_path = ?,
+            tiktok_error_message = ? 
         WHERE id = ?
-      `).run(result.tiktokUrl || null, ttCommentStatus, result.debugVideoPath || null, id);
+      `).run(
+        result.tiktokUrl || null,
+        ttCommentStatus,
+        result.debugVideoPath || null,
+        result.screenshotPath || null,
+        ttErrorMsg,
+        id
+      );
       logActivity(
         'SUCCESS',
         'POST_TIKTOK',
-        `Xuất bản video TikTok thành công: ${reel.video_filename} ${result.tiktokUrl ? `(Link: ${result.tiktokUrl})` : ''}`
+        `Xuất bản video TikTok thành công: ${reel.video_filename} ${result.tiktokUrl ? `(Link: ${result.tiktokUrl})` : ''}${result.commentSuccess === false ? ` [Bình luận thất bại: ${result.commentError || 'Không rõ lỗi'}]` : ''}`
       );
 
       // Gửi push notification khi video TikTok xuất bản thành công
@@ -452,11 +464,12 @@ export async function publishTikTokReelById(
       db.prepare(`
         UPDATE reels 
         SET tiktok_status = 'failed', 
+            tiktok_post_url = COALESCE(?, tiktok_post_url),
             tiktok_debug_video_path = ?,
             tiktok_screenshot_path = ?,
             tiktok_error_message = ? 
         WHERE id = ?
-      `).run(result.debugVideoPath || null, result.screenshotPath || null, errorMsg, id);
+      `).run(result.tiktokUrl || null, result.debugVideoPath || null, result.screenshotPath || null, errorMsg, id);
       logActivity('WARN', 'POST_TIKTOK', `Xuất bản video TikTok thất bại: ${errorMsg}`);
 
       // Gửi push notification khi video TikTok thất bại
