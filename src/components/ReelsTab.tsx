@@ -822,20 +822,20 @@ export default function ReelsTab({
                         <button
                           onClick={() => onPublishReel(reel.id)}
                           disabled={isPublishingThis || isPublishingTikTokThis}
-                          className="flex-1 btn btn-xs btn-primary text-xs py-1 inline-flex items-center justify-center gap-1"
+                          className="flex-1 min-w-0 btn btn-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs py-1.5 inline-flex items-center justify-center gap-1 rounded-lg border border-blue-500 shadow-2xs active:scale-[0.98] transition-all"
                           title={t('publish_reel_tooltip')}
                         >
                           {isPublishingThis ? (
                             <>
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              <span>{t('reel_status_publishing')}</span>
+                              <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                              <span className="truncate">{t('reel_status_publishing')}</span>
                             </>
                           ) : (
                             <>
-                              <Send className="w-3 h-3" />
-                              <span>
+                              <Send className="w-3 h-3 shrink-0" />
+                              <span className="truncate">
                                 {reel.status === 'published'
-                                  ? (lang === 'vi' ? 'Đăng lại FB' : 'Republish FB')
+                                  ? (lang === 'vi' ? 'Đăng lại' : 'Republish')
                                   : (lang === 'vi' ? 'Đăng FB' : 'Post FB')}
                               </span>
                             </>
@@ -846,18 +846,18 @@ export default function ReelsTab({
                           <button
                             onClick={() => onCommentReel(reel.id)}
                             disabled={isPublishingThis || isPublishingTikTokThis || commentingReelId === reel.id}
-                            className="btn btn-xs btn-secondary text-xs py-1 inline-flex items-center gap-1 shrink-0"
+                            className="flex-1 min-w-0 btn btn-xs text-xs py-1.5 inline-flex items-center justify-center gap-1 rounded-lg font-semibold border border-blue-300 dark:border-blue-700/70 bg-white hover:bg-blue-50 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
                             title={lang === 'vi' ? 'Gửi bình luận vào Reel Facebook' : 'Comment on Facebook Reel'}
                           >
                             {commentingReelId === reel.id ? (
                               <>
-                                <Loader2 className="w-3 h-3 animate-spin text-indigo-500" />
-                                <span>{lang === 'vi' ? 'Gửi...' : 'Commenting...'}</span>
+                                <Loader2 className="w-3 h-3 animate-spin text-blue-500 shrink-0" />
+                                <span className="truncate">{lang === 'vi' ? 'Gửi...' : 'Commenting...'}</span>
                               </>
                             ) : (
                               <>
-                                <MessageSquare className="w-3 h-3 text-indigo-500" />
-                                <span>
+                                <MessageSquare className="w-3 h-3 text-blue-600 dark:text-blue-400 shrink-0" />
+                                <span className="truncate">
                                   {reel.comment_status === 'commented'
                                     ? (lang === 'vi' ? 'Bình luận lại' : 'Re-comment')
                                     : (lang === 'vi' ? 'Bình luận' : 'Comment')}
@@ -915,20 +915,20 @@ export default function ReelsTab({
                           <button
                             onClick={() => onPublishTikTok(reel.id)}
                             disabled={isPublishingThis || isPublishingTikTokThis}
-                            className="flex-1 btn btn-xs bg-rose-600 hover:bg-rose-700 text-white border-rose-500 text-xs py-1 inline-flex items-center justify-center gap-1 font-semibold cursor-pointer active:scale-[0.98]"
+                            className="flex-1 min-w-0 btn btn-xs bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs py-1.5 inline-flex items-center justify-center gap-1 rounded-lg border border-rose-500 shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
                             title={lang === 'vi' ? 'Xuất bản video lên TikTok' : 'Publish video to TikTok'}
                           >
                             {isPublishingTikTokThis ? (
                               <>
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                                <span>TikTok...</span>
+                                <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                                <span className="truncate">TikTok...</span>
                               </>
                             ) : (
                               <>
-                                <TikTokIcon className="w-3 h-3" />
-                                <span>
+                                <TikTokIcon className="w-3 h-3 shrink-0" />
+                                <span className="truncate">
                                   {reel.tiktok_status === 'published'
-                                    ? (lang === 'vi' ? 'Đăng lại TT' : 'Republish TT')
+                                    ? (lang === 'vi' ? 'Đăng lại' : 'Republish')
                                     : (lang === 'vi' ? 'Đăng TikTok' : 'Post TikTok')}
                                 </span>
                               </>
@@ -940,18 +940,18 @@ export default function ReelsTab({
                           <button
                             onClick={() => onCommentTikTokReel(reel.id)}
                             disabled={isPublishingThis || isPublishingTikTokThis || commentingTikTokId === reel.id}
-                            className="btn btn-xs btn-secondary text-xs py-1 inline-flex items-center gap-1 shrink-0"
+                            className="flex-1 min-w-0 btn btn-xs text-xs py-1.5 inline-flex items-center justify-center gap-1 rounded-lg font-semibold border border-rose-300 dark:border-rose-700/70 bg-white hover:bg-rose-50 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
                             title={lang === 'vi' ? 'Gửi bình luận vào video TikTok' : 'Comment on TikTok video'}
                           >
                             {commentingTikTokId === reel.id ? (
                               <>
-                                <Loader2 className="w-3 h-3 animate-spin text-rose-500" />
-                                <span>{lang === 'vi' ? 'Gửi...' : 'Commenting...'}</span>
+                                <Loader2 className="w-3 h-3 animate-spin text-rose-500 shrink-0" />
+                                <span className="truncate">{lang === 'vi' ? 'Gửi...' : 'Commenting...'}</span>
                               </>
                             ) : (
                               <>
-                                <MessageSquare className="w-3 h-3 text-rose-500" />
-                                <span>
+                                <MessageSquare className="w-3 h-3 text-rose-600 dark:text-rose-400 shrink-0" />
+                                <span className="truncate">
                                   {reel.tiktok_comment_status === 'commented'
                                     ? (lang === 'vi' ? 'Bình luận lại' : 'Re-comment')
                                     : (lang === 'vi' ? 'Bình luận' : 'Comment')}
