@@ -335,6 +335,60 @@ export async function uploadFacebookReel(
       await page.waitForTimeout(2000);
     }
 
+    // Helper tắt âm thanh gốc cho Reel Facebook:
+    // Click vào [aria-label="Change volume"] sau đó click 20 lần vào [aria-label="Decrease volume"]
+    const muteOriginalAudioIfPresent = async (stageDescription: string): Promise<boolean> => {
+      if (!page) return false;
+      const activePage = page;
+
+      try {
+        notify(`Kiểm tra nút [aria-label="Change volume"] (${stageDescription})...`);
+
+        // Ưu tiên tìm Change volume trong vùng Original audio / Âm thanh gốc nếu có, hoặc lấy phần tử đầu tiên
+        let changeVolBtn = activePage.locator('div:has-text("Original audio"), div:has-text("Âm thanh gốc")')
+          .locator('[aria-label="Change volume"]')
+          .first();
+
+        if ((await changeVolBtn.count()) === 0 || !(await changeVolBtn.isVisible().catch(() => false))) {
+          changeVolBtn = activePage.locator('[aria-label="Change volume"]').first();
+        }
+
+        const isChangeVolVisible = await changeVolBtn.isVisible({ timeout: 4000 }).catch(() => false);
+        if (!isChangeVolVisible) {
+          return false;
+        }
+
+        notify('Tìm thấy [aria-label="Change volume"]. Đang click để mở thanh âm lượng...');
+        await changeVolBtn.scrollIntoViewIfNeeded().catch(() => { });
+        await changeVolBtn.click();
+        await activePage.waitForTimeout(600);
+
+        // Tìm nút Decrease volume
+        const decreaseVolBtn = activePage.locator('[aria-label="Decrease volume"]').first();
+        const isDecreaseVisible = await decreaseVolBtn.isVisible({ timeout: 5000 }).catch(() => false);
+
+        if (!isDecreaseVisible) {
+          notify('Không tìm thấy nút [aria-label="Decrease volume"] sau khi click Change volume.', 'WARN');
+          return false;
+        }
+
+        notify('Bắt đầu click 20 lần vào [aria-label="Decrease volume"] để tắt âm gốc...');
+        for (let i = 1; i <= 20; i++) {
+          await decreaseVolBtn.click().catch(() => { });
+          await activePage.waitForTimeout(80);
+        }
+        notify('Đã click 20 lần vào [aria-label="Decrease volume"] (đã tắt âm gốc hoàn toàn)!', 'SUCCESS');
+        await activePage.waitForTimeout(500);
+        return true;
+      } catch (err: any) {
+        notify(`Lỗi khi tắt âm gốc (${stageDescription}): ${err.message}`, 'WARN');
+        return false;
+      }
+    };
+
+    // Thử tắt âm gốc ngay sau khi chọn bài hát
+    let isOriginalMuted = await muteOriginalAudioIfPresent('sau khi chọn bài hát');
+
     // Bước 9: Sau đó click '[aria-label="Done"][role="button"]'
     notify('Đang tìm và click nút [aria-label="Done"][role="button"]...');
     const doneBtn = page.locator('[aria-label="Done"][role="button"]').first();
@@ -342,6 +396,11 @@ export async function uploadFacebookReel(
     await doneBtn.click();
     notify('Đã click nút Done.');
     await page.waitForTimeout(2000);
+
+    // Nếu trước khi bấm Done chưa tắt được âm gốc thì thử lại sau khi bấm Done
+    if (!isOriginalMuted) {
+      await muteOriginalAudioIfPresent('sau khi click Done');
+    }
 
     // Bước 10: Sau đó click '[aria-label="Next"][role="button"]'
     notify('Đang tìm và click nút [aria-label="Next"][role="button"]...');
