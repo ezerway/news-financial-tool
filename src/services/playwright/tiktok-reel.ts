@@ -117,9 +117,50 @@ async function handleTikTokVerificationModal(
   const clickStart = Date.now();
 
   while (Date.now() - clickStart < 15000) {
+    // 0. Click phần tử xác minh với selector chính xác: pc-home-item-
+    const pcHomeSelectors = [
+      '[class*="pc-home-item-"]',
+      '[id*="pc-home-item-"]',
+      '[data-e2e*="pc-home-item-"]',
+    ];
+
+    for (const sel of pcHomeSelectors) {
+      const items = page.locator(sel);
+      const count = await items.count().catch(() => 0);
+      if (count > 0) {
+        let targetItem = items.filter({ hasText: /email|@/i }).first();
+        if ((await targetItem.count().catch(() => 0)) === 0) {
+          targetItem = items.first();
+        }
+        notify(`Tìm thấy ${count} phần tử với selector [${sel}], click gửi mã...`);
+        const box = await targetItem.boundingBox().catch(() => null);
+        if (box) {
+          await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2).catch(() => {});
+        }
+        await targetItem.click({ force: true }).catch(() => {});
+        break;
+      }
+    }
+
+    // Kiểm tra thêm trên tất cả các iframes (nếu modal nằm trong iframe)
+    for (const frame of page.frames()) {
+      for (const sel of pcHomeSelectors) {
+        const frameItems = frame.locator(sel);
+        if ((await frameItems.count().catch(() => 0)) > 0) {
+          let target = frameItems.filter({ hasText: /email|@/i }).first();
+          if ((await target.count().catch(() => 0)) === 0) {
+            target = frameItems.first();
+          }
+          notify(`Tìm thấy phần tử [${sel}] trong iframe, click...`);
+          await target.click({ force: true }).catch(() => {});
+          break;
+        }
+      }
+    }
+
     // 1. Thử click trực tiếp vào text email (@...com) hoặc chữ Email
     const emailTextLocator = page.locator('text=/.*@.*\\.com/i').first();
-    if (await emailTextLocator.isVisible({ timeout: 1000 }).catch(() => false)) {
+    if (await emailTextLocator.isVisible({ timeout: 500 }).catch(() => false)) {
       const box = await emailTextLocator.boundingBox().catch(() => null);
       if (box) {
         await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2).catch(() => {});
@@ -127,13 +168,24 @@ async function handleTikTokVerificationModal(
       await emailTextLocator.click({ force: true }).catch(() => {});
     }
 
-    // 2. Thử click vào card container qua DOM evaluation
+    // 2. Thử click vào card container qua DOM evaluation (ưu tiên pc-home-item-)
     await page.evaluate(() => {
+      // Ưu tiên class pc-home-item-
+      const pcItem = document.querySelector('[class*="pc-home-item-"], [id*="pc-home-item-"]');
+      if (pcItem) {
+        (pcItem as HTMLElement).click();
+        pcItem.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        pcItem.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        pcItem.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        return;
+      }
+
       const all = Array.from(document.querySelectorAll('*'));
       for (const el of all) {
         const text = (el.textContent || '').trim();
         if (text.includes('@') && text.includes('.com') && el.children.length === 0) {
           const card =
+            el.closest('[class*="pc-home-item-"]') ||
             el.closest('[role="button"]') ||
             el.closest('button') ||
             el.closest('li') ||
@@ -142,7 +194,6 @@ async function handleTikTokVerificationModal(
             el.parentElement ||
             el;
           (card as HTMLElement).click();
-          // Dispatch chuột đầy đủ
           card.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
           card.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
           card.dispatchEvent(new MouseEvent('click', { bubbles: true }));
