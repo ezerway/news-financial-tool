@@ -443,7 +443,8 @@ export async function postCommentsOnTikTokStudio(
   page: Page,
   commentRaw: string,
   notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void,
-  targetVideoUrl?: string
+  targetVideoUrl?: string,
+  isDirectAfterPost: boolean = false
 ): Promise<{ success: boolean; total: number; sent: number; error?: string }> {
   const comments = commentRaw
     .split('|')
@@ -477,6 +478,11 @@ export async function postCommentsOnTikTokStudio(
     let isTextareaVisible = await textarea.isVisible({ timeout: 2000 }).catch(() => false);
 
     if (!isTextareaVisible) {
+      if (isDirectAfterPost) {
+        notify('Bình luận ngay sau khi đăng: Đang đợi 12-15s để TikTok Studio xử lý video trước khi click [data-icon="Comments"]...');
+        await page.waitForTimeout(13000);
+      }
+
       notify('Đang tìm nút mở bình luận [data-icon="Comments"]...');
 
       let commentBtn: any = null;
@@ -1019,7 +1025,7 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
     let commentSuccess: boolean | undefined = undefined;
     if (options.comment && options.comment.trim()) {
       notify(`[Bước 7/7] Đang tự động bình luận lên video TikTok qua TikTok Studio...`);
-      const commentRes = await postCommentsOnTikTokStudio(page, options.comment, notify, tiktokVideoUrl);
+      const commentRes = await postCommentsOnTikTokStudio(page, options.comment, notify, tiktokVideoUrl, true);
       commentSuccess = commentRes.success;
     }
 
