@@ -43,6 +43,139 @@ if (!fs.existsSync(SCREENSHOTS_DIR)) {
 }
 
 /**
+ * Đọc mã OTP TikTok mới nhất từ tài khoản Gmail đang đăng nhập trong browser profile.
+ * Hỗ trợ trích xuất cả khi email được gom nhóm theo thread (conversation).
+ */
+async function fetchLatestTikTokOTP(gmailPage: any): Promise<{ code: string | null; msgId: string | null; preview: string }> {
+  try {
+    await gmailPage.goto('https://mail.google.com/mail/u/0/#search/from%3Atiktok', {
+      waitUntil: 'domcontentloaded',
+      timeout: 20000,
+    }).catch(() => {});
+    await gmailPage.waitForTimeout(3000);
+
+    const firstRow = gmailPage.locator('tr[role="row"]').first();
+    if (!(await firstRow.isVisible({ timeout: 4000 }).catch(() => false))) {
+      return { code: null, msgId: null, preview: '' };
+    }
+    await firstRow.click().catch(() => {});
+    await gmailPage.waitForTimeout(2000);
+
+    const msgs = gmailPage.locator('[data-message-id]');
+    const count = await msgs.count().catch(() => 0);
+    if (count === 0) {
+      return { code: null, msgId: null, preview: '' };
+    }
+
+    const lastMsg = msgs.last();
+    const msgId = (await lastMsg.getAttribute('data-message-id').catch(() => '')) || '';
+    const html = await lastMsg.innerHTML().catch(() => '');
+    const cleanText = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+
+    const match =
+      cleanText.match(/enter this code in TikTok:\s*([A-Z0-9]{6})/i) ||
+      cleanText.match(/([A-Z0-9]{6})\s+is your verification code/i) ||
+      cleanText.match(/code is:\s*([A-Z0-9]{6})/i) ||
+      cleanText.match(/([0-9]{6})\s+is your 6-digit code/i);
+
+    return {
+      code: match ? match[1].trim().toUpperCase() : null,
+      msgId,
+      preview: cleanText.slice(0, 150),
+    };
+  } catch {
+    return { code: null, msgId: null, preview: '' };
+  }
+}
+
+/**
+ * Nhập mã xác minh 6 ký tự vào ô placeholder="Enter 6-digit code" trên modal TikTok
+ * và click nút xác nhận (Next / Verify).
+ */
+async function submitTikTokOTPInput(
+  page: any,
+  code: string,
+  notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void
+): Promise<boolean> {
+  notify(`Tiến hành nhập mã OTP [${code}] vào ô placeholder="Enter 6-digit code"...`);
+  await page.bringToFront().catch(() => {});
+  await page.waitForTimeout(1000);
+
+  const codeInputSelectors = [
+    'input[placeholder="Enter 6-digit code"]',
+    'input[placeholder*="6-digit code"]',
+    'input[placeholder*="Enter 6-digit"]',
+    'input[placeholder*="code" i]',
+    'div[role="dialog"] input:not([type="hidden"])',
+    '.TUXModal input:not([type="hidden"])',
+  ];
+
+  let targetInput: any = null;
+  for (const sel of codeInputSelectors) {
+    const loc = page.locator(sel).first();
+    if (await loc.isVisible({ timeout: 1500 }).catch(() => false)) {
+      targetInput = loc;
+      break;
+    }
+  }
+
+  if (!targetInput) {
+    notify('Không tìm thấy ô nhập placeholder="Enter 6-digit code" trong modal!', 'WARN');
+    return false;
+  }
+
+  // Focus, clear và nhập từng ký tự
+  await targetInput.click({ timeout: 2000 }).catch(() => {});
+  await targetInput.fill('').catch(() => {});
+  await targetInput.pressSequentially(code, { delay: 80 }).catch(() => {});
+
+  // Dispatch React input event để kích hoạt state & enable nút Next
+  await page.evaluate(({ c, selectors }: { c: string; selectors: string[] }) => {
+    let input: HTMLInputElement | null = null;
+    for (const s of selectors) {
+      const el = document.querySelector(s);
+      if (el) {
+        input = el as HTMLInputElement;
+        break;
+      }
+    }
+    if (input) {
+      input.focus();
+      input.value = c;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }, { c: code, selectors: codeInputSelectors });
+
+  // Paste / gõ thêm bằng bàn phím phòng trường hợp
+  await page.keyboard.type(code, { delay: 50 }).catch(() => {});
+  await page.waitForTimeout(1000);
+
+  // Click nút Next / Verify
+  const nextButtons = [
+    'button:has-text("Next")',
+    'button:has-text("Verify")',
+    'button:has-text("Tiếp tục")',
+    'button:has-text("Confirm")',
+    'button:has-text("Xác nhận")',
+    'div[role="dialog"] button.TUXButton--primary',
+    'div[role="dialog"] button[type="submit"]',
+  ];
+
+  for (const bSel of nextButtons) {
+    const btn = page.locator(bSel).first();
+    if (await btn.isVisible({ timeout: 1500 }).catch(() => false)) {
+      notify(`Đang click nút xác nhận [${bSel}]...`);
+      await btn.click({ timeout: 2000 }).catch(() => {});
+      break;
+    }
+  }
+
+  await page.waitForTimeout(3000);
+  return true;
+}
+
+/**
  * Tự động xử lý Popup xác minh danh tính TikTok "Verify it's really you"
  * bằng cách gửi mã về Email và đọc mã OTP trực tiếp từ Gmail trong cùng browser-profile.
  */
@@ -54,8 +187,10 @@ async function handleTikTokVerificationModal(
 ): Promise<boolean> {
   const verifyModalSelectors = [
     'div[role="dialog"]:has-text("Verify it\'s really you")',
+    'div[role="dialog"]:has-text("Verify identity")',
     'div[role="dialog"]:has-text("verify your identity")',
     'div:has-text("Verify it\'s really you")',
+    'div:has-text("Verify identity")',
     'div:has-text("Before you continue, verify your identity")',
     'div:has-text("Xác minh danh tính")',
     'div:has-text("Xác minh bạn là chính bạn")',
@@ -77,240 +212,148 @@ async function handleTikTokVerificationModal(
     return false;
   }
 
-  notify('TikTok yêu cầu xác minh danh tính ("Verify it\'s really you")!', 'WARN');
+  notify('TikTok yêu cầu xác minh danh tính ("Verify it\'s really you" / "Verify identity")!', 'WARN');
 
-  // Bước 1: Trước khi gửi mã mới, đọc mã OTP mới nhất hiện tại trên Gmail (để đối chiếu không lấy nhầm mã cũ)
-  let initialLatestCode = '';
+  // Bước 1: Trước khi gửi mã mới, đọc mã & msgId hiện tại trên Gmail
+  let initialMsgId = '';
+  let fallbackLatestCode = '';
   try {
     const checkPage = await context.newPage();
-    await checkPage.goto('https://mail.google.com/mail/u/0/#search/from%3Atiktok', {
-      waitUntil: 'domcontentloaded',
-      timeout: 20000,
-    }).catch(() => {});
-    await checkPage.waitForTimeout(3000);
-    const topRowText = await checkPage.locator('tr[role="row"]').first().innerText({ timeout: 4000 }).catch(() => '');
-    const m = topRowText.match(/([A-Z0-9]{6})\s+is your/i) || topRowText.match(/([A-Z0-9]{6})/);
-    if (m) {
-      initialLatestCode = m[1].toUpperCase();
-      notify(`[Gmail] Mã TikTok gần nhất hiện có trong hòm thư: ${initialLatestCode}`);
+    const initialInfo = await fetchLatestTikTokOTP(checkPage);
+    if (initialInfo.code) {
+      fallbackLatestCode = initialInfo.code;
+      initialMsgId = initialInfo.msgId || '';
+      notify(`[Gmail] Mã TikTok hiện có trong hòm thư: ${fallbackLatestCode} (msgId: ${initialMsgId})`);
     }
     await checkPage.close().catch(() => {});
   } catch (err: any) {
     notify(`[Gmail] Chưa đọc được mã cũ: ${err?.message || err}`, 'INFO');
   }
 
-  // Bước 2: Bấm vào phương thức xác minh qua Email trong popup TikTok và đảm bảo đã chuyển sang giao diện nhập mã
-  notify('Đang chọn phương thức xác minh qua Email trên TikTok...');
-
-  const isMethodScreenStillOpen = async () => {
-    return await page.evaluate(() => {
-      const text = document.body ? document.body.innerText : '';
-      return (
-        text.includes('one of the following methods') ||
-        text.includes('verify your identity using one of') ||
-        text.includes('chọn một trong các phương thức')
-      );
-    });
+  // Bước 2: Kiểm tra xem đã ở màn hình nhập mã (placeholder="Enter 6-digit code") chưa,
+  // nếu chưa thì click vào lựa chọn Email (selector pc-home-item-)
+  const isCodeInputVisible = async () => {
+    return await page
+      .locator('input[placeholder="Enter 6-digit code"], input[placeholder*="6-digit code"], input[placeholder*="code" i]')
+      .first()
+      .isVisible({ timeout: 500 })
+      .catch(() => false);
   };
 
-  let emailClickedAndTransitioned = false;
-  const clickStart = Date.now();
+  if (!(await isCodeInputVisible())) {
+    notify('Đang chọn phương thức xác minh qua Email trên TikTok...');
+    const clickStart = Date.now();
 
-  while (Date.now() - clickStart < 15000) {
-    // 0. Click phần tử xác minh với selector chính xác: pc-home-item-
-    const pcHomeSelectors = [
-      '[class*="pc-home-item-"]',
-      '[id*="pc-home-item-"]',
-      '[data-e2e*="pc-home-item-"]',
-    ];
+    while (Date.now() - clickStart < 15000) {
+      // Click phần tử với selector pc-home-item-
+      const pcHomeSelectors = [
+        '[class*="pc-home-item-"]',
+        '[id*="pc-home-item-"]',
+        '[data-e2e*="pc-home-item-"]',
+      ];
 
-    for (const sel of pcHomeSelectors) {
-      const items = page.locator(sel);
-      const count = await items.count().catch(() => 0);
-      if (count > 0) {
-        let targetItem = items.filter({ hasText: /email|@/i }).first();
-        if ((await targetItem.count().catch(() => 0)) === 0) {
-          targetItem = items.first();
+      for (const sel of pcHomeSelectors) {
+        const items = page.locator(sel);
+        const count = await items.count().catch(() => 0);
+        if (count > 0) {
+          let targetItem = items.filter({ hasText: /email|@/i }).first();
+          if ((await targetItem.count().catch(() => 0)) === 0) {
+            targetItem = items.first();
+          }
+          notify(`Tìm thấy ${count} phần tử [${sel}], click gửi mã...`);
+          const box = await targetItem.boundingBox().catch(() => null);
+          if (box) {
+            await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2).catch(() => {});
+          }
+          await targetItem.click({ force: true }).catch(() => {});
+          break;
         }
-        notify(`Tìm thấy ${count} phần tử với selector [${sel}], click gửi mã...`);
-        const box = await targetItem.boundingBox().catch(() => null);
-        if (box) {
-          await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2).catch(() => {});
+      }
+
+      // Kiểm tra thêm trong các iframes
+      for (const frame of page.frames()) {
+        for (const sel of pcHomeSelectors) {
+          const frameItems = frame.locator(sel);
+          if ((await frameItems.count().catch(() => 0)) > 0) {
+            let target = frameItems.filter({ hasText: /email|@/i }).first();
+            if ((await target.count().catch(() => 0)) === 0) {
+              target = frameItems.first();
+            }
+            await target.click({ force: true }).catch(() => {});
+            break;
+          }
         }
-        await targetItem.click({ force: true }).catch(() => {});
+      }
+
+      // Thử click vào text email hoặc card
+      await page.evaluate(() => {
+        const pcItem = document.querySelector('[class*="pc-home-item-"], [id*="pc-home-item-"]');
+        if (pcItem) {
+          (pcItem as HTMLElement).click();
+          pcItem.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          return;
+        }
+        const all = Array.from(document.querySelectorAll('*'));
+        for (const el of all) {
+          const text = (el.textContent || '').trim();
+          if (text.includes('@') && text.includes('.com') && el.children.length === 0) {
+            const card =
+              el.closest('[class*="pc-home-item-"]') ||
+              el.closest('button') ||
+              el.closest('li') ||
+              el.parentElement ||
+              el;
+            (card as HTMLElement).click();
+            break;
+          }
+        }
+      });
+
+      await page.waitForTimeout(2000);
+
+      if (await isCodeInputVisible()) {
+        notify('Đã click chọn xác minh Email thành công! Giao diện nhập mã (placeholder="Enter 6-digit code") đã xuất hiện.', 'SUCCESS');
         break;
       }
+
+      notify('Đang thử lại click vào lựa chọn Email...');
+      await page.waitForTimeout(1000);
     }
-
-    // Kiểm tra thêm trên tất cả các iframes (nếu modal nằm trong iframe)
-    for (const frame of page.frames()) {
-      for (const sel of pcHomeSelectors) {
-        const frameItems = frame.locator(sel);
-        if ((await frameItems.count().catch(() => 0)) > 0) {
-          let target = frameItems.filter({ hasText: /email|@/i }).first();
-          if ((await target.count().catch(() => 0)) === 0) {
-            target = frameItems.first();
-          }
-          notify(`Tìm thấy phần tử [${sel}] trong iframe, click...`);
-          await target.click({ force: true }).catch(() => {});
-          break;
-        }
-      }
-    }
-
-    // 1. Thử click trực tiếp vào text email (@...com) hoặc chữ Email
-    const emailTextLocator = page.locator('text=/.*@.*\\.com/i').first();
-    if (await emailTextLocator.isVisible({ timeout: 500 }).catch(() => false)) {
-      const box = await emailTextLocator.boundingBox().catch(() => null);
-      if (box) {
-        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2).catch(() => {});
-      }
-      await emailTextLocator.click({ force: true }).catch(() => {});
-    }
-
-    // 2. Thử click vào card container qua DOM evaluation (ưu tiên pc-home-item-)
-    await page.evaluate(() => {
-      // Ưu tiên class pc-home-item-
-      const pcItem = document.querySelector('[class*="pc-home-item-"], [id*="pc-home-item-"]');
-      if (pcItem) {
-        (pcItem as HTMLElement).click();
-        pcItem.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-        pcItem.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-        pcItem.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-        return;
-      }
-
-      const all = Array.from(document.querySelectorAll('*'));
-      for (const el of all) {
-        const text = (el.textContent || '').trim();
-        if (text.includes('@') && text.includes('.com') && el.children.length === 0) {
-          const card =
-            el.closest('[class*="pc-home-item-"]') ||
-            el.closest('[role="button"]') ||
-            el.closest('button') ||
-            el.closest('li') ||
-            el.closest('[class*="item"]') ||
-            el.closest('[class*="card"]') ||
-            el.parentElement ||
-            el;
-          (card as HTMLElement).click();
-          card.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-          card.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-          card.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-          break;
-        }
-      }
-    });
-
-    // 3. Thử click chevron > hoặc icon email
-    const chevron = page.locator('div[role="dialog"] svg, div[role="dialog"] [class*="arrow"], div[role="dialog"] [class*="chevron"]').first();
-    if (await chevron.isVisible({ timeout: 500 }).catch(() => false)) {
-      await chevron.click({ force: true }).catch(() => {});
-    }
-
-    await page.waitForTimeout(2000);
-
-    // Kiểm tra xem đã chuyển màn hình sang nhập mã chưa
-    const stillMethodScreen = await isMethodScreenStillOpen();
-    const hasCodeInput = (await page.locator('input').count().catch(() => 0)) > 0;
-    const hasCodeText = await page.evaluate(() => {
-      const text = (document.body ? document.body.innerText : '').toLowerCase();
-      return (
-        text.includes('code') ||
-        text.includes('mã') ||
-        text.includes('resend') ||
-        text.includes('gửi lại') ||
-        text.includes('sent to') ||
-        text.includes('đã gửi')
-      );
-    });
-
-    if (!stillMethodScreen || hasCodeInput || hasCodeText) {
-      emailClickedAndTransitioned = true;
-      notify('Đã click chọn xác minh Email thành công! TikTok đã chuyển sang giao diện nhập mã OTP.', 'SUCCESS');
-      break;
-    }
-
-    notify('Đang thử lại click vào lựa chọn Email...');
-    await page.waitForTimeout(1000);
+  } else {
+    notify('Giao diện nhập mã (placeholder="Enter 6-digit code") đã mở sẵn.', 'INFO');
   }
 
-  if (!emailClickedAndTransitioned) {
-    notify('Cảnh báo: Chưa xác nhận được TikTok đã chuyển sang giao diện nhập mã OTP, tiếp tục tiến trình...', 'WARN');
-  }
-
-  // Bước 3: Mở tab Gmail và đợi mã OTP mới từ TikTok
+  // Bước 3: Mở tab Gmail và lấy mã OTP từ TikTok
   notify('Đang truy cập Gmail để tự động lấy mã OTP xác minh từ TikTok...');
   let verificationCode = '';
   let gmailPage: any = null;
 
   try {
     gmailPage = await context.newPage();
-    const maxPollTime = 60000; // Đợi tối đa 60s
     const pollStart = Date.now();
+    const maxPollTime = 40000; // Đợi tối đa 40s
 
     while (Date.now() - pollStart < maxPollTime) {
-      await gmailPage.goto('https://mail.google.com/mail/u/0/#search/from%3Atiktok', {
-        waitUntil: 'domcontentloaded',
-        timeout: 25000,
-      }).catch(() => {});
-      await gmailPage.waitForTimeout(3000);
+      const info = await fetchLatestTikTokOTP(gmailPage);
 
-      const rows = gmailPage.locator('tr[role="row"]');
-      const rowCount = await rows.count().catch(() => 0);
-
-      if (rowCount > 0) {
-        // Kiểm tra 2 email mới nhất
-        const checkCount = Math.min(rowCount, 2);
-        for (let rIdx = 0; rIdx < checkCount; rIdx++) {
-          const row = rows.nth(rIdx);
-          const rowText = await row.innerText().catch(() => '');
-
-          // Trích xuất mã OTP 6 ký tự
-          const match =
-            rowText.match(/([A-Z0-9]{6})\s+is your verification code/i) ||
-            rowText.match(/([0-9]{6})\s+is your 6-digit code/i) ||
-            rowText.match(/To verify your account[\s\S]*?([A-Z0-9]{6})/i) ||
-            rowText.match(/code is:\s*([A-Z0-9]{6})/i);
-
-          if (match && match[1]) {
-            const candidateCode = match[1].trim().toUpperCase();
-            // CHỈ CHẤP NHẬN MÃ MỚI (KHÁC MÃ CŨ BAN ĐẦU)
-            if (candidateCode !== initialLatestCode) {
-              verificationCode = candidateCode;
-              notify(`Đã tìm thấy mã xác minh MỚI từ TikTok: ${verificationCode}`, 'SUCCESS');
-              break;
-            }
-          } else {
-            // Thử click vào email đầu tiên để xem nội dung
-            try {
-              await row.click({ timeout: 2000 });
-              await gmailPage.waitForTimeout(1500);
-              const fullText = await gmailPage.evaluate(() => document.body.innerText);
-              const fullMatch =
-                fullText.match(/([A-Z0-9]{6})\s+is your verification code/i) ||
-                fullText.match(/enter this code in TikTok:\s*([A-Z0-9]{6})/i) ||
-                fullText.match(/Your 6-digit code is:\s*([0-9]{6})/i) ||
-                fullText.match(/([0-9]{6})\s+is your 6-digit code/i);
-
-              if (fullMatch && fullMatch[1]) {
-                const candidateCode = fullMatch[1].trim().toUpperCase();
-                if (candidateCode !== initialLatestCode) {
-                  verificationCode = candidateCode;
-                  notify(`Đã đọc mã xác minh MỚI từ nội dung email: ${verificationCode}`, 'SUCCESS');
-                  break;
-                }
-              }
-              await gmailPage.goBack().catch(() => {});
-            } catch {}
-          }
+      if (info.code) {
+        // Nếu có email mới với messageId khác
+        if (info.msgId && info.msgId !== initialMsgId) {
+          verificationCode = info.code;
+          notify(`Đã tìm thấy mã OTP MỚI từ TikTok: ${verificationCode}`, 'SUCCESS');
+          break;
         }
 
-        if (verificationCode) break;
+        // Hoặc nếu đã đợi quá 12s mà TikTok không đổi messageId nhưng có mã hợp lệ
+        if (Date.now() - pollStart > 12000 && (info.code || fallbackLatestCode)) {
+          verificationCode = info.code || fallbackLatestCode;
+          notify(`Sử dụng mã OTP gần nhất hiện có từ TikTok: ${verificationCode}`, 'INFO');
+          break;
+        }
       }
 
-      notify('Đang chờ email OTP mới từ TikTok (thử lại sau 4s)...');
-      await page.waitForTimeout(4000);
+      notify('Đang đợi email OTP mới từ TikTok (thử lại sau 3s)...');
+      await page.waitForTimeout(3000);
     }
   } catch (gmailErr: any) {
     notify(`Lỗi khi truy vấn Gmail: ${gmailErr?.message || gmailErr}`, 'WARN');
@@ -320,70 +363,54 @@ async function handleTikTokVerificationModal(
     }
   }
 
-  // Bước 4: Nhập mã OTP vào form xác minh của TikTok
+  if (!verificationCode && fallbackLatestCode) {
+    verificationCode = fallbackLatestCode;
+    notify(`Thử sử dụng mã OTP gần nhất: ${verificationCode}`, 'INFO');
+  }
+
+  // Bước 4: Nhập mã OTP vào ô placeholder="Enter 6-digit code"
   if (verificationCode) {
-    notify(`Tiến hành nhập mã xác thực [${verificationCode}] vào giao diện TikTok...`);
-    await page.bringToFront().catch(() => {});
-    await page.waitForTimeout(1500);
-
-    const pinInputs = page.locator('input:not([type="hidden"]):not([type="file"])');
-    const inputCount = await pinInputs.count().catch(() => 0);
-    notify(`Tìm thấy ${inputCount} ô input trên giao diện TikTok.`);
-
-    if (inputCount >= 6) {
-      for (let i = 0; i < 6; i++) {
-        await pinInputs.nth(i).click().catch(() => {});
-        await pinInputs.nth(i).fill(verificationCode[i]).catch(() => {});
-        await page.waitForTimeout(100);
-      }
-    } else if (inputCount > 0) {
-      const singleInput = pinInputs.first();
-      await singleInput.click().catch(() => {});
-      await singleInput.fill('').catch(() => {});
-      await singleInput.fill(verificationCode).catch(async () => {
-        await singleInput.pressSequentially(verificationCode, { delay: 80 });
-      });
-    }
-
-    // Luôn gõ trực tiếp bàn phím để kích hoạt state nếu input là custom component
-    await page.keyboard.type(verificationCode, { delay: 80 }).catch(() => {});
-    await page.waitForTimeout(2000);
-
-    // Bấm nút Xác nhận nếu có
-    const verifyButtons = [
-      'button:has-text("Verify")',
-      'button:has-text("Xác minh")',
-      'button:has-text("Next")',
-      'button:has-text("Tiếp tục")',
-      'button:has-text("Confirm")',
-      'button:has-text("Xác nhận")',
-      'button[type="submit"]',
-    ];
-
-    for (const bSel of verifyButtons) {
-      const b = page.locator(bSel).first();
-      if (await b.isVisible({ timeout: 1500 }).catch(() => false)) {
-        await b.click().catch(() => {});
-        break;
-      }
-    }
-
-    notify('Đang chờ TikTok xử lý mã OTP...');
-    await page.waitForTimeout(5000);
+    await submitTikTokOTPInput(page, verificationCode, notify);
   } else {
-    notify('Không lấy được mã OTP tự động từ Gmail.', 'WARN');
+    notify('Không tìm thấy mã OTP từ Gmail.', 'WARN');
     if (!headless) {
       notify('Trình duyệt đang mở, bạn có thể tự nhập mã OTP trên màn hình trong 60 giây...', 'WARN');
       await page.waitForTimeout(60000);
     }
   }
 
-  // Bước 5: Kiểm tra kết quả
-  let isClosed = true;
-  for (const vSel of verifyModalSelectors) {
-    if (await page.locator(vSel).first().isVisible({ timeout: 2000 }).catch(() => false)) {
-      isClosed = false;
-      break;
+  // Bước 5: Kiểm tra xem modal đã đóng chưa
+  const checkModalClosed = async () => {
+    for (const vSel of verifyModalSelectors) {
+      if (await page.locator(vSel).first().isVisible({ timeout: 1500 }).catch(() => false)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  let isClosed = await checkModalClosed();
+
+  // Nếu modal chưa đóng, kiểm tra xem có cần click "Resend code" không
+  if (!isClosed) {
+    const resendBtn = page.locator('text=/resend code/i, [class*="resend"]').first();
+    if (await resendBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+      notify('Modal chưa đóng hoặc mã hết hạn, click "Resend code" để nhận mã mới...', 'WARN');
+      await resendBtn.click({ timeout: 2000 }).catch(() => {});
+      await page.waitForTimeout(4000);
+
+      // Đọc lại Gmail một lần nữa
+      try {
+        const retryGmailPage = await context.newPage();
+        const newInfo = await fetchLatestTikTokOTP(retryGmailPage);
+        await retryGmailPage.close().catch(() => {});
+        if (newInfo.code && newInfo.code !== verificationCode) {
+          notify(`Đã nhận mã OTP mới sau khi Resend: ${newInfo.code}`, 'SUCCESS');
+          await submitTikTokOTPInput(page, newInfo.code, notify);
+          await page.waitForTimeout(3000);
+          isClosed = await checkModalClosed();
+        }
+      } catch {}
     }
   }
 
