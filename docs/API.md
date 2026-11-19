@@ -149,9 +149,10 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
     "trend_id": "trend_e2a8...",
     "trend_title": "VN-Index",
     "post_content": "Nội dung bài viết...",
-    "comment_content": "Nội dung bình luận nguồn...",
+    "comment_content": "Nội dung bình luận nguồn...", // Hỗ trợ chuỗi tách bằng '|' để bình luận nhiều lần
     "record_video": true,
-    "scheduled_at": "2026-11-15T09:00:00" // Tùy chọn
+    "scheduled_at": "2026-11-15T09:00:00", // Tùy chọn
+    "fb_post_url": "https://www.facebook.com/permalink.php?story_fbid=..." // Hỗ trợ sửa/bù đắp link Facebook thủ công
   }
   ```
 
@@ -232,11 +233,12 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
 - Kích hoạt kiểm tra và đăng tất cả các Reel đã đến giờ hẹn.
 
 ### 5.6. Gửi bình luận vào Reel Facebook (`POST /api/reels/[id]/comment`)
-- Tự động điều hướng đến liên kết công khai của Reel Facebook (hoặc tự trích xuất qua `m.facebook.com`) và đăng bình luận (first comment).
+- Tự động điều hướng đến liên kết công khai của Reel Facebook (hoặc tự trích xuất qua `m.facebook.com` / `facebook.com/content/insights`) và đăng bình luận (first comment).
+- **Hỗ trợ Multi-comments**: Nếu `comment` chứa ký tự `|` (ví dụ `Link 1: https://... | Link 2: https://...`), hệ thống sẽ tách thành mảng và đăng từng bình luận riêng biệt tuần tự.
 - **Request Body** (Tùy chọn):
   ```json
   {
-    "comment": "Nội dung bình luận tùy chọn (nếu bỏ trống sẽ dùng first_comment_content của Reel)"
+    "comment": "Nội dung bình luận tùy chọn (hỗ trợ nhiều bình luận phân tách bởi dấu '|')"
   }
   ```
 - **Response (200 OK)**:
@@ -248,11 +250,13 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   ```
 
 ### 5.7. Gửi bình luận vào video TikTok (`POST /api/reels/[id]/comment-tiktok`)
-- Tự động mở video TikTok trên trình duyệt Playwright, nhập và gửi bình luận với cơ chế kiểm tra và chống checkpoint/captcha thông minh.
+- Tự động mở TikTok Studio (`https://www.tiktok.com/tiktokstudio/content`) hoặc trang video TikTok trên trình duyệt Playwright, nhập và gửi bình luận với cơ chế kiểm tra và chống checkpoint/captcha thông minh.
+- **Hỗ trợ Multi-comments**: Tự động tách chuỗi theo dấu `|` và gửi từng bình luận liên tiếp vào video TikTok.
+- **Tự động lưu video kiểm soát**: Nếu gặp lỗi hoặc Captcha, video quá trình được tự động lưu lại vào `storage/videos/` và hiển thị trên Dashboard.
 - **Request Body** (Tùy chọn):
   ```json
   {
-    "comment": "Nội dung bình luận tùy chọn (nếu bỏ trống sẽ dùng first_comment_content của Reel)"
+    "comment": "Nội dung bình luận tùy chọn (hỗ trợ nhiều bình luận phân tách bởi dấu '|')"
   }
   ```
 - **Response (200 OK)**:
@@ -260,6 +264,29 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   {
     "success": true,
     "message": "Đã gửi bình luận vào video TikTok thành công!"
+  }
+  ```
+
+### 5.8. Cập nhật nội dung & Sửa link Reel thủ công (`PUT /api/reels/[id]`)
+- Cho phép chỉnh sửa caption, chuỗi bình luận, lịch hẹn giờ hoặc bù đắp liên kết video Facebook / TikTok thủ công khi đăng qua kênh ngoài.
+- **Request Body**:
+  ```json
+  {
+    "caption": "Tiêu đề video mới...",
+    "comment_content": "Link 1 | Link 2",
+    "scheduled_at": "2026-11-20T10:00:00.000Z",
+    "status": "published", // draft | scheduled | publishing | published | failed
+    "fb_post_url": "https://www.facebook.com/reel/123456789",
+    "tiktok_post_url": "https://www.tiktok.com/@channel/video/7428123456789",
+    "tiktok_status": "published",
+    "tiktok_comment_status": "commented"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Cập nhật Reel thành công!"
   }
   ```
 

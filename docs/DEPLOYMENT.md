@@ -191,6 +191,27 @@ sudo certbot --nginx -d yourdomain.com
 
 ## 7. Quy trình Cập nhật Code mới (CI/CD / Redeploy)
 
+### 7.1. Cấu hình SSH Key để Deploy không cần mật khẩu
+Để các script CI/CD hoặc máy tính cá nhân deploy tự động lên VPS mà không phải nhập mật khẩu mỗi lần:
+
+1. **Trên máy cá nhân (Local)**:
+   Nếu chưa có SSH Key, tạo mới:
+   ```bash
+   ssh-keygen -t ed25519 -C "admin@trendpulse"
+   ```
+2. **Sao chép Public Key lên VPS**:
+   ```bash
+   ssh-copy-id -i ~/.ssh/id_ed25519.pub root@<IP_VPS>
+   ```
+   *(Hoặc dán thủ công nội dung file `~/.ssh/id_ed25519.pub` vào cuối file `~/.ssh/authorized_keys` trên VPS và chạy `chmod 600 ~/.ssh/authorized_keys`).*
+
+3. **Từ nay bạn có thể deploy 1 dòng lệnh từ máy cá nhân**:
+   ```bash
+   ssh root@<IP_VPS> "cd /home/trendpulse && git pull && pnpm build && pm2 restart ecosystem.config.js"
+   ```
+
+### 7.2. Cập nhật thủ công trực tiếp trên VPS
+
 Khi có bản cập nhật hoặc sửa lỗi mới từ Git:
 
 ```bash
@@ -206,7 +227,7 @@ pnpm install
 pnpm build
 
 # 4. Khởi động lại PM2 mà không mất dữ liệu
-pm2 reload ecosystem.config.js
+pm2 restart ecosystem.config.js
 ```
 
 ---

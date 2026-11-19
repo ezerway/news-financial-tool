@@ -74,11 +74,11 @@ pnpm auto-cycle --trend <TREND_ID> --publish
 # 1. Chế độ tương tác từng bước (Interactive prompt)
 pnpm post-reel
 
-# 2. Đăng nhanh bằng cờ tham số
-pnpm post-reel --file "/path/to/video.mp4" --content "Tiêu đề video #hashtag"
+# 2. Đăng nhanh bằng cờ tham số (kèm bình luận nguồn tự động)
+pnpm post-reel --file "/path/to/video.mp4" --content "Tiêu đề video #hashtag" --comment "Link nguồn 1: https://... | Link nguồn 2: https://..."
 
 # 3. Hẹn giờ đăng video
-pnpm post-reel -f "./video.mp4" -c "Tin tức kinh tế" --schedule "2026-11-20 18:30"
+pnpm post-reel -f "./video.mp4" -c "Tin tức kinh tế" -m "Nguồn: https://..." --schedule "2026-11-20 18:30"
 
 # 4. Lưu bản nháp (không đăng ngay)
 pnpm post-reel -f "./video.mp4" -c "Video nháp" --draft
@@ -90,6 +90,7 @@ pnpm post-reel -f "./video.mp4" -c "Nội dung" --headless
 **Các tham số hỗ trợ:**
 - `-f`, `--file <path>`: Đường dẫn tới file video (`.mp4`, `.mov`, `.webm`). Hỗ trợ đường dẫn có khoảng trắng hoặc dấu `~`.
 - `-c`, `--content <caption>`: Tiêu đề hoặc chú thích đính kèm hashtag cho video.
+- `-m`, `--comment <text>`: Nội dung bình luận tự động sau khi đăng (hỗ trợ tách nhiều bình luận liên tiếp bằng dấu `|`).
 - `-s`, `--schedule <datetime>`: Thời gian hẹn giờ đăng (định dạng `YYYY-MM-DD HH:mm`).
 - `--draft`: Lưu video vào hàng đợi ở trạng thái nháp (`draft`).
 - `--headless`: Chạy Chromium ở chế độ ẩn (khuyên dùng khi chạy trên VPS).

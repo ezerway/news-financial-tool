@@ -31,6 +31,8 @@
 3. **Tự động đăng bài Facebook & Auto-Comment nguồn (Playwright)**:
    - Tự động đăng lên **Trang cá nhân (Profile)** hoặc **Fanpage**.
    - **Tự động bình luận nguồn tin (First-Comment Links)**: Ngay khi bài viết đăng thành công, bot tự động vào bình luận chính bài viết đó để đính kèm link bài báo gốc minh bạch.
+   - **Hỗ trợ chuỗi bình luận nhiều lần (Multi-comments separated by `|`)**: Tách chuỗi theo dấu `|` để tự động gửi nhiều bình luận tuần tự thay vì dồn vào một bình luận duy nhất.
+   - **Sửa liên kết thủ công (Manual Link Correction)**: Hỗ trợ chỉnh sửa hoặc bù đắp liên kết bài viết Facebook trực tiếp trên Dashboard nếu cần lưu vết thủ công.
    - Cơ chế đóng pop-up thông minh (`Not now`, `Chuyển sang trang...`) và mô phỏng thao tác người dùng tự nhiên (Anti-detection).
 
 4. **Studio Đăng Facebook Reels & TikTok Video**:
@@ -38,10 +40,13 @@
    - Hỗ trợ **hẹn giờ đăng tự động (Scheduled Reels)** chạy ngầm bởi daemon.
    - Đăng đồng thời lên **Facebook Reels** và **TikTok Web**.
    - **Tự động chèn nhạc nền TikTok**: Tự động tìm kiếm và áp dụng nhạc nền thịnh hành (Background Music) từ thư viện TikTok Studio giúp tăng đề xuất mà không bị bản quyền âm thanh.
-   - **Auto-Comment Reel & Video**: Tự động trích xuất link công khai sau khi đăng và gửi bình luận đầu tiên (First Comment) trên cả Facebook Reels và video TikTok. Hỗ trợ nút bình luận/bình luận lại thủ công ngay trên giao diện.
+   - **Auto-Comment Reel & Video**: Tự động trích xuất link công khai sau khi đăng và gửi bình luận đầu tiên (First Comment) trên cả Facebook Reels và video TikTok (qua TikTok Studio). Hỗ trợ tách nhiều bình luận liên tiếp với dấu `|`.
+   - **Giao diện di động 2 tầng hiện đại**: Thẻ Reel tự động tối ưu hiển thị tách biệt 2 khung mạng xã hội Facebook & TikTok, bubble bình luận trực quan đánh số thứ tự `#1`, `#2`, và thanh công cụ tiện ích gọn gàng.
+   - **Sửa link Facebook Reel & TikTok thủ công**: Cho phép cập nhật link trực tiếp và chuyển trạng thái "Đã xuất bản" chỉ với 1 click.
 
 5. **Ghi hình & Chụp ảnh đối soát (Audit Trail)**:
    - Tùy chọn bật/tắt ghi video (MP4) và chụp ảnh màn hình (Screenshot) toàn bộ phiên tự động hóa để kiểm tra, xem lại trực tiếp trên Dashboard.
+   - **Tự động bảo toàn video debug khi gặp lỗi**: Khi bình luận TikTok gặp lỗi hoặc dính xác thực Captcha, video quá trình luôn được lưu lại để phục vụ đối soát và khắc phục sự cố.
 
 6. **Hệ thống thông báo tức thời (Multi-Channel Notifications)**:
    - Gửi thông báo kết quả đăng bài (kèm link bài viết, ảnh, thời gian hoặc chi tiết lỗi) qua **Telegram Bot**, **Slack Incoming Webhook**, và **Browser Web Push Notifications**.
@@ -49,6 +54,7 @@
 7. **Dashboard quản trị PWA & Đa ngôn ngữ (i18n)**:
    - Hỗ trợ đầy đủ **Đa ngôn ngữ (Tiếng Việt & English)** với nút chuyển đổi tức thì trên Header và Form đăng nhập.
    - Giao diện Dark Mode chuẩn hiện đại, responsive hoàn hảo cho cả Mobile & Desktop.
+   - **Thanh điều hướng Mobile tối ưu**: Hiển thị đầy đủ số lượng bài viết, xu hướng, reels mà không bị rút gọn `99+`.
    - Hỗ trợ cài đặt như ứng dụng di động **PWA (Progressive Web App)** không cần thông qua App Store.
    - Phân quyền bảo mật xác thực Admin, hệ thống Backup & Restore SQLite 1-click.
 

@@ -108,10 +108,11 @@ Tài liệu này mô tả chi tiết kiến trúc kĩ thuật, luồng dữ li�
 ```
 
 #### Các Module Playwright chuyên biệt:
-- `uploadFacebookReel`: Xử lý upload video, nhập caption, chọn ảnh bìa và bấm đăng Reel.
-- `commentFacebookReelOnly`: Tự động tìm liên kết công khai của Reel Facebook (hoặc trích xuất qua `m.facebook.com`) và bình luận nội dung đầu tiên.
-- `uploadTikTokVideo`: Mở trang upload TikTok Creator Center, tải file video, tìm kiếm và chèn bài nhạc nền thịnh hành từ thư viện TikTok Studio, điều chỉnh âm lượng gốc/nhạc nền và đăng video.
-- `commentTikTokVideoOnly`: Mở video TikTok đã đăng, kiểm tra trạng thái video công khai, focus ô nhập bình luận và gửi bình luận (hỗ trợ phát hiện cảnh báo captcha/anti-bot).
+- `uploadFacebookReel`: Xử lý upload video, nhập caption, chọn ảnh bìa, bấm đăng Reel và tự động bình luận đầu tiên.
+- `commentFacebookReelOnly`: Tự động tìm liên kết công khai của Reel Facebook (hoặc trích xuất qua `m.facebook.com` / `facebook.com/content/insights`) và bình luận nội dung. Hỗ trợ tách nhiều bình luận liên tiếp bằng dấu `|`.
+- `uploadTikTokVideo`: Mở trang upload TikTok Creator Center, tải file video, tìm kiếm và chèn bài nhạc nền thịnh hành từ thư viện TikTok Studio, điều chỉnh âm lượng gốc/nhạc nền, xuất bản và bình luận tự động.
+- `commentTikTokVideoOnly`: Hỗ trợ bình luận trực tiếp qua trang quản lý nội dung TikTok Studio (`/tiktokstudio/content`) hoặc trang video TikTok công khai, tự động phân tách chuỗi bình luận bằng `|` để bình luận nhiều lần liên tiếp; cấu hình ghi hình viewport đối soát và tự động bảo toàn video debug khi gặp Captcha hoặc lỗi.
+- `executePublishAndComment` / `executeCommentOnly`: Module tự động hóa bài viết Facebook (Profile & Fanpage), tự động đóng pop-up, đăng bài và gửi chuỗi bình luận nguồn tin tuần tự.
 
 ---
 
