@@ -670,9 +670,15 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
 
     page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
     video = page.video();
+    const mainTikTokPage = page;
 
     context.on('page', (newPage: Page) => {
-      notify(`[TikTok] Phát hiện chuyển hướng hoặc mở tab mới: ${newPage.url()}`);
+      const newUrl = newPage.url();
+      notify(`[TikTok] Phát hiện chuyển hướng hoặc mở tab mới: ${newUrl}`);
+      // Không bao giờ gán đè page nếu mainTikTokPage vẫn đang mở (đặc biệt tránh việc bị đè bởi tab Gmail lấy OTP)
+      if (mainTikTokPage && !mainTikTokPage.isClosed()) {
+        return;
+      }
       page = newPage;
       if (newPage.video()) {
         video = newPage.video();
@@ -968,6 +974,9 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
 
     // Kiểm tra xem có popup yêu cầu xác minh danh tính "Verify it's really you" hay không và tự động xử lý qua Gmail
     await handleTikTokVerificationModal(page, context, notify, headless);
+    if (mainTikTokPage && !mainTikTokPage.isClosed()) {
+      page = mainTikTokPage;
+    }
 
     notify('Đang chờ TikTok hoàn tất xử lý xuất bản video...');
     await page.waitForTimeout(8000);
@@ -1047,6 +1056,21 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
             commentScreenshotFileName = screenshotFileName;
             notify(`Đã lưu ảnh chụp lỗi bình luận TikTok tại: ${screenshotFileName}`);
           } catch { }
+        }
+      }
+
+      // Fallback: Nếu bình luận qua TikTok Studio chưa thành công mà đã lấy được link công khai
+      if (commentSuccess === false && tiktokVideoUrl) {
+        notify(`Thử lại bình luận qua link video TikTok công khai: ${tiktokVideoUrl}...`);
+        try {
+          const fallbackRes = await commentTikTokVideoOnly(tiktokVideoUrl, options.comment, { headless });
+          if (fallbackRes.success) {
+            commentSuccess = true;
+            commentErrorMsg = undefined;
+            notify('Bình luận video TikTok thành công qua link công khai!', 'SUCCESS');
+          }
+        } catch (fbErr: any) {
+          notify(`Fallback bình luận TikTok công khai cũng gặp lỗi: ${fbErr?.message || fbErr}`, 'WARN');
         }
       }
     }

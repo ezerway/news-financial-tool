@@ -130,6 +130,7 @@ export async function uploadFacebookReel(
         userAgent:
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         args: launchArgs,
+        permissions: ['clipboard-read', 'clipboard-write'],
       });
     } catch (err: any) {
       notify(`Không thể dùng persistent context (${err.message}). Chuyển sang launch thông thường...`, 'WARN');
@@ -149,6 +150,7 @@ export async function uploadFacebookReel(
         storageState,
         userAgent:
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        permissions: ['clipboard-read', 'clipboard-write'],
       });
     }
 
@@ -428,59 +430,97 @@ export async function uploadFacebookReel(
     notify('Đang đợi khoảng 30 giây để Facebook xử lý video và xuất bản Reel...');
     await page.waitForTimeout(30000);
 
-    // Bước 14: Lấy link Reel thực tế từ https://www.facebook.com/content/insights
+    // Bước 14: Lấy link Reel thực tế từ Content Library hoặc Thông báo
     let reelUrl: string | undefined;
     try {
-      notify('Đang tìm link Reel vừa xuất bản từ https://www.facebook.com/content/insights...');
+      notify('Đang tìm link Reel vừa xuất bản từ Content Library / Insights...');
 
       await page.addInitScript(() => {
         (window as any).__copiedReelUrl = '';
-        const origWrite = navigator.clipboard?.writeText;
         if (navigator.clipboard) {
+          const origWrite = navigator.clipboard.writeText;
           navigator.clipboard.writeText = function (text: string) {
             (window as any).__copiedReelUrl = text;
             return origWrite ? origWrite.apply(this, arguments as any) : Promise.resolve();
           };
         }
+        const origExec = document.execCommand;
+        document.execCommand = function (cmd: string) {
+          if (cmd === 'copy') {
+            const active = document.activeElement;
+            if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+              const val = (active as any).value;
+              if (val && typeof val === 'string' && val.includes('facebook.com')) {
+                (window as any).__copiedReelUrl = val.trim();
+              }
+            }
+          }
+          return origExec ? origExec.apply(this, arguments as any) : true;
+        };
       });
 
       let insightsUrl: string | undefined;
+      const cleanCaption = content
+        ? content.replace(/#\S+/g, '').replace(/\n+/g, ' ').trim().toLowerCase().slice(0, 30)
+        : '';
 
       // Polling tối đa 6 lần (khoảng 35s) để Facebook xử lý video và xuất hiện thông báo / insights link
       for (let poll = 0; poll < 6; poll++) {
-        // 1. Kiểm tra trang thông báo Notifications
+        // 1. Kiểm tra Content Library (Ưu tiên cao nhất vì sắp xếp chuẩn theo ngày hôm nay)
+        await page.goto(
+          'https://www.facebook.com/professional_dashboard/content/content_library/?date_range=TODAY&placement_type=ALL&post_type=ALL_CONTENT&post_types[0]=REELS&sort_by=DATE&sorting_method=METRICS_DESCENDING',
+          { waitUntil: 'domcontentloaded', timeout: 35000 }
+        ).catch(() => {});
+        await page.waitForTimeout(3000);
+
+        const contentLinks = page.locator('a[href*="/content/insights/?content_id="]');
+        const contentCount = await contentLinks.count().catch(() => 0);
+        if (contentCount > 0) {
+          let matchedHref: string | null = null;
+          for (let i = 0; i < contentCount; i++) {
+            const item = contentLinks.nth(i);
+            const itemText = (await item.innerText().catch(() => '')).toLowerCase();
+            const href = await item.getAttribute('href').catch(() => null);
+            if (href && cleanCaption && itemText.includes(cleanCaption)) {
+              matchedHref = href;
+              break;
+            }
+          }
+          // Nếu không khớp caption chính xác, lấy hàng đầu tiên (bài mới nhất)
+          if (!matchedHref) {
+            const firstHref = await contentLinks.first().getAttribute('href').catch(() => null);
+            if (firstHref) matchedHref = firstHref;
+          }
+          if (matchedHref) {
+            insightsUrl = matchedHref.startsWith('http') ? matchedHref : `https://www.facebook.com${matchedHref}`;
+            notify(`Đã tìm thấy link insights từ Content Library: ${insightsUrl}`, 'SUCCESS');
+            break;
+          }
+        }
+
+        // 2. Kiểm tra trang thông báo Notifications (bỏ qua thông báo cột mốc lượt xem fb_shorts_video_views)
         await page.goto('https://www.facebook.com/notifications/', {
           waitUntil: 'domcontentloaded',
           timeout: 30000,
         }).catch(() => {});
         await page.waitForTimeout(2500);
 
-        const notifLink = page.locator('a[href*="/content/insights/?content_id="]').first();
-        if (await notifLink.isVisible({ timeout: 2000 }).catch(() => false)) {
-          const href = await notifLink.getAttribute('href');
-          if (href) {
+        const notifLinks = page.locator('a[href*="/content/insights/?content_id="]');
+        const notifCount = await notifLinks.count().catch(() => 0);
+        for (let i = 0; i < notifCount; i++) {
+          const item = notifLinks.nth(i);
+          const href = await item.getAttribute('href').catch(() => null);
+          if (!href) continue;
+          if (href.includes('notif_t=fb_shorts_video_views')) continue; // Bỏ qua milestone thông báo lượt xem
+          const text = (await item.innerText().catch(() => '')).toLowerCase();
+          if (text.includes('play') || text.includes('lượt phát') || text.includes('lượt xem')) continue;
+          if (href.includes('fb_shorts_video_processed') || text.includes('ready to view') || text.includes('sẵn sàng')) {
             insightsUrl = href.startsWith('http') ? href : `https://www.facebook.com${href}`;
             notify(`Đã tìm thấy link insights từ Thông báo: ${insightsUrl}`, 'SUCCESS');
             break;
           }
         }
-
-        // 2. Kiểm tra Professional Dashboard nếu chưa thấy trong Notifications
-        await page.goto('https://www.facebook.com/professional_dashboard/', {
-          waitUntil: 'domcontentloaded',
-          timeout: 30000,
-        }).catch(() => {});
-        await page.waitForTimeout(2500);
-
-        const dashLink = page.locator('a[href*="/content/insights/?content_id="]').first();
-        if (await dashLink.isVisible({ timeout: 2000 }).catch(() => false)) {
-          const href = await dashLink.getAttribute('href');
-          if (href) {
-            insightsUrl = href.startsWith('http') ? href : `https://www.facebook.com${href}`;
-            notify(`Đã tìm thấy link insights từ Professional Dashboard: ${insightsUrl}`, 'SUCCESS');
-            break;
-          }
-        }
+        if (insightsUrl) break;
 
         notify(`Đang chờ Facebook xử lý Reel và sinh link insights (lần ${poll + 1}/6)...`);
         await page.waitForTimeout(5000);
@@ -501,7 +541,15 @@ export async function uploadFacebookReel(
             await actionBtn.click();
             await page.waitForTimeout(1000);
 
-            const copyBtn = page.locator('[role="menuitem"]:has-text("Copy link"), div:has-text("Copy link"), [role="button"]:has-text("Copy link"), text="Sao chép liên kết"').first();
+            const copyBtn = page.locator([
+              '[role="menuitem"]:has-text("Copy link")',
+              'div:has-text("Copy link")',
+              '[role="button"]:has-text("Copy link")',
+              '[role="menuitem"]:has-text("Sao chép liên kết")',
+              'div:has-text("Sao chép liên kết")',
+              '[role="button"]:has-text("Sao chép liên kết")'
+            ].join(', ')).first();
+
             if (await copyBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
               await copyBtn.click();
               await page.waitForTimeout(1000);
@@ -563,16 +611,38 @@ export async function uploadFacebookReel(
           await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
         }
 
+        const commentBoxSelectors = [
+          'div[contenteditable="true"][role="textbox"]',
+          'div[aria-label*="Comment as" i]',
+          'div[aria-label*="Bình luận dưới tên" i]',
+          'div[aria-label*="Write a comment" i]',
+          'div[aria-label*="Viết bình luận" i]',
+          'div[contenteditable="true"]',
+        ].join(', ');
+
+        const commentIconSelectors = [
+          '[aria-label="Comment" i][role="button"]',
+          '[aria-label="Comments" i][role="button"]',
+          '[aria-label*="Comment" i][role="button"]',
+          '[aria-label="Bình luận" i][role="button"]',
+          '[aria-label*="Bình luận" i][role="button"]',
+          '[aria-label="Comment" i]',
+          '[aria-label="Comments" i]',
+          '[aria-label*="Comment" i]',
+          '[aria-label="Bình luận" i]',
+          '[aria-label*="Bình luận" i]',
+        ].join(', ');
+
         // Tìm ô nhập bình luận (hỗ trợ cả trang Post Insights lẫn trang Reel công khai)
-        let commentBox = page.locator('div[contenteditable="true"][role="textbox"], div[aria-label*="Comment as" i], div[aria-label*="Bình luận dưới tên" i], div[contenteditable="true"]').first();
+        let commentBox = page.locator(commentBoxSelectors).first();
         if (!(await commentBox.isVisible({ timeout: 4000 }).catch(() => false))) {
           // Thử bấm icon bình luận bên phải player nếu ô nhập chưa mở
-          const commentIcon = page.locator('[aria-label="Comment" i][role="button"], [aria-label="Bình luận" i][role="button"]').first();
-          if (await commentIcon.isVisible({ timeout: 2000 }).catch(() => false)) {
+          const commentIcon = page.locator(commentIconSelectors).first();
+          if (await commentIcon.isVisible({ timeout: 2500 }).catch(() => false)) {
             await commentIcon.click();
             await page.waitForTimeout(1500);
           }
-          commentBox = page.locator('div[contenteditable="true"]').first();
+          commentBox = page.locator(commentBoxSelectors).first();
         }
 
         const commentItems = finalComment
@@ -590,20 +660,14 @@ export async function uploadFacebookReel(
             const itemComment = commentItems[i];
             notify(`Đang nhập bình luận Facebook (${i + 1}/${commentItems.length}): "${itemComment}"...`);
 
-            let cBox = page
-              .locator(
-                'div[contenteditable="true"][role="textbox"], div[aria-label*="Comment as" i], div[aria-label*="Bình luận dưới tên" i], div[contenteditable="true"]'
-              )
-              .first();
+            let cBox = page.locator(commentBoxSelectors).first();
             if (!(await cBox.isVisible({ timeout: 4000 }).catch(() => false))) {
-              const cIcon = page
-                .locator('[aria-label="Comment" i][role="button"], [aria-label="Bình luận" i][role="button"]')
-                .first();
+              const cIcon = page.locator(commentIconSelectors).first();
               if (await cIcon.isVisible({ timeout: 2000 }).catch(() => false)) {
                 await cIcon.click();
                 await page.waitForTimeout(1500);
               }
-              cBox = page.locator('div[contenteditable="true"]').first();
+              cBox = page.locator(commentBoxSelectors).first();
             }
 
             if (await cBox.isVisible({ timeout: 5000 }).catch(() => false)) {
@@ -817,6 +881,30 @@ export async function commentFacebookReelOnly(options: {
     page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
     await dismissBlockingPagePopups(page);
 
+    await page.addInitScript(() => {
+      (window as any).__copiedReelUrl = '';
+      if (navigator.clipboard) {
+        const origWrite = navigator.clipboard.writeText;
+        navigator.clipboard.writeText = function (text: string) {
+          (window as any).__copiedReelUrl = text;
+          return origWrite ? origWrite.apply(this, arguments as any) : Promise.resolve();
+        };
+      }
+      const origExec = document.execCommand;
+      document.execCommand = function (cmd: string) {
+        if (cmd === 'copy') {
+          const active = document.activeElement;
+          if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+            const val = (active as any).value;
+            if (val && typeof val === 'string' && val.includes('facebook.com')) {
+              (window as any).__copiedReelUrl = val.trim();
+            }
+          }
+        }
+        return origExec ? origExec.apply(this, arguments as any) : true;
+      };
+    });
+
     notify(`Điều hướng đến: ${resolvedUrl}`);
     await page.goto(resolvedUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
     await page.waitForTimeout(3000);
@@ -829,22 +917,36 @@ export async function commentFacebookReelOnly(options: {
           await actionBtn.click();
           await page.waitForTimeout(800);
 
-          const copyBtn = page.locator('[role="menuitem"]:has-text("Copy link"), div:has-text("Copy link"), [role="button"]:has-text("Copy link"), text="Sao chép liên kết"').first();
+          const copyBtn = page.locator([
+            '[role="menuitem"]:has-text("Copy link")',
+            'div:has-text("Copy link")',
+            '[role="button"]:has-text("Copy link")',
+            '[role="menuitem"]:has-text("Sao chép liên kết")',
+            'div:has-text("Sao chép liên kết")',
+            '[role="button"]:has-text("Sao chép liên kết")'
+          ].join(', ')).first();
+
           if (await copyBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
             await copyBtn.click();
             await page.waitForTimeout(800);
 
             const copied = await page.evaluate(async () => {
               try {
-                return await navigator.clipboard.readText();
+                return (await navigator.clipboard.readText()) || (window as any).__copiedReelUrl;
               } catch {
-                return null;
+                return (window as any).__copiedReelUrl || null;
               }
             });
 
             if (copied && typeof copied === 'string' && copied.includes('facebook.com')) {
               publicReelUrl = copied.trim();
               notify(`Lấy được link Reel công khai từ Insights: ${publicReelUrl}`, 'INFO');
+              // Điều hướng sang link Reel công khai
+              await page.goto(publicReelUrl, { waitUntil: 'domcontentloaded', timeout: 35000 }).catch(() => {});
+              await page.waitForTimeout(3000);
+              if (page.url() && page.url().includes('/reel/')) {
+                publicReelUrl = page.url();
+              }
             }
           }
         }
@@ -871,6 +973,28 @@ export async function commentFacebookReelOnly(options: {
       return { success: true, realReelUrl: publicReelUrl || page.url() || resolvedUrl };
     }
 
+    const commentBoxSelectors = [
+      'div[contenteditable="true"][role="textbox"]',
+      'div[aria-label*="Comment as" i]',
+      'div[aria-label*="Bình luận dưới tên" i]',
+      'div[aria-label*="Write a comment" i]',
+      'div[aria-label*="Viết bình luận" i]',
+      'div[contenteditable="true"]',
+    ].join(', ');
+
+    const commentIconSelectors = [
+      '[aria-label="Comment" i][role="button"]',
+      '[aria-label="Comments" i][role="button"]',
+      '[aria-label*="Comment" i][role="button"]',
+      '[aria-label="Bình luận" i][role="button"]',
+      '[aria-label*="Bình luận" i][role="button"]',
+      '[aria-label="Comment" i]',
+      '[aria-label="Comments" i]',
+      '[aria-label*="Comment" i]',
+      '[aria-label="Bình luận" i]',
+      '[aria-label*="Bình luận" i]',
+    ].join(', ');
+
     notify(`Bắt đầu đăng ${commentItems.length} bình luận lên Facebook Reel...`);
     let sentCount = 0;
 
@@ -878,20 +1002,14 @@ export async function commentFacebookReelOnly(options: {
       const itemComment = commentItems[i];
       notify(`Đang nhập bình luận Facebook (${i + 1}/${commentItems.length}): "${itemComment}"...`);
 
-      let commentBox = page
-        .locator(
-          'div[contenteditable="true"][role="textbox"], div[aria-label*="Comment as" i], div[aria-label*="Bình luận dưới tên" i], div[contenteditable="true"]'
-        )
-        .first();
+      let commentBox = page.locator(commentBoxSelectors).first();
       if (!(await commentBox.isVisible({ timeout: 4000 }).catch(() => false))) {
-        const commentIcon = page
-          .locator('[aria-label="Comment" i][role="button"], [aria-label="Bình luận" i][role="button"]')
-          .first();
+        const commentIcon = page.locator(commentIconSelectors).first();
         if (await commentIcon.isVisible({ timeout: 2000 }).catch(() => false)) {
           await commentIcon.click();
           await page.waitForTimeout(1500);
         }
-        commentBox = page.locator('div[contenteditable="true"]').first();
+        commentBox = page.locator(commentBoxSelectors).first();
       }
 
       if (await commentBox.isVisible({ timeout: 5000 }).catch(() => false)) {
