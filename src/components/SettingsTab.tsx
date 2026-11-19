@@ -733,25 +733,28 @@ export default function SettingsTab({
 
             {/* CHANNEL 1: Browser Web Push Notifications */}
             <div className="p-4 rounded-xl border border-[var(--app-border)] space-y-3 bg-white dark:bg-slate-900/60">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Smartphone className="w-4 h-4 text-indigo-500" />
-                  <span className="text-xs sm:text-sm font-bold text-inherit">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Smartphone className="w-4 h-4 text-indigo-500 shrink-0" />
+                  <span className="text-xs sm:text-sm font-bold text-inherit truncate">
                     {lang === 'vi' ? '1. Thông báo đẩy trên Trình duyệt / Thiết bị' : '1. Browser / Device Push Notifications'}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 shrink-0">
                   {notificationPermission === 'granted' ? (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800">
-                      ● {lang === 'vi' ? 'Đã cho phép' : 'Granted'}
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 whitespace-nowrap inline-flex items-center gap-1 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                      <span>{lang === 'vi' ? 'Đã cho phép' : 'Granted'}</span>
                     </span>
                   ) : notificationPermission === 'denied' ? (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-800">
-                      ✕ {lang === 'vi' ? 'Bị chặn' : 'Blocked'}
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-800 whitespace-nowrap inline-flex items-center gap-1 shrink-0">
+                      <span className="font-bold">✕</span>
+                      <span>{lang === 'vi' ? 'Bị chặn' : 'Blocked'}</span>
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-800">
-                      ○ {lang === 'vi' ? 'Chưa cấp quyền' : 'Not Granted'}
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-800 whitespace-nowrap inline-flex items-center gap-1 shrink-0">
+                      <span className="font-bold">○</span>
+                      <span>{lang === 'vi' ? 'Chưa cấp quyền' : 'Not Granted'}</span>
                     </span>
                   )}
                 </div>
@@ -788,22 +791,22 @@ export default function SettingsTab({
 
             {/* CHANNEL 2: Telegram Bot Notifications */}
             <div className="p-4 rounded-xl border border-[var(--app-border)] space-y-3.5 bg-white dark:bg-slate-900/60">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-[10px]">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-[10px] shrink-0">
                     TG
                   </div>
-                  <div>
-                    <span className="text-xs sm:text-sm font-bold text-inherit">
+                  <div className="min-w-0">
+                    <span className="text-xs sm:text-sm font-bold text-inherit truncate block sm:inline">
                       {lang === 'vi' ? '2. Thông báo qua Telegram Bot' : '2. Telegram Bot Notifications'}
                     </span>
-                    <span className="ml-2 text-[10px] text-slate-400 font-normal">
+                    <span className="sm:ml-2 text-[10px] text-slate-400 font-normal block sm:inline">
                       ({lang === 'vi' ? 'Khuyên dùng cho Cron / Chạy ngầm' : 'Recommended for Cron / Headless'})
                     </span>
                   </div>
                 </div>
 
-                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-2">
                   <input
                     type="checkbox"
                     checked={form.telegram_notify_enabled === 'true'}
@@ -904,22 +907,22 @@ export default function SettingsTab({
 
             {/* CHANNEL 3: Slack Incoming Webhook */}
             <div className="p-4 rounded-xl border border-[var(--app-border)] space-y-3.5 bg-white dark:bg-slate-900/60">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px]">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px] shrink-0">
                     #
                   </div>
-                  <div>
-                    <span className="text-xs sm:text-sm font-bold text-inherit">
+                  <div className="min-w-0">
+                    <span className="text-xs sm:text-sm font-bold text-inherit truncate block sm:inline">
                       {lang === 'vi' ? '3. Thông báo qua Slack Incoming Webhook' : '3. Slack Incoming Webhook'}
                     </span>
-                    <span className="ml-2 text-[10px] text-slate-400 font-normal">
+                    <span className="sm:ml-2 text-[10px] text-slate-400 font-normal block sm:inline">
                       ({lang === 'vi' ? 'Gửi vào Channel Slack' : 'Send to Slack Channel'})
                     </span>
                   </div>
                 </div>
 
-                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-2">
                   <input
                     type="checkbox"
                     checked={form.slack_notify_enabled === 'true'}
