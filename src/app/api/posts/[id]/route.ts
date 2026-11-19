@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
+import db, { logActivity } from '@/lib/db';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -16,6 +16,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.comment_content !== undefined) {
       updates.push('comment_content = ?');
       values.push(body.comment_content);
+    }
+    if (body.fb_post_url !== undefined) {
+      updates.push('fb_post_url = ?');
+      values.push(body.fb_post_url);
+      logActivity('INFO', 'UPDATE_POST_LINK', `Đã cập nhật thủ công link bài viết Facebook [${id}]: ${body.fb_post_url || '(Đã xóa link)'}`);
     }
     if (body.status !== undefined) {
       updates.push('status = ?');

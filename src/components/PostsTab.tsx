@@ -19,6 +19,7 @@ import {
   Video,
   Download,
   RotateCcw,
+  Link2,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import Pagination from './Pagination';
@@ -29,7 +30,13 @@ interface PostsTabProps {
   posts: PostItem[];
   onPublish: (postId: string, force?: boolean) => Promise<void>;
   onComment?: (postId: string, postUrl?: string) => Promise<void>;
-  onUpdate: (postId: string, postContent: string, commentContent: string) => Promise<void>;
+  onUpdate: (
+    postId: string,
+    postContent: string,
+    commentContent: string,
+    fbPostUrl?: string | null,
+    status?: string
+  ) => Promise<void>;
   onDelete: (postId: string) => Promise<void>;
   onDeleteAllFailed?: () => Promise<void>;
   onToggleRecordVideo?: (postId: string, enabled: boolean) => Promise<void>;
@@ -58,6 +65,14 @@ export default function PostsTab({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPostContent, setEditPostContent] = useState('');
   const [editCommentContent, setEditCommentContent] = useState('');
+  const [editFbPostUrl, setEditFbPostUrl] = useState('');
+
+  // Quick correct link modal
+  const [correctingLinkPost, setCorrectingLinkPost] = useState<PostItem | null>(null);
+  const [correctFbUrl, setCorrectFbUrl] = useState('');
+  const [correctMarkPublished, setCorrectMarkPublished] = useState(true);
+  const [isSavingCorrectLink, setIsSavingCorrectLink] = useState(false);
+
   const [previewScreenshot, setPreviewScreenshot] = useState<string | null>(null);
   const [previewVideo, setPreviewVideo] = useState<string | null>(null);
   const [commentModalPost, setCommentModalPost] = useState<PostItem | null>(null);
@@ -87,11 +102,44 @@ export default function PostsTab({
     setEditingId(post.id);
     setEditPostContent(post.post_content);
     setEditCommentContent(post.comment_content);
+    setEditFbPostUrl(post.fb_post_url || '');
   };
 
   const handleSaveEdit = async (postId: string) => {
-    await onUpdate(postId, editPostContent, editCommentContent);
+    await onUpdate(postId, editPostContent, editCommentContent, editFbPostUrl.trim() || null);
     setEditingId(null);
+  };
+
+  const handleStartCorrectLink = (post: PostItem) => {
+    setCorrectingLinkPost(post);
+    setCorrectFbUrl(post.fb_post_url || '');
+    setCorrectMarkPublished(post.status !== 'published');
+  };
+
+  const handleSaveCorrectLink = async () => {
+    if (!correctingLinkPost) return;
+    setIsSavingCorrectLink(true);
+
+    try {
+      const trimmedFb = correctFbUrl.trim() || null;
+      let newStatus: string | undefined = undefined;
+      if (trimmedFb && correctMarkPublished && correctingLinkPost.status !== 'published') {
+        newStatus = 'published';
+      }
+
+      await onUpdate(
+        correctingLinkPost.id,
+        correctingLinkPost.post_content,
+        correctingLinkPost.comment_content,
+        trimmedFb,
+        newStatus
+      );
+      setCorrectingLinkPost(null);
+    } catch (err: any) {
+      alert(`${lang === 'vi' ? 'Lỗi cập nhật liên kết' : 'Error updating link'}: ${err.message}`);
+    } finally {
+      setIsSavingCorrectLink(false);
+    }
   };
 
   return (
@@ -272,6 +320,32 @@ export default function PostsTab({
                         className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-indigo-500 font-mono leading-relaxed resize-y max-w-full"
                       />
                     </div>
+
+                    <div>
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        <span className="flex items-center gap-1.5">
+                          <Link2 className="w-3.5 h-3.5 text-blue-500" />
+                          <span>{lang === 'vi' ? 'Link Facebook bài viết (Tùy chọn)' : 'Facebook Post URL (Optional)'}</span>
+                        </span>
+                        {editFbPostUrl && (
+                          <a
+                            href={editFbPostUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-blue-500 hover:underline inline-flex items-center gap-0.5"
+                          >
+                            <span>{lang === 'vi' ? 'Mở thử' : 'Test'}</span> ↗
+                          </a>
+                        )}
+                      </div>
+                      <input
+                        type="url"
+                        value={editFbPostUrl}
+                        onChange={(e) => setEditFbPostUrl(e.target.value)}
+                        placeholder="https://www.facebook.com/... (Link bài viết trên Facebook)"
+                        className="w-full p-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-indigo-500 font-mono max-w-full"
+                      />
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -411,9 +485,21 @@ export default function PostsTab({
                         <button
                           type="button"
                           onClick={() => handleStartEdit(post)}
-                          className="btn btn-sm btn-secondary"
+                          className="btn btn-sm btn-secondary cursor-pointer"
                         >
                           {t('btn_edit')}
+                        </button>
+
+                        {/* Manual Link Correction Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleStartCorrectLink(post)}
+                          disabled={isPublishing || isCommenting}
+                          className="btn btn-sm btn-secondary inline-flex items-center gap-1.5 cursor-pointer"
+                          title={lang === 'vi' ? 'Chỉnh sửa liên kết Facebook bài viết thủ công' : 'Correct Facebook post link manually'}
+                        >
+                          <Link2 className="w-3.5 h-3.5 text-blue-500" />
+                          <span>{lang === 'vi' ? 'Sửa link' : 'Edit link'}</span>
                         </button>
 
                         {onComment && (
@@ -652,6 +738,122 @@ export default function PostsTab({
                   <span>{lang === 'vi' ? 'Bắt đầu gửi bình luận' : 'Send Comment'}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CORRECT LINK MODAL (Quick edit Facebook Post link) */}
+      {correctingLinkPost && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs pt-safe pb-safe">
+          <div className="relative max-w-lg w-full app-card rounded-2xl p-5 shadow-2xl border border-[var(--app-border)] space-y-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--app-border)]">
+              <div className="flex items-center gap-2">
+                <Link2 className="w-4 h-4 text-blue-500" />
+                <h3 className="font-bold text-sm sm:text-base text-[var(--app-text)]">
+                  {lang === 'vi' ? 'Chỉnh sửa liên kết Facebook bài viết' : 'Correct Facebook Post Link'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setCorrectingLinkPost(null)}
+                className="text-[var(--app-text-muted)] hover:text-[var(--app-text)] p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Post title display */}
+            <div className="p-2.5 rounded-lg app-subcard border border-[var(--app-border)] flex items-center gap-2 text-xs">
+              <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
+              <span className="font-semibold truncate text-[var(--app-text)]">
+                {correctingLinkPost.trend_title}
+              </span>
+            </div>
+
+            {/* Facebook Post Link */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--app-text)] flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <FacebookIcon className="w-3.5 h-3.5 text-blue-500" />
+                  <span>{lang === 'vi' ? 'Link bài viết Facebook:' : 'Facebook Post Link:'}</span>
+                </span>
+                {correctFbUrl && (
+                  <a
+                    href={correctFbUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-blue-500 hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>{lang === 'vi' ? 'Mở thử' : 'Test open'}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </label>
+              <input
+                type="url"
+                value={correctFbUrl}
+                onChange={(e) => setCorrectFbUrl(e.target.value)}
+                placeholder="https://www.facebook.com/... (Link bài viết trên Fanpage)"
+                className="app-input w-full text-xs p-2.5 rounded-lg border border-[var(--app-border)] font-mono text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
+              />
+              <p className="text-[10px] text-[var(--app-text-secondary)]">
+                {lang === 'vi'
+                  ? 'Dán link bài viết trực tiếp trên Facebook để tiện theo dõi và gửi bình luận nguồn tin tự động.'
+                  : 'Paste the direct Facebook post link to easily view and auto-send source comments.'}
+              </p>
+            </div>
+
+            {/* Status option */}
+            {correctingLinkPost.status !== 'published' && (
+              <div className="p-3 rounded-lg app-subcard border border-[var(--app-border)] space-y-2">
+                <div className="text-[11px] font-semibold text-[var(--app-text)]">
+                  {lang === 'vi' ? 'Tùy chọn trạng thái:' : 'Status option:'}
+                </div>
+                <label className="flex items-center gap-2 text-xs text-[var(--app-text)] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={correctMarkPublished}
+                    onChange={(e) => setCorrectMarkPublished(e.target.checked)}
+                    className="rounded border-[var(--app-border)] text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>
+                    {lang === 'vi'
+                      ? 'Đánh dấu bài viết là "Đã xuất bản" (Published) nếu có link'
+                      : 'Mark post as "Published" if link is provided'}
+                  </span>
+                </label>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="pt-2 border-t border-[var(--app-border)] flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCorrectingLinkPost(null)}
+                disabled={isSavingCorrectLink}
+                className="btn btn-sm btn-ghost text-xs cursor-pointer"
+              >
+                {t('btn_cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveCorrectLink}
+                disabled={isSavingCorrectLink}
+                className="btn btn-sm btn-primary text-xs cursor-pointer"
+              >
+                {isSavingCorrectLink ? (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+                    <span>{t('saving')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{lang === 'vi' ? 'Lưu liên kết' : 'Save Link'}</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

@@ -27,10 +27,12 @@ import {
   Image as ImageIcon,
   Download,
   MessageSquare,
+  Link2,
 } from 'lucide-react';
 import { formatDateTime, formatDateDDMMYYYY, replaceDateWildcards } from '@/lib/date';
 import Pagination from './Pagination';
 import TikTokIcon from './TikTokIcon';
+import FacebookIcon from './FacebookIcon';
 import { useI18n } from '@/context/I18nThemeContext';
 
 interface ReelsTabProps {
@@ -41,7 +43,16 @@ interface ReelsTabProps {
   onDeleteReel: (reelId: string) => Promise<void>;
   onUpdateReel: (
     reelId: string,
-    data: { caption?: string; comment_content?: string | null; scheduled_at?: string | null; status?: string }
+    data: {
+      caption?: string;
+      comment_content?: string | null;
+      scheduled_at?: string | null;
+      status?: string;
+      fb_post_url?: string | null;
+      tiktok_post_url?: string | null;
+      tiktok_status?: string | null;
+      tiktok_comment_status?: string | null;
+    }
   ) => Promise<void>;
   onCreateReel: (data: {
     video_path: string;
@@ -88,9 +99,19 @@ export default function ReelsTab({
   const [editingReel, setEditingReel] = useState<ReelItem | null>(null);
   const [editCaption, setEditCaption] = useState('');
   const [editCommentContent, setEditCommentContent] = useState('');
+  const [editFbPostUrl, setEditFbPostUrl] = useState('');
+  const [editTikTokPostUrl, setEditTikTokPostUrl] = useState('');
   const [editIsScheduled, setEditIsScheduled] = useState(false);
   const [editScheduledAt, setEditScheduledAt] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Quick Correct Link modal
+  const [correctingLinkReel, setCorrectingLinkReel] = useState<ReelItem | null>(null);
+  const [correctFbUrl, setCorrectFbUrl] = useState('');
+  const [correctTikTokUrl, setCorrectTikTokUrl] = useState('');
+  const [correctMarkFbPublished, setCorrectMarkFbPublished] = useState(true);
+  const [correctMarkTikTokPublished, setCorrectMarkTikTokPublished] = useState(true);
+  const [isSavingCorrectLink, setIsSavingCorrectLink] = useState(false);
 
   // Delete confirmation
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -247,6 +268,8 @@ export default function ReelsTab({
     setEditingReel(reel);
     setEditCaption(reel.caption || '');
     setEditCommentContent(reel.comment_content || '');
+    setEditFbPostUrl(reel.fb_post_url || '');
+    setEditTikTokPostUrl(reel.tiktok_post_url || '');
     if (reel.scheduled_at) {
       setEditIsScheduled(true);
       const d = new Date(reel.scheduled_at);
@@ -285,6 +308,8 @@ export default function ReelsTab({
         comment_content: editCommentContent.trim() || null,
         scheduled_at: scheduledIso,
         status: newStatus,
+        fb_post_url: editFbPostUrl.trim() || null,
+        tiktok_post_url: editTikTokPostUrl.trim() || null,
       });
 
       setEditingReel(null);
@@ -292,6 +317,44 @@ export default function ReelsTab({
       alert(`${t('alert_update_failed')}: ${err.message}`);
     } finally {
       setIsSavingEdit(false);
+    }
+  };
+
+  const handleStartCorrectLink = (reel: ReelItem) => {
+    setCorrectingLinkReel(reel);
+    setCorrectFbUrl(reel.fb_post_url || '');
+    setCorrectTikTokUrl(reel.tiktok_post_url || '');
+    setCorrectMarkFbPublished(reel.status !== 'published');
+    setCorrectMarkTikTokPublished(reel.tiktok_status !== 'published');
+  };
+
+  const handleSaveCorrectLink = async () => {
+    if (!correctingLinkReel) return;
+    setIsSavingCorrectLink(true);
+
+    try {
+      const trimmedFb = correctFbUrl.trim() || null;
+      const trimmedTikTok = correctTikTokUrl.trim() || null;
+
+      const updateData: any = {
+        fb_post_url: trimmedFb,
+        tiktok_post_url: trimmedTikTok,
+      };
+
+      if (trimmedFb && correctMarkFbPublished && correctingLinkReel.status !== 'published') {
+        updateData.status = 'published';
+      }
+
+      if (trimmedTikTok && correctMarkTikTokPublished && correctingLinkReel.tiktok_status !== 'published') {
+        updateData.tiktok_status = 'published';
+      }
+
+      await onUpdateReel(correctingLinkReel.id, updateData);
+      setCorrectingLinkReel(null);
+    } catch (err: any) {
+      alert(`${lang === 'vi' ? 'Lỗi cập nhật liên kết' : 'Error updating links'}: ${err.message}`);
+    } finally {
+      setIsSavingCorrectLink(false);
     }
   };
 
@@ -510,7 +573,8 @@ export default function ReelsTab({
 
                 {/* Error Banner if Failed */}
                 {((reel.status === 'failed' && (reel.error_message || reel.debug_video_path || reel.screenshot_path)) ||
-                  (reel.tiktok_status === 'failed' && (reel.tiktok_error_message || reel.tiktok_debug_video_path || reel.tiktok_screenshot_path))) && (
+                  (reel.tiktok_status === 'failed' && (reel.tiktok_error_message || reel.tiktok_debug_video_path || reel.tiktok_screenshot_path)) ||
+                  (reel.tiktok_comment_status === 'failed' && (reel.tiktok_error_message || reel.tiktok_debug_video_path || reel.tiktok_screenshot_path))) && (
                   <div className="p-2.5 rounded-lg bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-800/40 text-[11px] text-rose-800 dark:text-rose-300 space-y-1.5">
                     {reel.error_message && (
                       <div className="flex items-start gap-1.5">
@@ -637,281 +701,358 @@ export default function ReelsTab({
                 </div>
 
                 {/* Auto Comment Preview */}
-                {reel.comment_content && (
-                  <div className="space-y-1 bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-lg border border-[var(--app-border)]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                        💬 {lang === 'vi' ? 'Bình luận tự động' : 'Auto Comment'}
-                      </span>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {reel.comment_status && (
-                          <span
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
-                              reel.comment_status === 'commented'
-                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                {reel.comment_content && (() => {
+                  const comments = reel.comment_content
+                    .split('|')
+                    .map((c) => c.trim())
+                    .filter(Boolean);
+
+                  return (
+                    <div className="space-y-1.5 bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-lg border border-[var(--app-border)]">
+                      <div className="flex items-center justify-between gap-1 flex-wrap">
+                        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                          💬 {lang === 'vi' ? 'Bình luận tự động' : 'Auto Comment'}
+                          {comments.length > 1 && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-normal">
+                              {comments.length} {lang === 'vi' ? 'bình luận' : 'comments'}
+                            </span>
+                          )}
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {reel.comment_status && (
+                            <span
+                              className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                                reel.comment_status === 'commented'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : reel.comment_status === 'failed'
+                                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                  : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+                              }`}
+                            >
+                              {reel.comment_status === 'commented'
+                                ? (lang === 'vi' ? '✓ FB: Đã bình luận' : '✓ FB: Commented')
                                 : reel.comment_status === 'failed'
-                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                                : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
-                            }`}
+                                ? (lang === 'vi' ? '✗ FB: Lỗi' : '✗ FB: Failed')
+                                : (lang === 'vi' ? '○ FB: Chờ' : '○ FB: Pending')}
+                            </span>
+                          )}
+                          {reel.tiktok_status === 'published' && reel.tiktok_comment_status && (
+                            <span
+                              className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                                reel.tiktok_comment_status === 'commented'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : reel.tiktok_comment_status === 'failed'
+                                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                  : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+                              }`}
+                            >
+                              {reel.tiktok_comment_status === 'commented'
+                                ? (lang === 'vi' ? '✓ TT: Đã bình luận' : '✓ TT: Commented')
+                                : reel.tiktok_comment_status === 'failed'
+                                ? (lang === 'vi' ? '✗ TT: Lỗi' : '✗ TT: Failed')
+                                : (lang === 'vi' ? '○ TT: Chờ' : '○ TT: Pending')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Comment Items */}
+                      {comments.length > 1 ? (
+                        <div className="space-y-1.5 mt-1">
+                          {comments.map((cText, idx) => (
+                            <div
+                              key={idx}
+                              className="p-2 rounded-md bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-700 dark:text-slate-200 leading-relaxed break-all shadow-2xs"
+                            >
+                              <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 dark:text-slate-500 mb-0.5">
+                                <span className="w-3.5 h-3.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 inline-flex items-center justify-center font-mono text-[9px] font-bold">
+                                  {idx + 1}
+                                </span>
+                                <span>{lang === 'vi' ? `Bình luận #${idx + 1}` : `Comment #${idx + 1}`}</span>
+                              </div>
+                              <div className="whitespace-pre-wrap">{cText}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed break-all">
+                          {reel.comment_content}
+                        </p>
+                      )}
+
+                      {reel.status !== 'published' && /%%DATE%%/i.test(reel.comment_content) && (
+                        <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-mono mt-0.5">
+                          ⚡ %%DATE%% → {formatDateDDMMYYYY()}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Bottom Actions - 2-tier Modern Responsive Layout */}
+                <div className="pt-2 border-t border-[var(--app-border)] space-y-2">
+                  {/* Tier 1: Platform Channels (Facebook & TikTok) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {/* Facebook Channel Box */}
+                    <div className="p-2 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 flex flex-col justify-between gap-1.5">
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                          <FacebookIcon className="w-3.5 h-3.5 fill-blue-600 dark:fill-blue-400" />
+                          <span>Facebook Reel</span>
+                        </div>
+                        {reel.fb_post_url ? (
+                          <a
+                            href={reel.fb_post_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5 font-medium"
+                            title={lang === 'vi' ? 'Mở xem Reel trên Facebook' : 'Open Reel on Facebook'}
                           >
-                            {reel.comment_status === 'commented'
-                              ? (lang === 'vi' ? '✓ FB: Đã bình luận' : '✓ FB: Commented')
-                              : reel.comment_status === 'failed'
-                              ? (lang === 'vi' ? '✗ FB: Lỗi' : '✗ FB: Failed')
-                              : (lang === 'vi' ? '○ FB: Chờ' : '○ FB: Pending')}
+                            <span>{lang === 'vi' ? 'Xem Reel' : 'View Reel'}</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 italic">
+                            {lang === 'vi' ? 'Chưa có link' : 'No link'}
                           </span>
                         )}
-                        {reel.tiktok_status === 'published' && reel.tiktok_comment_status && (
-                          <span
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
-                              reel.tiktok_comment_status === 'commented'
-                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                : reel.tiktok_comment_status === 'failed'
-                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                                : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
-                            }`}
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => onPublishReel(reel.id)}
+                          disabled={isPublishingThis || isPublishingTikTokThis}
+                          className="flex-1 btn btn-xs btn-primary text-xs py-1 inline-flex items-center justify-center gap-1"
+                          title={t('publish_reel_tooltip')}
+                        >
+                          {isPublishingThis ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <span>{t('reel_status_publishing')}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-3 h-3" />
+                              <span>
+                                {reel.status === 'published'
+                                  ? (lang === 'vi' ? 'Đăng lại FB' : 'Republish FB')
+                                  : (lang === 'vi' ? 'Đăng FB' : 'Post FB')}
+                              </span>
+                            </>
+                          )}
+                        </button>
+
+                        {reel.status === 'published' && onCommentReel && (
+                          <button
+                            onClick={() => onCommentReel(reel.id)}
+                            disabled={isPublishingThis || isPublishingTikTokThis || commentingReelId === reel.id}
+                            className="btn btn-xs btn-secondary text-xs py-1 inline-flex items-center gap-1 shrink-0"
+                            title={lang === 'vi' ? 'Gửi bình luận vào Reel Facebook' : 'Comment on Facebook Reel'}
                           >
-                            {reel.tiktok_comment_status === 'commented'
-                              ? (lang === 'vi' ? '✓ TT: Đã bình luận' : '✓ TT: Commented')
-                              : reel.tiktok_comment_status === 'failed'
-                              ? (lang === 'vi' ? '✗ TT: Lỗi' : '✗ TT: Failed')
-                              : (lang === 'vi' ? '○ TT: Chờ' : '○ TT: Pending')}
-                          </span>
+                            {commentingReelId === reel.id ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin text-indigo-500" />
+                                <span>{lang === 'vi' ? 'Gửi...' : 'Commenting...'}</span>
+                              </>
+                            ) : (
+                              <>
+                                <MessageSquare className="w-3 h-3 text-indigo-500" />
+                                <span>
+                                  {reel.comment_status === 'commented'
+                                    ? (lang === 'vi' ? 'Bình luận lại' : 'Re-comment')
+                                    : (lang === 'vi' ? 'Bình luận' : 'Comment')}
+                                </span>
+                              </>
+                            )}
+                          </button>
                         )}
                       </div>
                     </div>
-                    <p className="text-xs text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
-                      {reel.comment_content}
-                    </p>
-                    {reel.status !== 'published' && /%%DATE%%/i.test(reel.comment_content) && (
-                      <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-mono mt-0.5">
-                        ⚡ %%DATE%% → {formatDateDDMMYYYY()}
-                      </p>
-                    )}
-                  </div>
-                )}
 
-                {/* Bottom Actions */}
-                <div className="pt-2 border-t border-[var(--app-border)] flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {/* Publish Facebook Button */}
-                    <button
-                      onClick={() => onPublishReel(reel.id)}
-                      disabled={isPublishingThis || isPublishingTikTokThis}
-                      className="btn btn-sm btn-primary text-xs"
-                      title={t('publish_reel_tooltip')}
-                    >
-                      {isPublishingThis ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>{t('reel_status_publishing')}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-3.5 h-3.5" />
-                          <span>{reel.status === 'published' ? (lang === 'vi' ? 'Đăng lại FB' : 'Republish FB') : (lang === 'vi' ? 'Đăng FB' : 'Post FB')}</span>
-                        </>
-                      )}
-                    </button>
-
-                    {/* Publish TikTok Button */}
-                    {onPublishTikTok && (
-                      <button
-                        onClick={() => onPublishTikTok(reel.id)}
-                        disabled={isPublishingThis || isPublishingTikTokThis}
-                        className="btn btn-sm bg-rose-600 hover:bg-rose-700 text-white border-rose-500 text-xs font-semibold shadow-2xs inline-flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
-                        title={lang === 'vi' ? 'Xuất bản video lên TikTok' : 'Publish video to TikTok'}
-                      >
-                        {isPublishingTikTokThis ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            <span>TikTok...</span>
-                          </>
-                        ) : (
-                          <>
-                            <TikTokIcon className="w-3.5 h-3.5" />
-                            <span>
-                              {reel.tiktok_status === 'published'
-                                ? (lang === 'vi' ? 'Đăng lại TikTok' : 'Republish TikTok')
-                                : (lang === 'vi' ? 'Đăng TikTok' : 'Post TikTok')}
+                    {/* TikTok Channel Box */}
+                    <div className="p-2 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 flex flex-col justify-between gap-1.5">
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300">
+                          <TikTokIcon className="w-3.5 h-3.5" />
+                          <span>TikTok</span>
+                          {reel.tiktok_status === 'publishing' && (
+                            <span className="text-[10px] text-amber-500 inline-flex items-center gap-0.5 font-normal">
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                              <span>{lang === 'vi' ? 'Đang đăng...' : 'Posting...'}</span>
                             </span>
-                          </>
-                        )}
-                      </button>
-                    )}
-
-                    {/* Edit / Reschedule Button */}
-                    <button
-                      onClick={() => handleStartEdit(reel)}
-                      disabled={isPublishingThis || isPublishingTikTokThis}
-                      className="btn btn-sm btn-secondary text-xs"
-                      title={t('edit_reel_tooltip')}
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>{reel.status === 'scheduled' ? t('btn_reschedule') : t('btn_edit')}</span>
-                    </button>
-
-                    {/* Manual Comment Button */}
-                    {reel.status === 'published' && onCommentReel && (
-                      <button
-                        onClick={() => onCommentReel(reel.id)}
-                        disabled={isPublishingThis || isPublishingTikTokThis || commentingReelId === reel.id}
-                        className="btn btn-sm btn-secondary text-xs inline-flex items-center gap-1.5"
-                        title={lang === 'vi' ? 'Gửi bình luận vào Reel Facebook' : 'Comment on Facebook Reel'}
-                      >
-                        {commentingReelId === reel.id ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            <span>{lang === 'vi' ? 'Đang gửi...' : 'Commenting...'}</span>
-                          </>
-                        ) : (
-                          <>
-                            <MessageSquare className="w-3.5 h-3.5 text-indigo-500" />
-                            <span>
-                              {reel.comment_status === 'commented'
-                                ? (lang === 'vi' ? 'Bình luận lại FB' : 'Re-comment FB')
-                                : (lang === 'vi' ? 'Bình luận FB' : 'Comment FB')}
+                          )}
+                          {reel.tiktok_status === 'failed' && (
+                            <span
+                              className="text-[10px] text-rose-500 inline-flex items-center gap-0.5 cursor-help font-normal"
+                              title={reel.tiktok_error_message || (lang === 'vi' ? 'Đăng TikTok lỗi' : 'TikTok post failed')}
+                            >
+                              <AlertCircle className="w-2.5 h-2.5" />
+                              <span>{t('tiktok_status_failed')}</span>
                             </span>
-                          </>
-                        )}
-                      </button>
-                    )}
+                          )}
+                        </div>
 
-                    {/* Manual Comment TikTok Button */}
-                    {reel.tiktok_status === 'published' && onCommentTikTokReel && (
-                      <button
-                        onClick={() => onCommentTikTokReel(reel.id)}
-                        disabled={isPublishingThis || isPublishingTikTokThis || commentingTikTokId === reel.id}
-                        className="btn btn-sm btn-secondary text-xs inline-flex items-center gap-1.5"
-                        title={lang === 'vi' ? 'Gửi bình luận vào video TikTok' : 'Comment on TikTok video'}
-                      >
-                        {commentingTikTokId === reel.id ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            <span>{lang === 'vi' ? 'Đang gửi...' : 'Commenting...'}</span>
-                          </>
+                        {reel.tiktok_post_url ? (
+                          <a
+                            href={reel.tiktok_post_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-rose-600 dark:text-rose-400 hover:underline inline-flex items-center gap-0.5 font-medium"
+                            title={lang === 'vi' ? 'Mở xem video trên TikTok' : 'Open video on TikTok'}
+                          >
+                            <span>TikTok</span>
+                            <ExternalLink className="w-3 h-3 text-slate-400" />
+                          </a>
                         ) : (
-                          <>
-                            <MessageSquare className="w-3.5 h-3.5 text-rose-500" />
-                            <span>
-                              {reel.tiktok_comment_status === 'commented'
-                                ? (lang === 'vi' ? 'Bình luận lại TT' : 'Re-comment TT')
-                                : (lang === 'vi' ? 'Bình luận TT' : 'Comment TT')}
-                            </span>
-                          </>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 italic">
+                            {lang === 'vi' ? 'Chưa có link' : 'No link'}
+                          </span>
                         )}
-                      </button>
-                    )}
-
-                    {/* View on Facebook Link if available */}
-                    {reel.fb_post_url && (
-                      <a
-                        href={reel.fb_post_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-sm btn-ghost text-xs text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
-                        title={lang === 'vi' ? 'Mở xem Reel trên Facebook' : 'Open Reel on Facebook'}
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>{t('view_reel_button')}</span>
-                      </a>
-                    )}
-
-                    {/* View on TikTok Link if available */}
-                    {reel.tiktok_post_url && (
-                      <a
-                        href={reel.tiktok_post_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-sm btn-ghost text-xs text-slate-800 dark:text-slate-100 hover:underline inline-flex items-center gap-1.5 font-semibold"
-                        title={lang === 'vi' ? 'Mở xem video trên TikTok' : 'Open video on TikTok'}
-                      >
-                        <TikTokIcon className="w-3.5 h-3.5 text-rose-500" />
-                        <span>TikTok</span>
-                        <ExternalLink className="w-3 h-3 text-slate-400" />
-                      </a>
-                    )}
-
-                    {reel.tiktok_status === 'publishing' && (
-                      <span className="text-[11px] text-amber-500 inline-flex items-center gap-1">
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        <span>TikTok...</span>
-                      </span>
-                    )}
-
-                    {reel.tiktok_status === 'failed' && (
-                      <span
-                        className="text-[11px] text-rose-500 inline-flex items-center gap-1 cursor-help"
-                        title={reel.tiktok_error_message || (lang === 'vi' ? 'Đăng TikTok lỗi' : 'TikTok post failed')}
-                      >
-                        <AlertCircle className="w-3 h-3" />
-                        <span>{t('tiktok_status_failed')}</span>
-                      </span>
-                    )}
-
-                    {/* Video quay lại quá trình đăng Facebook (Dev Mode hoặc Lưu vết) */}
-                    {reel.debug_video_path && reel.status !== 'failed' && (
-                      <button
-                        type="button"
-                        onClick={() => setPreviewDebugVideo(reel.debug_video_path || null)}
-                        className="btn btn-sm btn-ghost text-xs text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                        title={lang === 'vi' ? 'Xem video quay lại quá trình đăng Facebook' : 'View Facebook post process video'}
-                      >
-                        <Video className="w-3.5 h-3.5 text-indigo-500" />
-                        <span>Video FB</span>
-                      </button>
-                    )}
-
-                    {/* Video quay lại quá trình đăng TikTok (Dev Mode hoặc Lưu vết) */}
-                    {reel.tiktok_debug_video_path && reel.tiktok_status !== 'failed' && (
-                      <button
-                        type="button"
-                        onClick={() => setPreviewDebugVideo(reel.tiktok_debug_video_path || null)}
-                        className="btn btn-sm btn-ghost text-xs text-rose-600 dark:text-rose-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                        title={lang === 'vi' ? 'Xem video quay lại quá trình đăng TikTok' : 'View TikTok post process video'}
-                      >
-                        <Video className="w-3.5 h-3.5 text-rose-500" />
-                        <span>Video TikTok</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Delete Button with Confirmation */}
-                  <div>
-                    {confirmDeleteId === reel.id ? (
-                      <div className="flex items-center gap-1">
-                        <button
-                          disabled={isDeletingThis}
-                          onClick={async () => {
-                            setIsDeletingId(reel.id);
-                            try {
-                              await onDeleteReel(reel.id);
-                            } finally {
-                              setIsDeletingId(null);
-                              setConfirmDeleteId(null);
-                            }
-                          }}
-                          className="btn btn-sm text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60"
-                        >
-                          {isDeletingThis ? t('deleting') : t('confirm_delete')}
-                        </button>
-                        <button
-                          onClick={() => setConfirmDeleteId(null)}
-                          className="btn btn-sm btn-ghost text-xs"
-                        >
-                          {t('btn_cancel')}
-                        </button>
                       </div>
-                    ) : (
+
+                      <div className="flex items-center gap-1.5">
+                        {onPublishTikTok && (
+                          <button
+                            onClick={() => onPublishTikTok(reel.id)}
+                            disabled={isPublishingThis || isPublishingTikTokThis}
+                            className="flex-1 btn btn-xs bg-rose-600 hover:bg-rose-700 text-white border-rose-500 text-xs py-1 inline-flex items-center justify-center gap-1 font-semibold cursor-pointer active:scale-[0.98]"
+                            title={lang === 'vi' ? 'Xuất bản video lên TikTok' : 'Publish video to TikTok'}
+                          >
+                            {isPublishingTikTokThis ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span>TikTok...</span>
+                              </>
+                            ) : (
+                              <>
+                                <TikTokIcon className="w-3 h-3" />
+                                <span>
+                                  {reel.tiktok_status === 'published'
+                                    ? (lang === 'vi' ? 'Đăng lại TT' : 'Republish TT')
+                                    : (lang === 'vi' ? 'Đăng TikTok' : 'Post TikTok')}
+                                </span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        {reel.tiktok_status === 'published' && onCommentTikTokReel && (
+                          <button
+                            onClick={() => onCommentTikTokReel(reel.id)}
+                            disabled={isPublishingThis || isPublishingTikTokThis || commentingTikTokId === reel.id}
+                            className="btn btn-xs btn-secondary text-xs py-1 inline-flex items-center gap-1 shrink-0"
+                            title={lang === 'vi' ? 'Gửi bình luận vào video TikTok' : 'Comment on TikTok video'}
+                          >
+                            {commentingTikTokId === reel.id ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin text-rose-500" />
+                                <span>{lang === 'vi' ? 'Gửi...' : 'Commenting...'}</span>
+                              </>
+                            ) : (
+                              <>
+                                <MessageSquare className="w-3 h-3 text-rose-500" />
+                                <span>
+                                  {reel.tiktok_comment_status === 'commented'
+                                    ? (lang === 'vi' ? 'Bình luận lại' : 'Re-comment')
+                                    : (lang === 'vi' ? 'Bình luận' : 'Comment')}
+                                </span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tier 2: Management Toolbar (Edit, Correct Links, Debug Videos, Delete) */}
+                  <div className="flex items-center justify-between gap-1.5 pt-1 text-xs">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {/* Edit Caption / Schedule */}
                       <button
-                        onClick={() => setConfirmDeleteId(reel.id)}
-                        disabled={isPublishingThis}
-                        className="btn btn-sm btn-ghost text-xs text-slate-400 hover:text-rose-600"
-                        title={t('delete_reel_tooltip')}
+                        onClick={() => handleStartEdit(reel)}
+                        disabled={isPublishingThis || isPublishingTikTokThis}
+                        className="btn btn-xs btn-ghost text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 inline-flex items-center gap-1"
+                        title={t('edit_reel_tooltip')}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Edit3 className="w-3 h-3" />
+                        <span>{reel.status === 'scheduled' ? t('btn_reschedule') : t('btn_edit')}</span>
                       </button>
-                    )}
+
+                      {/* Manual Link Correction */}
+                      <button
+                        onClick={() => handleStartCorrectLink(reel)}
+                        disabled={isPublishingThis || isPublishingTikTokThis}
+                        className="btn btn-xs btn-ghost text-cyan-700 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 inline-flex items-center gap-1 cursor-pointer"
+                        title={lang === 'vi' ? 'Chỉnh sửa liên kết Facebook Reel / TikTok thủ công' : 'Correct Facebook Reel / TikTok links manually'}
+                      >
+                        <Link2 className="w-3 h-3 text-cyan-500" />
+                        <span>{lang === 'vi' ? 'Sửa link' : 'Edit links'}</span>
+                      </button>
+
+                      {/* Debug Video Facebook */}
+                      {reel.debug_video_path && reel.status !== 'failed' && (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDebugVideo(reel.debug_video_path || null)}
+                          className="btn btn-xs btn-ghost text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 inline-flex items-center gap-1 cursor-pointer"
+                          title={lang === 'vi' ? 'Xem video quay lại quá trình đăng Facebook' : 'View Facebook post process video'}
+                        >
+                          <Video className="w-3 h-3 text-indigo-500" />
+                          <span>Video FB</span>
+                        </button>
+                      )}
+
+                      {/* Debug Video TikTok */}
+                      {reel.tiktok_debug_video_path && reel.tiktok_status !== 'failed' && (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDebugVideo(reel.tiktok_debug_video_path || null)}
+                          className="btn btn-xs btn-ghost text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 inline-flex items-center gap-1 cursor-pointer"
+                          title={lang === 'vi' ? 'Xem video quay lại quá trình đăng TikTok' : 'View TikTok post process video'}
+                        >
+                          <Video className="w-3 h-3 text-rose-500" />
+                          <span>Video TT</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Delete Reel */}
+                    <div className="shrink-0">
+                      {confirmDeleteId === reel.id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            disabled={isDeletingThis}
+                            onClick={async () => {
+                              setIsDeletingId(reel.id);
+                              try {
+                                await onDeleteReel(reel.id);
+                              } finally {
+                                setIsDeletingId(null);
+                                setConfirmDeleteId(null);
+                              }
+                            }}
+                            className="btn btn-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60"
+                          >
+                            {isDeletingThis ? t('deleting') : t('confirm_delete')}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="btn btn-xs btn-ghost text-slate-500"
+                          >
+                            {t('btn_cancel')}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(reel.id)}
+                          disabled={isPublishingThis}
+                          className="btn btn-xs btn-ghost text-slate-400 hover:text-rose-600 p-1"
+                          title={t('delete_reel_tooltip')}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1344,6 +1485,74 @@ export default function ReelsTab({
               )}
             </div>
 
+            {/* Social Media Links (Facebook & TikTok) */}
+            <div className="p-3.5 rounded-xl app-subcard space-y-3 border border-[var(--app-border)]">
+              <div className="flex items-center gap-2">
+                <Link2 className="w-4 h-4 text-cyan-400" />
+                <span className="text-xs font-bold text-[var(--app-text)]">
+                  {lang === 'vi' ? 'Liên kết bài đăng mạng xã hội (Tùy chọn)' : 'Social Media Links (Optional)'}
+                </span>
+              </div>
+
+              {/* FB Reel Link */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-[var(--app-text)] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
+                    <span>{lang === 'vi' ? 'Link Facebook Reel:' : 'Facebook Reel Link:'}</span>
+                  </span>
+                  {editFbPostUrl && (
+                    <a
+                      href={editFbPostUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-blue-500 hover:underline inline-flex items-center gap-1"
+                      title={lang === 'vi' ? 'Mở thử liên kết' : 'Test link in new tab'}
+                    >
+                      <span>Mở thử</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </label>
+                <input
+                  type="url"
+                  value={editFbPostUrl}
+                  onChange={(e) => setEditFbPostUrl(e.target.value)}
+                  placeholder="https://www.facebook.com/reel/123456789..."
+                  className="app-input w-full text-xs p-2 rounded-lg border border-[var(--app-border)] font-mono text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
+                />
+              </div>
+
+              {/* TikTok Link */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-[var(--app-text)] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <TikTokIcon className="w-3.5 h-3.5 text-rose-500" />
+                    <span>{lang === 'vi' ? 'Link TikTok Video:' : 'TikTok Video Link:'}</span>
+                  </span>
+                  {editTikTokPostUrl && (
+                    <a
+                      href={editTikTokPostUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-rose-500 hover:underline inline-flex items-center gap-1"
+                      title={lang === 'vi' ? 'Mở thử liên kết' : 'Test link in new tab'}
+                    >
+                      <span>Mở thử</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </label>
+                <input
+                  type="url"
+                  value={editTikTokPostUrl}
+                  onChange={(e) => setEditTikTokPostUrl(e.target.value)}
+                  placeholder="https://www.tiktok.com/@channel/video/7428123456789..."
+                  className="app-input w-full text-xs p-2 rounded-lg border border-[var(--app-border)] font-mono text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
+                />
+              </div>
+            </div>
+
             {/* Schedule Toggle & Picker */}
             <div className="p-4 rounded-xl app-subcard space-y-3.5 border border-[var(--app-border)]">
               <div className="flex items-center justify-between gap-3">
@@ -1423,6 +1632,170 @@ export default function ReelsTab({
                   <>
                     <Check className="w-3.5 h-3.5" />
                     <span>{t('btn_save_changes')}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CORRECT LINK MODAL (Quick edit FB & TikTok links) */}
+      {correctingLinkReel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs pt-safe pb-safe">
+          <div className="relative max-w-lg w-full app-card rounded-2xl p-5 shadow-2xl border border-[var(--app-border)] space-y-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--app-border)]">
+              <div className="flex items-center gap-2">
+                <Link2 className="w-4 h-4 text-cyan-400" />
+                <h3 className="font-bold text-sm sm:text-base text-[var(--app-text)]">
+                  {lang === 'vi' ? 'Chỉnh sửa liên kết mạng xã hội' : 'Correct Social Media Links'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setCorrectingLinkReel(null)}
+                className="text-[var(--app-text-muted)] hover:text-[var(--app-text)] p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Video filename display */}
+            <div className="p-2.5 rounded-lg app-subcard border border-[var(--app-border)] flex items-center gap-2 text-xs">
+              <Film className="w-4 h-4 text-indigo-400 shrink-0" />
+              <span className="font-semibold truncate text-[var(--app-text)]">
+                {correctingLinkReel.video_filename || correctingLinkReel.video_path}
+              </span>
+            </div>
+
+            {/* Facebook Reel Link */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--app-text)] flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
+                  <span>{lang === 'vi' ? 'Link Facebook Reel:' : 'Facebook Reel Link:'}</span>
+                </span>
+                {correctFbUrl && (
+                  <a
+                    href={correctFbUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-blue-500 hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>{lang === 'vi' ? 'Mở thử' : 'Test open'}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </label>
+              <input
+                type="url"
+                value={correctFbUrl}
+                onChange={(e) => setCorrectFbUrl(e.target.value)}
+                placeholder="https://www.facebook.com/reel/123456789..."
+                className="app-input w-full text-xs p-2.5 rounded-lg border border-[var(--app-border)] font-mono text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
+              />
+              <p className="text-[10px] text-[var(--app-text-secondary)]">
+                {lang === 'vi'
+                  ? 'Dán link Reel công khai trên Facebook để xem và thực hiện bình luận tự động.'
+                  : 'Paste the public Facebook Reel link to view and comment.'}
+              </p>
+            </div>
+
+            {/* TikTok Video Link */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--app-text)] flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <TikTokIcon className="w-3.5 h-3.5 text-rose-500" />
+                  <span>{lang === 'vi' ? 'Link TikTok Video:' : 'TikTok Video Link:'}</span>
+                </span>
+                {correctTikTokUrl && (
+                  <a
+                    href={correctTikTokUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-rose-500 hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>{lang === 'vi' ? 'Mở thử' : 'Test open'}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </label>
+              <input
+                type="url"
+                value={correctTikTokUrl}
+                onChange={(e) => setCorrectTikTokUrl(e.target.value)}
+                placeholder="https://www.tiktok.com/@channel/video/7428123456789..."
+                className="app-input w-full text-xs p-2.5 rounded-lg border border-[var(--app-border)] font-mono text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
+              />
+              <p className="text-[10px] text-[var(--app-text-secondary)]">
+                {lang === 'vi'
+                  ? 'Dán link video TikTok để xem và thực hiện bình luận tự động qua TikTok Studio.'
+                  : 'Paste the TikTok video link to view and comment via TikTok Studio.'}
+              </p>
+            </div>
+
+            {/* Status updates options */}
+            <div className="p-3 rounded-lg app-subcard border border-[var(--app-border)] space-y-2">
+              <div className="text-[11px] font-semibold text-[var(--app-text)]">
+                {lang === 'vi' ? 'Tùy chọn trạng thái:' : 'Status options:'}
+              </div>
+              {correctingLinkReel.status !== 'published' && (
+                <label className="flex items-center gap-2 text-xs text-[var(--app-text)] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={correctMarkFbPublished}
+                    onChange={(e) => setCorrectMarkFbPublished(e.target.checked)}
+                    className="rounded border-[var(--app-border)] text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>
+                    {lang === 'vi'
+                      ? 'Đánh dấu Reel Facebook là "Đã xuất bản" (Published) nếu có link'
+                      : 'Mark Facebook Reel as "Published" if link is provided'}
+                  </span>
+                </label>
+              )}
+              {correctingLinkReel.tiktok_status !== 'published' && (
+                <label className="flex items-center gap-2 text-xs text-[var(--app-text)] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={correctMarkTikTokPublished}
+                    onChange={(e) => setCorrectMarkTikTokPublished(e.target.checked)}
+                    className="rounded border-[var(--app-border)] text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>
+                    {lang === 'vi'
+                      ? 'Đánh dấu video TikTok là "Đã xuất bản" (Published) nếu có link'
+                      : 'Mark TikTok video as "Published" if link is provided'}
+                  </span>
+                </label>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="pt-2 border-t border-[var(--app-border)] flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCorrectingLinkReel(null)}
+                disabled={isSavingCorrectLink}
+                className="btn btn-sm btn-ghost text-xs cursor-pointer"
+              >
+                {t('btn_cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveCorrectLink}
+                disabled={isSavingCorrectLink}
+                className="btn btn-sm btn-primary text-xs cursor-pointer"
+              >
+                {isSavingCorrectLink ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>{t('saving')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{lang === 'vi' ? 'Lưu liên kết' : 'Save Links'}</span>
                   </>
                 )}
               </button>

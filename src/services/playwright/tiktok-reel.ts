@@ -432,6 +432,178 @@ async function handleTikTokVerificationModal(
 }
 
 /**
+ * Tự động đăng bình luận lên video qua TikTok Studio:
+ * 1. Vào https://www.tiktok.com/tiktokstudio/content (nếu chưa ở đó)
+ * 2. Click vào '[data-tt="components_ActionCell_Container"] [data-icon="Comments"]'
+ * 3. Nhập comment vào textarea id="comment-input"
+ * 4. Click vào '[data-tt="components_CommentInputEditor_TUXButton"]'
+ * Hỗ trợ tách nhiều comment bởi dấu "|" và gửi lần lượt.
+ */
+export async function postCommentsOnTikTokStudio(
+  page: Page,
+  commentRaw: string,
+  notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void,
+  targetVideoUrl?: string
+): Promise<{ success: boolean; total: number; sent: number; error?: string }> {
+  const comments = commentRaw
+    .split('|')
+    .map((c) => replaceDateWildcards(c.trim()))
+    .filter(Boolean);
+
+  if (comments.length === 0) {
+    return { success: true, total: 0, sent: 0 };
+  }
+
+  try {
+    notify(`Bắt đầu đăng ${comments.length} bình luận qua TikTok Studio...`);
+
+    // 1. Vào https://www.tiktok.com/tiktokstudio/content nếu chưa ở trang này
+    const currentUrl = page.url();
+    if (!currentUrl.includes('/tiktokstudio/content')) {
+      notify('Điều hướng đến TikTok Studio Content (https://www.tiktok.com/tiktokstudio/content)...');
+      await page.goto('https://www.tiktok.com/tiktokstudio/content', {
+        waitUntil: 'domcontentloaded',
+        timeout: 45000,
+      });
+      await page.waitForTimeout(5000);
+    }
+
+    await dismissAllTooltip(page);
+
+    // 2. Click vào icon Comments
+    // Kiểm tra xem textarea#comment-input đã hiển thị chưa (trường hợp drawer đã mở sẵn)
+    const textareaSelector = 'textarea#comment-input, #comment-input, textarea[id="comment-input"]';
+    let textarea = page.locator(textareaSelector).first();
+    let isTextareaVisible = await textarea.isVisible({ timeout: 2000 }).catch(() => false);
+
+    if (!isTextareaVisible) {
+      notify('Đang tìm nút mở bình luận [data-icon="Comments"]...');
+
+      let commentBtn: any = null;
+
+      // Nếu có targetVideoUrl, thử tìm đúng hàng chứa video đó
+      if (targetVideoUrl) {
+        const videoIdMatch = targetVideoUrl.match(/\/video\/(\d+)/);
+        const videoId = videoIdMatch ? videoIdMatch[1] : '';
+
+        if (videoId) {
+          const matchingRow = page
+            .locator(`tr:has(a[href*="${videoId}"]), div[role="row"]:has(a[href*="${videoId}"])`)
+            .first();
+          if (await matchingRow.isVisible({ timeout: 2000 }).catch(() => false)) {
+            const rowBtn = matchingRow
+              .locator('[data-tt="components_ActionCell_Container"] [data-icon="Comments"], [data-icon="Comments"]')
+              .first();
+            if (await rowBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+              commentBtn = rowBtn;
+            }
+          }
+        }
+      }
+
+      // Nếu không chỉ định hoặc không tìm thấy hàng cụ thể, lấy nút comment của video đầu tiên
+      if (!commentBtn) {
+        commentBtn = page
+          .locator('[data-tt="components_ActionCell_Container"] [data-icon="Comments"], [data-icon="Comments"]')
+          .first();
+      }
+
+      if (await commentBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await commentBtn.scrollIntoViewIfNeeded().catch(() => {});
+        await commentBtn.click();
+        notify('Đã click mở bảng bình luận TikTok Studio.');
+        await page.waitForTimeout(2500);
+      } else {
+        throw new Error('Không tìm thấy icon Comments ([data-icon="Comments"]) trên TikTok Studio.');
+      }
+
+      textarea = page.locator(textareaSelector).first();
+      isTextareaVisible = await textarea.isVisible({ timeout: 8000 }).catch(() => false);
+      if (!isTextareaVisible) {
+        throw new Error('Đã click icon Comments nhưng ô nhập bình luận (textarea id="comment-input") không xuất hiện.');
+      }
+    }
+
+    let sentCount = 0;
+
+    // 3 & 4. Lặp qua từng comment để nhập và gửi
+    for (let i = 0; i < comments.length; i++) {
+      const cmt = comments[i];
+      notify(`Đang nhập bình luận (${i + 1}/${comments.length}): "${cmt}"...`);
+
+      await textarea.scrollIntoViewIfNeeded().catch(() => {});
+      await textarea.click();
+      await textarea.fill('');
+      await page.waitForTimeout(300);
+
+      // Gõ bàn phím tuần tự để kích hoạt đầy đủ React state và bộ đếm ký tự của TikTok
+      await textarea.pressSequentially(cmt, { delay: 35 });
+      await page.waitForTimeout(800);
+
+      // Nút gửi: [data-tt="components_CommentInputEditor_TUXButton"]
+      const sendBtn = page.locator('[data-tt="components_CommentInputEditor_TUXButton"]').first();
+      await sendBtn.waitFor({ state: 'visible', timeout: 5000 }).catch(() => null);
+
+      if (!(await sendBtn.isVisible().catch(() => false))) {
+        throw new Error('Không tìm thấy nút gửi bình luận ([data-tt="components_CommentInputEditor_TUXButton"]).');
+      }
+
+      const isDisabled = await sendBtn.isDisabled().catch(() => false);
+      if (isDisabled) {
+        throw new Error('Nút gửi bình luận đang bị vô hiệu hoá (disabled).');
+      }
+
+      // Lắng nghe API publish comment
+      const publishPromise = page
+        .waitForResponse((res: any) => res.url().includes('/api/comment/publish/'), { timeout: 10000 })
+        .catch(() => null);
+
+      await sendBtn.click();
+
+      const publishRes = await publishPromise;
+      let apiSuccess = false;
+      if (publishRes && publishRes.ok()) {
+        const json = await publishRes.json().catch(() => ({}));
+        if (json.status_code === 0 || json.comment) {
+          apiSuccess = true;
+        }
+      }
+
+      await page.waitForTimeout(1500);
+
+      const isInputCleared = await textarea.inputValue().then((v: string) => v.trim() === '').catch(() => false);
+
+      if (apiSuccess || isInputCleared) {
+        sentCount++;
+        notify(`Đã đăng bình luận (${i + 1}/${comments.length}) thành công!`, 'SUCCESS');
+      } else {
+        notify(`Bình luận (${i + 1}/${comments.length}) chưa xác nhận được kết quả gửi.`, 'WARN');
+      }
+
+      // Giãn cách giữa các bình luận để tránh bị TikTok gắn cờ spam
+      if (i < comments.length - 1) {
+        await page.waitForTimeout(2500);
+      }
+    }
+
+    return {
+      success: sentCount > 0,
+      total: comments.length,
+      sent: sentCount,
+    };
+  } catch (err: any) {
+    const errorMsg = err?.message || String(err);
+    notify(`Lỗi khi đăng bình luận qua TikTok Studio: ${errorMsg}`, 'WARN');
+    return {
+      success: false,
+      total: comments.length,
+      sent: 0,
+      error: errorMsg,
+    };
+  }
+}
+
+/**
  * Automate uploading video to TikTok according to exact workflow:
  * 1. Navigate to https://www.tiktok.com/
  * 2. Click button[data-key-interaction="nav_upload"][aria-label="Upload"]
@@ -845,122 +1017,10 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
     }
 
     let commentSuccess: boolean | undefined = undefined;
-    if (options.comment && options.comment.trim() && tiktokVideoUrl) {
-      notify(`[Bước 7/7] Đang tự động bình luận lên video TikTok...`);
-      try {
-        await page.goto(tiktokVideoUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
-        await page.waitForTimeout(4000);
-        await page.keyboard.press('Escape');
-        await page.waitForTimeout(500);
-
-        // Kiểm tra xem nút post bình luận hoặc khung soạn thảo đã mở sẵn chưa
-        let hasPostBtn = (await page.locator('[data-e2e="comment-post"]').count()) > 0;
-        if (!hasPostBtn) {
-          const commentIcon = page.locator('[data-e2e="comment-icon"]').first();
-          if ((await commentIcon.count()) > 0) {
-            try {
-              await commentIcon.click({ timeout: 5000 });
-            } catch {
-              await page.evaluate(() => {
-                const icon = document.querySelector('[data-e2e="comment-icon"]');
-                if (icon) (icon as HTMLElement).click();
-              });
-            }
-            await page.waitForTimeout(2000);
-          }
-        }
-
-        const editorSelector = '.public-DraftEditor-content, div[contenteditable="true"], [data-e2e="comment-text"]';
-        const editor = page.locator(editorSelector).first();
-
-        if (await editor.count() > 0) {
-          const commentText = options.comment.trim();
-          await page.evaluate((text: string) => {
-            const el = document.querySelector('.public-DraftEditor-content') || document.querySelector('div[contenteditable="true"]');
-            if (el) {
-              (el as HTMLElement).focus();
-              const dt = new DataTransfer();
-              dt.setData('text/plain', text);
-              const ev = new ClipboardEvent('paste', {
-                clipboardData: dt,
-                bubbles: true,
-                cancelable: true,
-              });
-              el.dispatchEvent(ev);
-            }
-          }, commentText);
-
-          await page.waitForTimeout(1000);
-
-          const postBtn = page.locator('[data-e2e="comment-post"]').first();
-          if (await postBtn.count() > 0) {
-            const isDisabled = await postBtn.isDisabled().catch(() => false);
-            if (!isDisabled) {
-              const publishPromise = page.waitForResponse(
-                (res: any) => res.url().includes('/api/comment/publish/'),
-                { timeout: 7000 }
-              ).catch(() => null);
-
-              try {
-                await postBtn.click({ timeout: 4000 });
-              } catch {
-                await page.evaluate(() => {
-                  const btn = document.querySelector('[data-e2e="comment-post"]');
-                  if (btn) (btn as HTMLElement).click();
-                });
-              }
-
-              const publishRes = await publishPromise;
-              let apiSuccess = false;
-              if (publishRes && publishRes.ok()) {
-                const json = await publishRes.json().catch(() => ({}));
-                if (json.status_code === 0 || json.comment) {
-                  apiSuccess = true;
-                }
-              }
-
-              await page.waitForTimeout(2500);
-
-              const isEditorCleared = await page.evaluate(() => {
-                const el = document.querySelector('.public-DraftEditor-content');
-                return !el || ((el as HTMLElement).innerText || el.textContent || '').trim() === '';
-              });
-
-              if (apiSuccess || isEditorCleared) {
-                commentSuccess = true;
-                notify('Đã đăng bình luận tự động lên video TikTok thành công!', 'SUCCESS');
-              } else {
-                const isCaptcha = await page.evaluate(() => {
-                  const text = (document.body?.innerText || '').toLowerCase();
-                  return (
-                    text.includes('drag the slider') ||
-                    text.includes('fit the puzzle') ||
-                    text.includes('trượt thanh trượt') ||
-                    text.includes('ghép hình')
-                  );
-                });
-
-                if (isCaptcha) {
-                  notify('TikTok yêu cầu giải captcha chống bot (Ghép mảnh ghép). Bình luận chưa thể hoàn tất tự động.', 'WARN');
-                  commentSuccess = false;
-                } else {
-                  commentSuccess = false;
-                  notify('Chưa xác nhận được trạng thái gửi bình luận TikTok.', 'WARN');
-                }
-              }
-            } else {
-              notify('Nút gửi bình luận TikTok đang bị disable.', 'WARN');
-              commentSuccess = false;
-            }
-          }
-        } else {
-          notify('Không tìm thấy khung nhập bình luận trên video TikTok.', 'WARN');
-          commentSuccess = false;
-        }
-      } catch (cErr: any) {
-        notify(`Lỗi khi tự động bình luận TikTok: ${cErr.message || cErr}`, 'WARN');
-        commentSuccess = false;
-      }
+    if (options.comment && options.comment.trim()) {
+      notify(`[Bước 7/7] Đang tự động bình luận lên video TikTok qua TikTok Studio...`);
+      const commentRes = await postCommentsOnTikTokStudio(page, options.comment, notify, tiktokVideoUrl);
+      commentSuccess = commentRes.success;
     }
 
     // Đóng tất cả pages để Playwright flush và hoàn tất video artifact
@@ -980,11 +1040,15 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
 
     if (targetVideo) {
       try {
-        if (isDevMode) {
+        if (isDevMode || commentSuccess === false) {
           const finalVideoPath = path.join(VIDEOS_DIR, videoFileName);
           await targetVideo.saveAs(finalVideoPath);
           savedVideoFileName = videoFileName;
-          notify(`[Dev Mode] Đã lưu video quá trình đăng TikTok: ${videoFileName}`, 'SUCCESS');
+          if (commentSuccess === false) {
+            notify(`[Video Debug] Đã lưu video quá trình đăng TikTok (Lỗi bình luận): ${videoFileName}`, 'WARN');
+          } else {
+            notify(`[Dev Mode] Đã lưu video quá trình đăng TikTok: ${videoFileName}`, 'SUCCESS');
+          }
         } else {
           await targetVideo.delete().catch(() => { });
         }
@@ -1101,7 +1165,7 @@ export async function commentTikTokVideoOnly(
   videoUrl: string,
   comment: string,
   options?: { headless?: boolean }
-): Promise<{ success: boolean; message: string; error?: string }> {
+): Promise<{ success: boolean; message: string; error?: string; screenshotPath?: string; debugVideoPath?: string }> {
   // Khi có DISPLAY (:99 trên VPS), mặc định chạy headed (headless: false) để hiển thị lên VNC và tránh bị TikTok gán cờ bot headless
   const headless =
     options?.headless !== undefined
@@ -1111,14 +1175,24 @@ export async function commentTikTokVideoOnly(
   const userDataDir = getTikTokUserDataDir();
   cleanStaleChromeLocks(userDataDir);
 
+  const timestamp = Date.now();
+  const videoFileName = `tiktok_comment_${timestamp}.webm`;
+  const screenshotFileName = `tiktok_comment_err_${timestamp}.png`;
+  const screenshotFullPath = path.join(SCREENSHOTS_DIR, screenshotFileName);
+
   let context: any = null;
   let page: any = null;
+  let video: any = null;
 
   try {
     logActivity('INFO', 'COMMENT_TIKTOK', `Đang mở trình duyệt để bình luận video TikTok: ${videoUrl}`);
     context = await chromium.launchPersistentContext(userDataDir, {
       headless,
       viewport: { width: 1440, height: 900 },
+      recordVideo: {
+        dir: VIDEOS_DIR,
+        size: { width: 1440, height: 900 },
+      },
       userAgent:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       args: getChromiumLaunchArgs(['--disable-notifications', '--disable-blink-features=AutomationControlled']),
@@ -1128,6 +1202,7 @@ export async function commentTikTokVideoOnly(
     logActivity('INFO', 'COMMENT_TIKTOK', `Đã nạp ${loadedCookies} cookies TikTok vào trình duyệt`);
 
     page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
+    video = page.video();
 
     // Ẩn navigator.webdriver để giảm tỷ lệ kích hoạt Captcha
     await page.addInitScript(() => {
@@ -1138,6 +1213,41 @@ export async function commentTikTokVideoOnly(
         (window as any).chrome = { runtime: {} };
       } catch {}
     });
+
+    // Ưu tiên bình luận qua TikTok Studio để tránh bị Captcha chặn
+    try {
+      const studioRes = await postCommentsOnTikTokStudio(
+        page,
+        comment,
+        (msg, level) => logActivity(level || 'INFO', 'COMMENT_TIKTOK', msg),
+        videoUrl
+      );
+      if (studioRes.success) {
+        if (context) {
+          for (const p of context.pages()) {
+            if (!p.isClosed()) await p.close().catch(() => {});
+          }
+        }
+        const isDev = isDeveloperMode();
+        let savedVideo: string | undefined = undefined;
+        const targetVideo = video || (page && !page.isClosed() ? page.video() : null);
+        if (targetVideo) {
+          if (isDev) {
+            await targetVideo.saveAs(path.join(VIDEOS_DIR, videoFileName)).catch(() => {});
+            savedVideo = videoFileName;
+          } else {
+            await targetVideo.delete().catch(() => {});
+          }
+        }
+        return {
+          success: true,
+          message: `Đã đăng thành công ${studioRes.sent}/${studioRes.total} bình luận qua TikTok Studio!`,
+          debugVideoPath: savedVideo,
+        };
+      }
+    } catch (studioErr: any) {
+      logActivity('WARN', 'COMMENT_TIKTOK', `Thử bình luận qua TikTok Studio không thành công: ${studioErr.message}, tiếp tục thử qua giao diện xem video công khai...`);
+    }
 
     await page.goto(videoUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
     await page.waitForTimeout(4000);
@@ -1179,11 +1289,7 @@ export async function commentTikTokVideoOnly(
     if (await checkIsCaptcha()) {
       const solved = await waitForCaptchaSolution(60000);
       if (!solved) {
-        return {
-          success: false,
-          message: 'Hết thời gian chờ giải Captcha (60s). Hãy mở Screen Sharing (open vnc://localhost:5900) để kéo thanh trượt khi gửi bình luận.',
-          error: 'CAPTCHA_REQUIRED',
-        };
+        throw new Error('CAPTCHA_REQUIRED: Hết thời gian chờ giải Captcha (60s).');
       }
     }
 
@@ -1194,146 +1300,200 @@ export async function commentTikTokVideoOnly(
 
     if (isLogin) {
       logActivity('WARN', 'COMMENT_TIKTOK', 'TikTok yêu cầu đăng nhập. Phiên cookie chưa hợp lệ.');
-      return {
-        success: false,
-        message: 'TikTok yêu cầu đăng nhập (phiên chưa được xác thực hoặc cookie đã hết hạn). Vui lòng cập nhật cookie TikTok.',
-        error: 'LOGIN_REQUIRED',
-      };
+      throw new Error('LOGIN_REQUIRED: TikTok yêu cầu đăng nhập (phiên chưa được xác thực hoặc cookie đã hết hạn).');
     }
 
-    // Kiểm tra xem nút post bình luận hoặc khung soạn thảo đã mở sẵn chưa
-    let hasPostBtn = (await page.locator('[data-e2e="comment-post"]').count()) > 0;
-    if (!hasPostBtn) {
-      const commentIcon = page.locator('[data-e2e="comment-icon"]').first();
-      if ((await commentIcon.count()) > 0) {
-        try {
-          await commentIcon.click({ timeout: 5000 });
-        } catch {
-          await page.evaluate(() => {
-            const icon = document.querySelector('[data-e2e="comment-icon"]');
-            if (icon) (icon as HTMLElement).click();
-          });
+    // Tách các bình luận theo dấu |
+    const commentItems = comment
+      .split('|')
+      .map((c) => replaceDateWildcards(c.trim()))
+      .filter(Boolean);
+
+    if (commentItems.length === 0) {
+      throw new Error('Nội dung bình luận trống.');
+    }
+
+    let sentCount = 0;
+
+    for (let i = 0; i < commentItems.length; i++) {
+      const itemText = commentItems[i];
+      logActivity('INFO', 'COMMENT_TIKTOK', `Đang gửi bình luận công khai (${i + 1}/${commentItems.length}): "${itemText}"...`);
+
+      // Kiểm tra xem nút post bình luận hoặc khung soạn thảo đã mở sẵn chưa
+      let hasPostBtn = (await page.locator('[data-e2e="comment-post"]').count()) > 0;
+      if (!hasPostBtn) {
+        const commentIcon = page.locator('[data-e2e="comment-icon"]').first();
+        if ((await commentIcon.count()) > 0) {
+          try {
+            await commentIcon.click({ timeout: 5000 });
+          } catch {
+            await page.evaluate(() => {
+              const icon = document.querySelector('[data-e2e="comment-icon"]');
+              if (icon) (icon as HTMLElement).click();
+            });
+          }
+          await page.waitForTimeout(2000);
         }
-        await page.waitForTimeout(2000);
       }
-    }
 
-    const editorSelector = '.public-DraftEditor-content, div[contenteditable="true"], [data-e2e="comment-text"]';
-    const editor = page.locator(editorSelector).first();
+      const editorSelector = '.public-DraftEditor-content, div[contenteditable="true"], [data-e2e="comment-text"]';
+      const editor = page.locator(editorSelector).first();
 
-    if ((await editor.count()) === 0) {
-      throw new Error('Không tìm thấy khung nhập bình luận trên video TikTok');
-    }
-
-    const commentText = comment.trim();
-    await page.evaluate((text: string) => {
-      const el = document.querySelector('.public-DraftEditor-content') || document.querySelector('div[contenteditable="true"]');
-      if (el) {
-        (el as HTMLElement).focus();
-        const dt = new DataTransfer();
-        dt.setData('text/plain', text);
-        const ev = new ClipboardEvent('paste', {
-          clipboardData: dt,
-          bubbles: true,
-          cancelable: true,
-        });
-        el.dispatchEvent(ev);
+      if ((await editor.count()) === 0) {
+        throw new Error('Không tìm thấy khung nhập bình luận trên video TikTok');
       }
-    }, commentText);
 
-    await page.waitForTimeout(1000);
+      await page.evaluate((text: string) => {
+        const el = document.querySelector('.public-DraftEditor-content') || document.querySelector('div[contenteditable="true"]');
+        if (el) {
+          (el as HTMLElement).focus();
+          const dt = new DataTransfer();
+          dt.setData('text/plain', text);
+          const ev = new ClipboardEvent('paste', {
+            clipboardData: dt,
+            bubbles: true,
+            cancelable: true,
+          });
+          el.dispatchEvent(ev);
+        }
+      }, itemText);
 
-    const postBtn = page.locator('[data-e2e="comment-post"]').first();
-    if ((await postBtn.count()) === 0) {
-      throw new Error('Không tìm thấy nút gửi bình luận TikTok');
-    }
+      await page.waitForTimeout(1000);
 
-    const isDisabled = await postBtn.isDisabled().catch(() => false);
-    if (isDisabled) {
-      // Thử gõ thêm một dấu cách nếu Draft.js chưa kịp bắt sự kiện
-      await editor.focus().catch(() => {});
-      await page.keyboard.type(' ').catch(() => {});
-      await page.waitForTimeout(500);
-
-      const stillDisabled = await postBtn.isDisabled().catch(() => false);
-      if (stillDisabled) {
-        throw new Error('Nút gửi bình luận TikTok đang bị disable');
+      const postBtn = page.locator('[data-e2e="comment-post"]').first();
+      if ((await postBtn.count()) === 0) {
+        throw new Error('Không tìm thấy nút gửi bình luận TikTok');
       }
-    }
 
-    // Lắng nghe API phản hồi publish comment của TikTok
-    const publishPromise = page.waitForResponse(
-      (res: any) => res.url().includes('/api/comment/publish/'),
-      { timeout: 7000 }
-    ).catch(() => null);
+      const isDisabled = await postBtn.isDisabled().catch(() => false);
+      if (isDisabled) {
+        await editor.focus().catch(() => {});
+        await page.keyboard.type(' ').catch(() => {});
+        await page.waitForTimeout(500);
 
-    // Nhấp nút gửi bình luận với cơ chế dự phòng evaluate để tránh timeout khi có overlay
-    try {
-      await postBtn.click({ timeout: 4000 });
-    } catch {
-      await page.evaluate(() => {
-        const btn = document.querySelector('[data-e2e="comment-post"]');
-        if (btn) (btn as HTMLElement).click();
-      });
-    }
+        const stillDisabled = await postBtn.isDisabled().catch(() => false);
+        if (stillDisabled) {
+          throw new Error('Nút gửi bình luận TikTok đang bị disable');
+        }
+      }
 
-    const publishRes = await publishPromise;
-    let apiSuccess = false;
-    if (publishRes && publishRes.ok()) {
+      // Lắng nghe API phản hồi publish comment của TikTok
+      const publishPromise = page.waitForResponse(
+        (res: any) => res.url().includes('/api/comment/publish/'),
+        { timeout: 7000 }
+      ).catch(() => null);
+
       try {
-        const json = await publishRes.json().catch(() => ({}));
-        if (json.status_code === 0 || json.comment) {
-          apiSuccess = true;
-        }
-      } catch {}
-    }
-
-    await page.waitForTimeout(2500);
-
-    // Kiểm tra xem khung soạn thảo đã được xóa trắng chưa (TikTok tự động xóa nội dung khi comment gửi thành công)
-    const isEditorCleared = await page.evaluate(() => {
-      const el = document.querySelector('.public-DraftEditor-content');
-      return !el || ((el as HTMLElement).innerText || el.textContent || '').trim() === '';
-    });
-
-    if (apiSuccess || isEditorCleared) {
-      logActivity('SUCCESS', 'COMMENT_TIKTOK', 'TikTok đã xác nhận lưu bình luận thành công!');
-      return { success: true, message: 'Đã bình luận lên video TikTok thành công' };
-    }
-
-    // Nếu API chưa xác nhận và khung soạn thảo chưa xóa, kiểm tra xem có captcha thật sự chặn không
-    if (await checkIsCaptcha()) {
-      const solved = await waitForCaptchaSolution(60000);
-      if (!solved) {
-        return {
-          success: false,
-          message: 'Hết thời gian chờ giải Captcha (60s). Hãy mở Screen Sharing (open vnc://localhost:5900) để kéo thanh trượt khi gửi bình luận.',
-          error: 'CAPTCHA_REQUIRED',
-        };
+        await postBtn.click({ timeout: 4000 });
+      } catch {
+        await page.evaluate(() => {
+          const btn = document.querySelector('[data-e2e="comment-post"]');
+          if (btn) (btn as HTMLElement).click();
+        });
       }
 
-      // Sau khi giải captcha xong, nhấn lại nút post nếu bình luận chưa đi
-      await page.waitForTimeout(1500);
-      const postBtnRetry = page.locator('[data-e2e="comment-post"]').first();
-      if ((await postBtnRetry.count()) > 0 && !(await postBtnRetry.isDisabled().catch(() => true))) {
+      const publishRes = await publishPromise;
+      let apiSuccess = false;
+      if (publishRes && publishRes.ok()) {
         try {
-          await postBtnRetry.click({ timeout: 4000 });
-        } catch {
-          await page.evaluate(() => {
-            const btn = document.querySelector('[data-e2e="comment-post"]');
-            if (btn) (btn as HTMLElement).click();
-          });
+          const json = await publishRes.json().catch(() => ({}));
+          if (json.status_code === 0 || json.comment) {
+            apiSuccess = true;
+          }
+        } catch {}
+      }
+
+      await page.waitForTimeout(2500);
+
+      const isEditorCleared = await page.evaluate(() => {
+        const el = document.querySelector('.public-DraftEditor-content');
+        return !el || ((el as HTMLElement).innerText || el.textContent || '').trim() === '';
+      });
+
+      if (apiSuccess || isEditorCleared) {
+        sentCount++;
+        logActivity('SUCCESS', 'COMMENT_TIKTOK', `Đã đăng bình luận (${i + 1}/${commentItems.length}) thành công!`);
+      } else if (await checkIsCaptcha()) {
+        const solved = await waitForCaptchaSolution(60000);
+        if (!solved) {
+          throw new Error('CAPTCHA_REQUIRED: Hết thời gian chờ giải Captcha (60s).');
         }
-        await page.waitForTimeout(3000);
+        sentCount++;
+      }
+
+      if (i < commentItems.length - 1) {
+        await page.waitForTimeout(2500);
       }
     }
 
-    logActivity('SUCCESS', 'COMMENT_TIKTOK', 'Đã đăng bình luận lên video TikTok thành công');
-    return { success: true, message: 'Đã bình luận lên video TikTok thành công' };
+    // Đóng pages để hoàn tất ghi video
+    if (context) {
+      for (const p of context.pages()) {
+        if (!p.isClosed()) await p.close().catch(() => {});
+      }
+    }
+
+    const isDevMode = isDeveloperMode();
+    let savedVideoFileName: string | undefined = undefined;
+    const targetVideo = video || (page && !page.isClosed() ? page.video() : null);
+
+    if (targetVideo) {
+      if (isDevMode) {
+        await targetVideo.saveAs(path.join(VIDEOS_DIR, videoFileName)).catch(() => {});
+        savedVideoFileName = videoFileName;
+      } else {
+        await targetVideo.delete().catch(() => {});
+      }
+    }
+
+    logActivity('SUCCESS', 'COMMENT_TIKTOK', `Đã hoàn tất gửi ${sentCount}/${commentItems.length} bình luận TikTok!`);
+    return {
+      success: true,
+      message: `Đã gửi thành công ${sentCount}/${commentItems.length} bình luận TikTok!`,
+      debugVideoPath: savedVideoFileName,
+    };
   } catch (err: any) {
     const errMsg = err?.message || String(err);
     logActivity('ERROR', 'COMMENT_TIKTOK', `Lỗi đăng bình luận TikTok: ${errMsg}`);
-    return { success: false, message: `Lỗi đăng bình luận TikTok: ${errMsg}`, error: errMsg };
+
+    let savedScreenshotFileName: string | undefined = undefined;
+    let savedVideoFileName: string | undefined = undefined;
+
+    if (page && !page.isClosed()) {
+      try {
+        await page.screenshot({ path: screenshotFullPath, fullPage: false }).catch(() => {});
+        savedScreenshotFileName = screenshotFileName;
+        logActivity('WARN', 'COMMENT_TIKTOK', `Đã lưu ảnh chụp màn hình lỗi TikTok: ${screenshotFileName}`);
+      } catch {}
+    }
+
+    // Đóng pages để Playwright flush video
+    if (context) {
+      const pages = context.pages();
+      for (const p of pages) {
+        if (!p.isClosed()) await p.close().catch(() => {});
+      }
+    }
+
+    const targetVideo = video || (page && !page.isClosed() ? page.video() : null);
+    if (targetVideo) {
+      try {
+        const finalVideoPath = path.join(VIDEOS_DIR, videoFileName);
+        await targetVideo.saveAs(finalVideoPath);
+        savedVideoFileName = videoFileName;
+        logActivity('WARN', 'COMMENT_TIKTOK', `[Video Debug] Đã lưu video thao tác lỗi bình luận TikTok: ${videoFileName}`);
+      } catch (vErr: any) {
+        logActivity('WARN', 'COMMENT_TIKTOK', `Lỗi lưu video TikTok debug: ${vErr?.message || vErr}`);
+      }
+    }
+
+    return {
+      success: false,
+      message: `Lỗi đăng bình luận TikTok: ${errMsg}`,
+      error: errMsg,
+      screenshotPath: savedScreenshotFileName,
+      debugVideoPath: savedVideoFileName,
+    };
   } finally {
     if (context) {
       await context.close().catch(() => {});

@@ -58,7 +58,7 @@ export function createReel(data: {
 
 export function updateReel(
   id: string,
-  data: Partial<Pick<ReelItem, 'caption' | 'comment_content' | 'comment_status' | 'scheduled_at' | 'status' | 'video_path' | 'video_filename' | 'fb_post_url' | 'screenshot_path' | 'debug_video_path'>>
+  data: Partial<Pick<ReelItem, 'caption' | 'comment_content' | 'comment_status' | 'scheduled_at' | 'status' | 'video_path' | 'video_filename' | 'fb_post_url' | 'tiktok_post_url' | 'tiktok_status' | 'tiktok_comment_status' | 'published_at' | 'error_message' | 'tiktok_error_message' | 'screenshot_path' | 'debug_video_path'>>
 ): ReelItem | null {
   const current = getReelById(id);
   if (!current) return null;
@@ -97,6 +97,36 @@ export function updateReel(
   if (data.fb_post_url !== undefined) {
     updates.push('fb_post_url = ?');
     values.push(data.fb_post_url);
+    if (data.fb_post_url !== current.fb_post_url) {
+      logActivity('INFO', 'UPDATE_REEL_LINK', `Đã cập nhật thủ công link Facebook Reel [${id}]: ${data.fb_post_url || '(Đã xóa link)'}`);
+    }
+  }
+  if (data.tiktok_post_url !== undefined) {
+    updates.push('tiktok_post_url = ?');
+    values.push(data.tiktok_post_url);
+    if (data.tiktok_post_url !== current.tiktok_post_url) {
+      logActivity('INFO', 'UPDATE_REEL_LINK', `Đã cập nhật thủ công link TikTok [${id}]: ${data.tiktok_post_url || '(Đã xóa link)'}`);
+    }
+  }
+  if (data.tiktok_status !== undefined) {
+    updates.push('tiktok_status = ?');
+    values.push(data.tiktok_status);
+  }
+  if (data.tiktok_comment_status !== undefined) {
+    updates.push('tiktok_comment_status = ?');
+    values.push(data.tiktok_comment_status);
+  }
+  if (data.published_at !== undefined) {
+    updates.push('published_at = ?');
+    values.push(data.published_at);
+  }
+  if (data.error_message !== undefined) {
+    updates.push('error_message = ?');
+    values.push(data.error_message);
+  }
+  if (data.tiktok_error_message !== undefined) {
+    updates.push('tiktok_error_message = ?');
+    values.push(data.tiktok_error_message);
   }
   if (data.screenshot_path !== undefined) {
     updates.push('screenshot_path = ?');
@@ -604,14 +634,22 @@ export async function postCommentToTikTokReel(
     db.prepare(`
       UPDATE reels
       SET comment_content = ?,
-          tiktok_comment_status = 'commented'
+          tiktok_comment_status = 'commented',
+          tiktok_debug_video_path = COALESCE(?, tiktok_debug_video_path)
       WHERE id = ?
-    `).run(commentToPost, id);
+    `).run(commentToPost, result.debugVideoPath || null, id);
 
     logActivity('SUCCESS', 'COMMENT_TIKTOK', `Bình luận thành công cho video TikTok [${id}]: ${commentToPost}`);
     return { success: true, message: 'Đã gửi bình luận thành công cho video TikTok!' };
   } else {
-    db.prepare(`UPDATE reels SET tiktok_comment_status = 'failed' WHERE id = ?`).run(id);
+    db.prepare(`
+      UPDATE reels 
+      SET tiktok_comment_status = 'failed',
+          tiktok_debug_video_path = COALESCE(?, tiktok_debug_video_path),
+          tiktok_screenshot_path = COALESCE(?, tiktok_screenshot_path),
+          tiktok_error_message = ?
+      WHERE id = ?
+    `).run(result.debugVideoPath || null, result.screenshotPath || null, result.error || result.message, id);
     logActivity('WARN', 'COMMENT_TIKTOK', `Bình luận cho video TikTok [${id}] thất bại: ${result.error || result.message}`);
     return { success: false, message: result.message || 'Bình luận TikTok thất bại', error: result.error };
   }

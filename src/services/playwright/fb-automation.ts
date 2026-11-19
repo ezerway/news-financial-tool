@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import path from 'path';
 import fs from 'fs';
 import db, { logActivity, getSetting, resolveHeadless, isDeveloperMode } from '@/lib/db';
+import { replaceDateWildcards } from '@/lib/date';
 import { PostItem } from '@/types';
 import { isSessionAvailable, getUserDataDir, injectSessionCookies, getSessionPath, getChromiumLaunchArgs, cleanStaleChromeLocks } from './session';
 import { checkDuplicatePublish, markTrendAsPublished } from '../dedup';
@@ -504,44 +505,78 @@ export async function executePublishAndComment(
       await handleProfileSwitcherModal(page, pageName);
 
 
-      let commentBox = page.locator('div[contenteditable="true"]').first();
+      const comments = (post.comment_content || '')
+        .split('|')
+        .map((c) => replaceDateWildcards(c.trim()))
+        .filter(Boolean);
 
-      if (commentBox) {
-        await commentBox.click();
-        await page.waitForTimeout(600);
-        await page.keyboard.insertText(post.comment_content);
-        await page.waitForTimeout(1500);
+      if (comments.length === 0) {
+        logActivity('INFO', 'COMMENT', 'Không có nội dung bình luận để gửi.');
+      } else {
+        logActivity('INFO', 'COMMENT', `Bắt đầu gửi ${comments.length} bình luận cho bài viết ${post.id}...`);
+        let sentCount = 0;
 
-        // BƯỚC 6: Click vào element aria-label="Post comment"
-        logActivity('INFO', 'COMMENT', '[Bước 6] Tìm và click element aria-label="Post comment"...');
-        const postCommentBtnSelectors = [
-          '[aria-label="Post comment"]',
-        ];
+        for (let i = 0; i < comments.length; i++) {
+          const cmt = comments[i];
+          logActivity('INFO', 'COMMENT', `Đang nhập bình luận (${i + 1}/${comments.length}): "${cmt.slice(0, 50)}..."`);
 
-        let postCommentBtn = null;
-        for (const sel of postCommentBtnSelectors) {
-          const el = page.locator(sel).first();
-          if ((await el.count()) > 0 && (await el.isVisible({ timeout: 2000 }).catch(() => false))) {
-            postCommentBtn = el;
-            break;
+          let commentBox = page.locator('div[contenteditable="true"][role="textbox"], div[aria-label*="Comment as" i], div[aria-label*="Bình luận dưới tên" i], div[contenteditable="true"]').first();
+          if (!(await commentBox.isVisible({ timeout: 4000 }).catch(() => false))) {
+            const commentIcon = page.locator('[aria-label="Comment" i][role="button"], [aria-label="Bình luận" i][role="button"]').first();
+            if (await commentIcon.isVisible({ timeout: 2000 }).catch(() => false)) {
+              await commentIcon.click();
+              await page.waitForTimeout(1500);
+            }
+            commentBox = page.locator('div[contenteditable="true"]').first();
+          }
+
+          if (await commentBox.isVisible({ timeout: 5000 }).catch(() => false)) {
+            await commentBox.scrollIntoViewIfNeeded().catch(() => {});
+            await commentBox.click();
+            await page.waitForTimeout(600);
+            await page.keyboard.insertText(cmt);
+            await page.waitForTimeout(1500);
+
+            const postCommentBtnSelectors = [
+              '[aria-label="Post comment" i]',
+              '[aria-label="Đăng bình luận" i]',
+              '[aria-label="Post comment"]',
+            ];
+
+            let postCommentBtn = null;
+            for (const sel of postCommentBtnSelectors) {
+              const el = page.locator(sel).first();
+              if ((await el.count()) > 0 && (await el.isVisible({ timeout: 2000 }).catch(() => false))) {
+                postCommentBtn = el;
+                break;
+              }
+            }
+
+            if (postCommentBtn) {
+              logActivity('INFO', 'COMMENT', `Bấm nút gửi bình luận (${i + 1}/${comments.length})...`);
+              await postCommentBtn.click();
+            } else {
+              logActivity('INFO', 'COMMENT', `Gửi bình luận (${i + 1}/${comments.length}) bằng phím Enter...`);
+              await page.keyboard.press('Enter');
+            }
+            await page.waitForTimeout(3000);
+            sentCount++;
+            logActivity('SUCCESS', 'COMMENT', `Đã gửi bình luận (${i + 1}/${comments.length}) thành công!`);
+
+            if (i < comments.length - 1) {
+              await page.waitForTimeout(2500);
+            }
+          } else {
+            logActivity('WARN', 'COMMENT', `Không tìm thấy ô nhập bình luận cho phần ${i + 1}.`);
           }
         }
 
-        if (postCommentBtn) {
-          logActivity('INFO', 'COMMENT', 'Phát hiện nút aria-label="Post comment", đang bấm gửi bình luận...');
-          await postCommentBtn.click();
-          await page.waitForTimeout(3000);
+        if (sentCount > 0) {
           commentSuccess = true;
+          logActivity('SUCCESS', 'COMMENT', `Đã tự động gửi ${sentCount}/${comments.length} bình luận thành công cho bài viết ${post.id}`);
         } else {
-          logActivity('INFO', 'COMMENT', 'Không thấy nút aria-label="Post comment", gửi bằng phím Enter...');
-          await page.keyboard.press('Enter');
-          await page.waitForTimeout(3000);
-          commentSuccess = true;
+          logActivity('WARN', 'COMMENT', 'Không gửi được bình luận nào cho bài viết.');
         }
-
-        logActivity('SUCCESS', 'COMMENT', `Đã tự động gửi bình luận nguồn tin thành công cho bài viết ${post.id}`);
-      } else {
-        logActivity('WARN', 'COMMENT', 'Không tìm thấy thẻ contenteditable="true" trong modal bình luận.');
       }
     } catch (commentErr: any) {
       logActivity('WARN', 'COMMENT', `Bước auto-comment gặp sự cố: ${commentErr.message}`);
@@ -734,42 +769,78 @@ export async function executeCommentOnly(
     await page.waitForTimeout(3000);
     await handleProfileSwitcherModal(page, pageName);
 
-    let commentBox = page.locator('div[contenteditable="true"]').first();
+    const comments = (post.comment_content || '')
+      .split('|')
+      .map((c) => replaceDateWildcards(c.trim()))
+      .filter(Boolean);
 
-    if (commentBox) {
-      await commentBox.click();
-      await page.waitForTimeout(600);
-      await page.keyboard.insertText(post.comment_content);
-      await page.waitForTimeout(1500);
+    if (comments.length === 0) {
+      logActivity('INFO', 'COMMENT', '[Comment Only] Không có nội dung bình luận để gửi.');
+    } else {
+      logActivity('INFO', 'COMMENT', `[Comment Only] Bắt đầu gửi ${comments.length} bình luận cho bài viết ${post.id}...`);
+      let sentCount = 0;
 
-      logActivity('INFO', 'COMMENT', '[Comment Only] Tìm và click element aria-label="Post comment"...');
-      const postCommentBtnSelectors = [
-        '[aria-label="Post comment"]',
-      ];
+      for (let i = 0; i < comments.length; i++) {
+        const cmt = comments[i];
+        logActivity('INFO', 'COMMENT', `[Comment Only] Đang nhập bình luận (${i + 1}/${comments.length}): "${cmt.slice(0, 50)}..."`);
 
-      let postCommentBtn = null;
-      for (const sel of postCommentBtnSelectors) {
-        const el = page.locator(sel).first();
-        if ((await el.count()) > 0 && (await el.isVisible({ timeout: 2000 }).catch(() => false))) {
-          postCommentBtn = el;
-          break;
+        let commentBox = page.locator('div[contenteditable="true"][role="textbox"], div[aria-label*="Comment as" i], div[aria-label*="Bình luận dưới tên" i], div[contenteditable="true"]').first();
+        if (!(await commentBox.isVisible({ timeout: 4000 }).catch(() => false))) {
+          const commentIcon = page.locator('[aria-label="Comment" i][role="button"], [aria-label="Bình luận" i][role="button"]').first();
+          if (await commentIcon.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await commentIcon.click();
+            await page.waitForTimeout(1500);
+          }
+          commentBox = page.locator('div[contenteditable="true"]').first();
+        }
+
+        if (await commentBox.isVisible({ timeout: 5000 }).catch(() => false)) {
+          await commentBox.scrollIntoViewIfNeeded().catch(() => {});
+          await commentBox.click();
+          await page.waitForTimeout(600);
+          await page.keyboard.insertText(cmt);
+          await page.waitForTimeout(1500);
+
+          const postCommentBtnSelectors = [
+            '[aria-label="Post comment" i]',
+            '[aria-label="Đăng bình luận" i]',
+            '[aria-label="Post comment"]',
+          ];
+
+          let postCommentBtn = null;
+          for (const sel of postCommentBtnSelectors) {
+            const el = page.locator(sel).first();
+            if ((await el.count()) > 0 && (await el.isVisible({ timeout: 2000 }).catch(() => false))) {
+              postCommentBtn = el;
+              break;
+            }
+          }
+
+          if (postCommentBtn) {
+            logActivity('INFO', 'COMMENT', `[Comment Only] Bấm nút gửi bình luận (${i + 1}/${comments.length})...`);
+            await postCommentBtn.click();
+          } else {
+            logActivity('INFO', 'COMMENT', `[Comment Only] Gửi bình luận (${i + 1}/${comments.length}) bằng phím Enter...`);
+            await page.keyboard.press('Enter');
+          }
+          await page.waitForTimeout(3000);
+          sentCount++;
+          logActivity('SUCCESS', 'COMMENT', `[Comment Only] Đã gửi bình luận (${i + 1}/${comments.length}) thành công!`);
+
+          if (i < comments.length - 1) {
+            await page.waitForTimeout(2500);
+          }
+        } else {
+          logActivity('WARN', 'COMMENT', `[Comment Only] Không tìm thấy ô nhập bình luận cho phần ${i + 1}.`);
         }
       }
 
-      if (postCommentBtn) {
-        logActivity('INFO', 'COMMENT', '[Comment Only] Phát hiện nút aria-label="Post comment", đang bấm gửi bình luận...');
-        await postCommentBtn.click();
-        await page.waitForTimeout(3000);
+      if (sentCount === 0) {
+        logActivity('WARN', 'COMMENT', '[Comment Only] Không tìm thấy thẻ nhập bình luận nào.');
+        throw new Error('Không tìm thấy ô nhập bình luận trên bài viết.');
       } else {
-        logActivity('INFO', 'COMMENT', '[Comment Only] Không thấy nút aria-label="Post comment", gửi bằng phím Enter...');
-        await page.keyboard.press('Enter');
-        await page.waitForTimeout(3000);
+        logActivity('SUCCESS', 'COMMENT', `[Comment Only] Đã tự động gửi ${sentCount}/${comments.length} bình luận thành công cho bài viết ${post.id}`);
       }
-
-      logActivity('SUCCESS', 'COMMENT', `[Comment Only] Đã tự động gửi bình luận nguồn tin thành công cho bài viết ${post.id}`);
-    } else {
-      logActivity('WARN', 'COMMENT', '[Comment Only] Không tìm thấy thẻ contenteditable="true" trong modal bình luận.');
-      throw new Error('Không tìm thấy thẻ contenteditable="true" trong modal bình luận.');
     }
 
     await page.screenshot({ path: screenshotFullPath, fullPage: false }).catch(() => { });

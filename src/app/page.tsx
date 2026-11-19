@@ -399,12 +399,25 @@ export default function DashboardPage() {
   };
 
   // Update post edits
-  const handleUpdatePost = async (postId: string, postContent: string, commentContent: string) => {
+  const handleUpdatePost = async (
+    postId: string,
+    postContent: string,
+    commentContent: string,
+    fbPostUrl?: string | null,
+    status?: string
+  ) => {
     try {
+      const payload: any = { post_content: postContent, comment_content: commentContent };
+      if (fbPostUrl !== undefined) {
+        payload.fb_post_url = fbPostUrl;
+      }
+      if (status !== undefined) {
+        payload.status = status;
+      }
       const res = await fetch(`/api/posts/${postId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ post_content: postContent, comment_content: commentContent }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         showToast('Đã lưu bài viết thành công!', 'success');
@@ -595,7 +608,16 @@ export default function DashboardPage() {
 
   const handleUpdateReel = async (
     reelId: string,
-    data: { caption?: string; comment_content?: string | null; scheduled_at?: string | null; status?: string }
+    data: {
+      caption?: string;
+      comment_content?: string | null;
+      scheduled_at?: string | null;
+      status?: string;
+      fb_post_url?: string | null;
+      tiktok_post_url?: string | null;
+      tiktok_status?: string | null;
+      tiktok_comment_status?: string | null;
+    }
   ) => {
     try {
       const res = await fetch(`/api/reels/${reelId}`, {
@@ -1050,8 +1072,8 @@ export default function DashboardPage() {
               <div className="relative inline-flex items-center justify-center">
                 <Icon className="w-4 h-4" />
                 {tab.count !== undefined && tab.count > 0 && (
-                  <span className="absolute -top-1 -right-2.5 px-1 min-w-[15px] h-3.5 rounded-full bg-indigo-600 text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-white dark:ring-slate-900 pointer-events-none">
-                    {tab.count > 99 ? '99+' : tab.count}
+                  <span className="absolute -top-1.5 -right-3 px-1 min-w-[16px] h-3.5 rounded-full bg-indigo-600 text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-white dark:ring-slate-900 pointer-events-none whitespace-nowrap">
+                    {tab.count}
                   </span>
                 )}
               </div>

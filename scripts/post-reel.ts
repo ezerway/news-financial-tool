@@ -133,7 +133,7 @@ async function main() {
   if (selectedComment === undefined) {
     const commentAnswer = await askQuestion(
       rl,
-      '➤ Nhập nội dung bình luận tự động (auto comment) cho Reel (nhấn Enter nếu không có): '
+      '➤ Nhập nội dung bình luận tự động (auto comment, dùng | để tách nhiều bình luận, nhấn Enter nếu không có): '
     );
     selectedComment = commentAnswer.trim();
   }
@@ -145,7 +145,13 @@ async function main() {
     console.log('📝 Nội dung Reel: (Trống)');
   }
   if (selectedComment) {
-    console.log(`💬 Bình luận tự động: "${selectedComment}"`);
+    const splitComments = selectedComment.split('|').map((s) => s.trim()).filter(Boolean);
+    if (splitComments.length > 1) {
+      console.log(`💬 Bình luận tự động (${splitComments.length} bình luận):`);
+      splitComments.forEach((c, idx) => console.log(`   ${idx + 1}. "${c}"`));
+    } else {
+      console.log(`💬 Bình luận tự động: "${selectedComment}"`);
+    }
   } else {
     console.log('💬 Bình luận tự động: (Không)');
   }
@@ -251,15 +257,22 @@ async function main() {
             reelId: reel.id,
             filePath: selectedFilePath,
             content: selectedContent,
+            comment: selectedComment || '',
             headless,
           });
 
           if (ttResult.success) {
+            const ttCommentStatus = selectedComment
+              ? (ttResult.commentSuccess ? 'commented' : 'failed')
+              : 'idle';
             db.prepare(`
               UPDATE reels 
-              SET tiktok_post_url = ?, tiktok_status = 'published', tiktok_error_message = NULL 
+              SET tiktok_post_url = ?, 
+                  tiktok_status = 'published', 
+                  tiktok_comment_status = ?,
+                  tiktok_error_message = NULL 
               WHERE id = ?
-            `).run(ttResult.tiktokUrl || null, reel.id);
+            `).run(ttResult.tiktokUrl || null, ttCommentStatus, reel.id);
             console.log('🎉 [TikTok] Đăng TikTok thành công!');
             if (ttResult.tiktokUrl) {
               console.log('🔗 Link TikTok: ' + ttResult.tiktokUrl);
