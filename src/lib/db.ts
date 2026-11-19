@@ -224,6 +224,28 @@ export function repairInconsistentTrendStatuses(database: Database.Database) {
     if (fixedCount > 0) {
       console.log(`[DB Auto-Repair] Đã phát hiện và sửa trạng thái cho ${fixedCount} xu hướng chưa có source link nhưng bị báo là 'published'.`);
     }
+
+    // Tự động giải phóng các xu hướng cũ đã đăng hoặc tạo bản thảo hơn 1 ngày về 'discovered' nếu không có bài viết nào trong vòng 24 giờ
+    const resetResult = database.prepare(`
+      UPDATE trends
+      SET status = 'discovered'
+      WHERE status IN ('published', 'drafted')
+        AND id NOT IN (
+          SELECT DISTINCT trend_id FROM posts
+          WHERE trend_id IS NOT NULL
+            AND status != 'failed'
+            AND datetime(COALESCE(published_at, created_at)) >= datetime('now', '-1 day')
+        )
+        AND LOWER(TRIM(title)) NOT IN (
+          SELECT DISTINCT LOWER(TRIM(trend_title)) FROM posts
+          WHERE status != 'failed'
+            AND datetime(COALESCE(published_at, created_at)) >= datetime('now', '-1 day')
+        )
+    `).run();
+
+    if (resetResult.changes > 0) {
+      console.log(`[DB Auto-Repair] Đã cập nhật ${resetResult.changes} xu hướng cũ (> 1 ngày) về trạng thái 'discovered' để cho phép khai thác lại.`);
+    }
   } catch (err: any) {
     console.error('Error repairing inconsistent trend statuses:', err.message);
   }

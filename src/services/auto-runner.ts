@@ -36,7 +36,7 @@ export async function runAutomationCycle(options?: AutomationCycleOptions) {
       Array.isArray(t.articles) &&
       t.articles.some((a: any) => a.url && !a.url.includes('google.com'));
 
-    let currentExistingPosts = getExistingPosts();
+    let currentExistingPosts = getExistingPosts(1);
 
     const ensureSources = async (t: TrendItem): Promise<boolean> => {
       if (hasSource(t)) return true;

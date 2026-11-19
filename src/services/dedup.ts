@@ -89,15 +89,26 @@ export interface DuplicateCheckResult {
 }
 
 /**
- * Retrieves all active posts from DB for deduplication comparison.
+ * Retrieves active posts from DB for deduplication comparison.
+ * By default, checks posts created or published within the last 1 day (24 hours).
+ * Pass null or 0 to retrieve all historical posts without date restriction.
  */
-export function getExistingPosts(): PostItem[] {
+export function getExistingPosts(withinDays: number | null = 1): PostItem[] {
   try {
-    const rows = db.prepare(`
+    let query = `
       SELECT * FROM posts 
       WHERE status != 'failed'
-      ORDER BY created_at DESC
-    `).all() as any[];
+    `;
+    const params: any[] = [];
+
+    if (withinDays !== null && withinDays > 0) {
+      query += ` AND datetime(COALESCE(published_at, created_at)) >= datetime('now', '-' || ? || ' day')`;
+      params.push(withinDays);
+    }
+
+    query += ` ORDER BY created_at DESC`;
+
+    const rows = db.prepare(query).all(...params) as any[];
 
     return rows.map((r) => ({
       ...r,
@@ -111,12 +122,13 @@ export function getExistingPosts(): PostItem[] {
 
 /**
  * Checks whether a candidate trend has already been processed or published in existing posts.
+ * Only compares against posts from the last 1 day by default.
  */
 export function findDuplicatePost(
   trend: { id?: string; title: string; articles?: NewsArticle[] },
   existingPostsList?: PostItem[]
 ): DuplicateCheckResult {
-  const posts = existingPostsList || getExistingPosts();
+  const posts = existingPostsList || getExistingPosts(1);
   const trendTitleExact = normalizeExact(trend.title);
   const trendTitleLoose = normalizeLoose(trend.title);
 
@@ -210,8 +222,8 @@ export function checkDuplicatePublish(
     };
   }
 
-  // Check 2: Another post was already published with the same title or content or sources
-  const posts = (existingPostsList || getExistingPosts()).filter(
+  // Check 2: Another post was already published with the same title or content or sources within the last 1 day
+  const posts = (existingPostsList || getExistingPosts(1)).filter(
     (p) => p.id !== post.id && p.status === 'published'
   );
 

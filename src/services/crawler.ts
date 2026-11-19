@@ -157,14 +157,7 @@ export function saveTrendsToDatabase(trends: TrendItem[], geo: string): number {
         WHEN excluded.articles_json IS NOT NULL AND excluded.articles_json != '[]' THEN excluded.articles_json
         ELSE trends.articles_json
       END,
-      status = CASE 
-        WHEN (
-          (excluded.articles_json IS NULL OR excluded.articles_json = '[]') AND 
-          (trends.articles_json IS NULL OR trends.articles_json = '[]')
-        ) AND (trends.status = 'published' OR excluded.status = 'published') THEN 'discovered'
-        WHEN trends.status IN ('drafted', 'published') THEN trends.status 
-        ELSE excluded.status 
-      END
+      status = excluded.status
   `);
 
   const tx = db.transaction((items: TrendItem[]) => {
@@ -346,7 +339,7 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
       const id = 'trend_' + crypto.createHash('md5').update(`${targetGeo}_${normalizedTitle}`).digest('hex').substring(0, 12);
       const hasValidSources = articles.some((a) => a.url && !a.url.includes('google.com'));
 
-      // Check whether this trend already has a post or is already published/drafted
+      // Check whether this trend already has a post or is already published/drafted within the last 1 day
       const dupCheck = findDuplicatePost({ id, title: rowData.title, articles }, existingPosts);
       let initialStatus: 'discovered' | 'drafted' | 'published' = 'discovered';
 
@@ -356,21 +349,6 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
           initialStatus = 'published';
         } else if (dupCheck.matchedPost.status === 'draft') {
           initialStatus = 'drafted';
-        }
-      } else {
-        const existingRow = db.prepare('SELECT status, articles_json FROM trends WHERE id = ?').get(id) as { status: string; articles_json?: string } | undefined;
-        if (existingRow && existingRow.status !== 'discovered') {
-          let hasExistingSources = false;
-          try {
-            const parsed = JSON.parse(existingRow.articles_json || '[]');
-            hasExistingSources = Array.isArray(parsed) && parsed.some((a: any) => a.url && !a.url.includes('google.com'));
-          } catch { }
-
-          if (existingRow.status === 'published' && (!hasValidSources && !hasExistingSources)) {
-            initialStatus = 'discovered';
-          } else {
-            initialStatus = existingRow.status as any;
-          }
         }
       }
 
@@ -463,6 +441,7 @@ export async function crawlGoogleTrendsRSS(geo = 'VN'): Promise<TrendItem[]> {
       const id = 'trend_' + crypto.createHash('md5').update(`${targetGeo}_${normalizedTitle}`).digest('hex').substring(0, 12);
       const hasValidSources = articles.some((a) => a.url && !a.url.includes('google.com'));
 
+      // Check whether this trend already has a post or is already published/drafted within the last 1 day
       const dupCheck = findDuplicatePost({ id, title, articles }, existingPosts);
       let initialStatus: 'discovered' | 'drafted' | 'published' = 'discovered';
 
@@ -471,21 +450,6 @@ export async function crawlGoogleTrendsRSS(geo = 'VN'): Promise<TrendItem[]> {
           initialStatus = 'published';
         } else if (dupCheck.matchedPost.status === 'draft') {
           initialStatus = 'drafted';
-        }
-      } else {
-        const existingRow = db.prepare('SELECT status, articles_json FROM trends WHERE id = ?').get(id) as { status: string; articles_json?: string } | undefined;
-        if (existingRow && existingRow.status !== 'discovered') {
-          let hasExistingSources = false;
-          try {
-            const parsed = JSON.parse(existingRow.articles_json || '[]');
-            hasExistingSources = Array.isArray(parsed) && parsed.some((a: any) => a.url && !a.url.includes('google.com'));
-          } catch { }
-
-          if (existingRow.status === 'published' && (!hasValidSources && !hasExistingSources)) {
-            initialStatus = 'discovered';
-          } else {
-            initialStatus = existingRow.status as any;
-          }
         }
       }
 
