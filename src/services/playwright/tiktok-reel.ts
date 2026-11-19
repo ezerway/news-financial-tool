@@ -397,6 +397,56 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
       notify(`Lỗi khi xử lý modal xác nhận đăng: ${mErr.message}`, 'WARN');
     }
 
+    // Kiểm tra xem có popup yêu cầu xác minh danh tính "Verify it's really you" hay không
+    const verifyModalSelectors = [
+      'div[role="dialog"]:has-text("Verify it\'s really you")',
+      'div[role="dialog"]:has-text("verify your identity")',
+      'div:has-text("Verify it\'s really you")',
+      'div:has-text("Before you continue, verify your identity")',
+      'div:has-text("Xác minh danh tính")',
+      'div:has-text("Xác minh bạn là chính bạn")',
+    ];
+
+    let isVerifyRequired = false;
+    for (const vSel of verifyModalSelectors) {
+      if (await page.locator(vSel).first().isVisible({ timeout: 1500 }).catch(() => false)) {
+        isVerifyRequired = true;
+        break;
+      }
+    }
+
+    if (isVerifyRequired) {
+      notify('TikTok yêu cầu xác minh danh tính ("Verify it\'s really you" qua Email/Phone)!', 'WARN');
+      if (!headless) {
+        notify('Trình duyệt đang mở. Vui lòng bấm Email và nhập mã xác minh từ TikTok trong tối đa 120 giây...', 'WARN');
+        const startWait = Date.now();
+        while (Date.now() - startWait < 120000) {
+          await page.waitForTimeout(3000);
+          let stillVerify = false;
+          for (const vSel of verifyModalSelectors) {
+            if (await page.locator(vSel).first().isVisible({ timeout: 1000 }).catch(() => false)) {
+              stillVerify = true;
+              break;
+            }
+          }
+          if (!stillVerify) {
+            notify('Đã xác minh danh tính thành công trên TikTok!', 'SUCCESS');
+            isVerifyRequired = false;
+            await page.waitForTimeout(3000);
+            const retryPostBtn = page.locator('[data-e2e="post_video_button"]').first();
+            if (await retryPostBtn.isVisible().catch(() => false)) {
+              await retryPostBtn.click().catch(() => {});
+            }
+            break;
+          }
+        }
+      }
+
+      if (isVerifyRequired) {
+        throw new Error('TikTok yêu cầu xác minh danh tính ("Verify it\'s really you" qua Email). Hãy chạy "pnpm tiktok:login" hoặc mở trình duyệt để xác thực mã Email.');
+      }
+    }
+
     notify('Đang chờ TikTok hoàn tất xử lý xuất bản video...');
     await page.waitForTimeout(8000);
 
@@ -404,10 +454,11 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
     // Selector người dùng: target="_blank" data-tt="components_PostInfoCell_a"
     notify('Bước 7: Truy cập https://www.tiktok.com/tiktokstudio/content để lấy link video...');
     await page.goto('https://www.tiktok.com/tiktokstudio/content', { waitUntil: 'domcontentloaded', timeout: 45000 });
-    await page.waitForTimeout(4000);
+    await page.waitForTimeout(5000);
 
     let tiktokVideoUrl: string | undefined = undefined;
     const cleanMatchText = finalCaption.replace(/#\S+/g, '').trim().toLowerCase().slice(0, 25);
+    const cleanFileName = path.basename(resolvedPath, path.extname(resolvedPath)).toLowerCase().slice(0, 20);
 
     for (let attempt = 1; attempt <= 5; attempt++) {
       notify(`Đang tìm link video trên trang quản lý (lần ${attempt}/5)...`);
@@ -422,12 +473,14 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
 
           if (href) {
             const absoluteHref = href.startsWith('http') ? href : `https://www.tiktok.com${href}`;
-            // Ưu tiên bài có tiêu đề trùng khớp hoặc lấy bài viết đầu tiên trên cùng
-            if (cleanMatchText === '' || linkText.includes(cleanMatchText) || cleanMatchText.includes(linkText) || i === 0) {
+            // Chỉ chấp nhận bài viết trùng tiêu đề caption hoặc tên file video, không fallback tùy tiện lấy bài cũ
+            const isMatch =
+              (cleanMatchText && (linkText.includes(cleanMatchText) || cleanMatchText.includes(linkText))) ||
+              (cleanFileName && linkText.includes(cleanFileName));
+
+            if (isMatch) {
               tiktokVideoUrl = absoluteHref;
-              if (cleanMatchText && (linkText.includes(cleanMatchText) || cleanMatchText.includes(linkText))) {
-                break;
-              }
+              break;
             }
           }
         }
@@ -438,11 +491,15 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
         }
       }
 
-      await page.waitForTimeout(4000);
+      await page.waitForTimeout(5000);
       if (attempt < 5) {
         await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => { });
         await page.waitForTimeout(3000);
       }
+    }
+
+    if (!tiktokVideoUrl) {
+      throw new Error('Không tìm thấy link video đã xuất bản trên TikTok Studio sau 5 lần kiểm tra. Video có thể chưa được duyệt hoặc TikTok chặn đăng (yêu cầu xác minh).');
     }
 
     let commentSuccess: boolean | undefined = undefined;

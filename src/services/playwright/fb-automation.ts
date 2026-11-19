@@ -108,7 +108,7 @@ export async function dismissBlockingPagePopups(page: any): Promise<boolean> {
   let dismissed = false;
   try {
     const notNowBtn = page.locator('div[aria-label="Not now"]').first();
-    if (notNowBtn) {
+    if (await notNowBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
       logActivity('INFO', 'PUBLISH', `[Phát hiện popup] Đang click nút "Not now"...`);
       await notNowBtn.click();
       await page.waitForTimeout(1500);
