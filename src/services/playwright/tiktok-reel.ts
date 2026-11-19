@@ -43,6 +43,260 @@ if (!fs.existsSync(SCREENSHOTS_DIR)) {
 }
 
 /**
+ * Tự động xử lý Popup xác minh danh tính TikTok "Verify it's really you"
+ * bằng cách gửi mã về Email và đọc mã OTP trực tiếp từ Gmail trong cùng browser-profile.
+ */
+async function handleTikTokVerificationModal(
+  page: any,
+  context: any,
+  notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void,
+  headless: boolean
+): Promise<boolean> {
+  const verifyModalSelectors = [
+    'div[role="dialog"]:has-text("Verify it\'s really you")',
+    'div[role="dialog"]:has-text("verify your identity")',
+    'div:has-text("Verify it\'s really you")',
+    'div:has-text("Before you continue, verify your identity")',
+    'div:has-text("Xác minh danh tính")',
+    'div:has-text("Xác minh bạn là chính bạn")',
+  ];
+
+  let isVerifyModalVisible = false;
+  for (let i = 0; i < 3; i++) {
+    for (const vSel of verifyModalSelectors) {
+      if (await page.locator(vSel).first().isVisible({ timeout: 1000 }).catch(() => false)) {
+        isVerifyModalVisible = true;
+        break;
+      }
+    }
+    if (isVerifyModalVisible) break;
+    await page.waitForTimeout(1000);
+  }
+
+  if (!isVerifyModalVisible) {
+    return false;
+  }
+
+  notify('TikTok yêu cầu xác minh danh tính ("Verify it\'s really you")!', 'WARN');
+
+  // Bước 1: Trước khi gửi mã mới, đọc mã OTP mới nhất hiện tại trên Gmail (để đối chiếu không lấy nhầm mã cũ)
+  let initialLatestCode = '';
+  try {
+    const checkPage = await context.newPage();
+    await checkPage.goto('https://mail.google.com/mail/u/0/#search/from%3Atiktok', {
+      waitUntil: 'domcontentloaded',
+      timeout: 20000,
+    }).catch(() => {});
+    await checkPage.waitForTimeout(3000);
+    const topRowText = await checkPage.locator('tr[role="row"]').first().innerText({ timeout: 4000 }).catch(() => '');
+    const m = topRowText.match(/([A-Z0-9]{6})\s+is your/i) || topRowText.match(/([A-Z0-9]{6})/);
+    if (m) {
+      initialLatestCode = m[1].toUpperCase();
+      notify(`[Gmail] Mã TikTok gần nhất hiện có trong hòm thư: ${initialLatestCode}`);
+    }
+    await checkPage.close().catch(() => {});
+  } catch (err: any) {
+    notify(`[Gmail] Chưa đọc được mã cũ: ${err?.message || err}`, 'INFO');
+  }
+
+  // Bước 2: Bấm vào phương thức xác minh qua Email trong popup TikTok
+  notify('Đang chọn phương thức xác minh qua Email trên TikTok...');
+  const emailSelectors = [
+    'div[role="button"]:has-text("Email")',
+    'button:has-text("Email")',
+    'div:has-text("Email"):has-text("@")',
+    'li:has-text("Email")',
+    'div:has-text("Email")',
+  ];
+
+  let emailClicked = false;
+  for (const sel of emailSelectors) {
+    const el = page.locator(sel).first();
+    if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await el.click().catch(() => {});
+      emailClicked = true;
+      notify('Đã click chọn xác minh qua Email trên TikTok modal.');
+      break;
+    }
+  }
+
+  if (!emailClicked) {
+    await page.evaluate(() => {
+      const items = Array.from(document.querySelectorAll('div, li, button, span'));
+      const emailItem = items.find((el: any) =>
+        el.innerText && el.innerText.includes('Email') && el.innerText.includes('@')
+      );
+      if (emailItem) (emailItem as HTMLElement).click();
+    });
+  }
+
+  // Chờ TikTok chuyển sang giao diện nhập mã OTP
+  await page.waitForTimeout(4000);
+
+  // Bước 3: Mở tab Gmail và đợi mã OTP mới từ TikTok
+  notify('Đang truy cập Gmail để tự động lấy mã OTP xác minh từ TikTok...');
+  let verificationCode = '';
+  let gmailPage: any = null;
+
+  try {
+    gmailPage = await context.newPage();
+    const maxPollTime = 60000; // Đợi tối đa 60s
+    const pollStart = Date.now();
+
+    while (Date.now() - pollStart < maxPollTime) {
+      await gmailPage.goto('https://mail.google.com/mail/u/0/#search/from%3Atiktok', {
+        waitUntil: 'domcontentloaded',
+        timeout: 25000,
+      }).catch(() => {});
+      await gmailPage.waitForTimeout(3500);
+
+      const rows = gmailPage.locator('tr[role="row"]');
+      const rowCount = await rows.count().catch(() => 0);
+
+      if (rowCount > 0) {
+        const topRow = rows.first();
+        const topRowText = await topRow.innerText().catch(() => '');
+
+        // Trích xuất mã OTP 6 ký tự
+        const match =
+          topRowText.match(/([A-Z0-9]{6})\s+is your verification code/i) ||
+          topRowText.match(/([0-9]{6})\s+is your 6-digit code/i) ||
+          topRowText.match(/To verify your account[\s\S]*?([A-Z0-9]{6})/i) ||
+          topRowText.match(/code is:\s*([A-Z0-9]{6})/i);
+
+        if (match && match[1]) {
+          const candidateCode = match[1].trim().toUpperCase();
+          if (candidateCode !== initialLatestCode || Date.now() - pollStart > 10000) {
+            verificationCode = candidateCode;
+            notify(`Đã tìm thấy mã xác minh mới từ TikTok: ${verificationCode}`, 'SUCCESS');
+            break;
+          }
+        } else {
+          // Thử click vào email đầu tiên để xem nội dung
+          try {
+            await topRow.click({ timeout: 3000 });
+            await gmailPage.waitForTimeout(2000);
+            const fullText = await gmailPage.evaluate(() => document.body.innerText);
+            const fullMatch =
+              fullText.match(/([A-Z0-9]{6})\s+is your verification code/i) ||
+              fullText.match(/enter this code in TikTok:\s*([A-Z0-9]{6})/i) ||
+              fullText.match(/Your 6-digit code is:\s*([0-9]{6})/i) ||
+              fullText.match(/([0-9]{6})\s+is your 6-digit code/i);
+
+            if (fullMatch && fullMatch[1]) {
+              const candidateCode = fullMatch[1].trim().toUpperCase();
+              if (candidateCode !== initialLatestCode || Date.now() - pollStart > 10000) {
+                verificationCode = candidateCode;
+                notify(`Đã đọc mã xác minh mới từ nội dung email: ${verificationCode}`, 'SUCCESS');
+                break;
+              }
+            }
+          } catch {}
+        }
+      }
+
+      notify('Đang chờ email OTP mới từ TikTok (thử lại sau 4s)...');
+      await page.waitForTimeout(4000);
+    }
+  } catch (gmailErr: any) {
+    notify(`Lỗi khi truy vấn Gmail: ${gmailErr?.message || gmailErr}`, 'WARN');
+  } finally {
+    if (gmailPage && !gmailPage.isClosed()) {
+      await gmailPage.close().catch(() => {});
+    }
+  }
+
+  // Bước 4: Nhập mã OTP vào form xác minh của TikTok
+  if (verificationCode) {
+    notify(`Tiến hành nhập mã xác thực [${verificationCode}] vào giao diện TikTok...`);
+    await page.bringToFront().catch(() => {});
+    await page.waitForTimeout(1000);
+
+    const pinInputs = page.locator('input[type="text"], input[type="number"], input[maxlength="1"], input[maxlength="6"], input[autocomplete="one-time-code"]');
+    const inputCount = await pinInputs.count().catch(() => 0);
+
+    if (inputCount >= 6) {
+      for (let i = 0; i < 6; i++) {
+        await pinInputs.nth(i).click().catch(() => {});
+        await pinInputs.nth(i).fill(verificationCode[i]).catch(() => {});
+        await page.waitForTimeout(150);
+      }
+    } else if (inputCount > 0) {
+      const singleInput = pinInputs.first();
+      await singleInput.click().catch(() => {});
+      await singleInput.fill(verificationCode).catch(async () => {
+        await singleInput.pressSequentially(verificationCode, { delay: 100 });
+      });
+    } else {
+      await page.evaluate((code: string) => {
+        const active = document.activeElement || document.querySelector('input');
+        if (active) {
+          (active as HTMLElement).focus();
+          const dt = new DataTransfer();
+          dt.setData('text/plain', code);
+          active.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }));
+        }
+      }, verificationCode);
+    }
+
+    await page.waitForTimeout(2000);
+
+    // Bấm nút Xác nhận nếu cần
+    const verifyButtons = [
+      'button:has-text("Verify")',
+      'button:has-text("Xác minh")',
+      'button:has-text("Next")',
+      'button:has-text("Tiếp tục")',
+      'button:has-text("Confirm")',
+      'button:has-text("Xác nhận")',
+      'button[type="submit"]',
+    ];
+
+    for (const bSel of verifyButtons) {
+      const b = page.locator(bSel).first();
+      if (await b.isVisible({ timeout: 1500 }).catch(() => false)) {
+        await b.click().catch(() => {});
+        break;
+      }
+    }
+
+    notify('Đang chờ TikTok xử lý mã OTP...');
+    await page.waitForTimeout(5000);
+  } else {
+    notify('Không lấy được mã OTP tự động từ Gmail.', 'WARN');
+    if (!headless) {
+      notify('Trình duyệt đang mở, bạn có thể tự nhập mã OTP trên màn hình trong 60 giây...', 'WARN');
+      await page.waitForTimeout(60000);
+    }
+  }
+
+  // Bước 5: Kiểm tra kết quả
+  let isClosed = true;
+  for (const vSel of verifyModalSelectors) {
+    if (await page.locator(vSel).first().isVisible({ timeout: 2000 }).catch(() => false)) {
+      isClosed = false;
+      break;
+    }
+  }
+
+  if (isClosed) {
+    notify('Xác minh danh tính TikTok hoàn tất thành công! Modal đã đóng.', 'SUCCESS');
+    await page.waitForTimeout(3000);
+
+    // Bấm lại nút Post nếu còn hiện
+    const retryPostBtn = page.locator('[data-e2e="post_video_button"]').first();
+    if (await retryPostBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      notify('Bấm lại nút Đăng video (post_video_button) sau khi xác minh hoàn tất...');
+      await retryPostBtn.click().catch(() => {});
+      await page.waitForTimeout(3000);
+    }
+    return true;
+  } else {
+    throw new Error('TikTok yêu cầu xác minh danh tính ("Verify it\'s really you"), nhưng modal chưa đóng sau khi nhập mã.');
+  }
+}
+
+/**
  * Automate uploading video to TikTok according to exact workflow:
  * 1. Navigate to https://www.tiktok.com/
  * 2. Click button[data-key-interaction="nav_upload"][aria-label="Upload"]
@@ -397,55 +651,8 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
       notify(`Lỗi khi xử lý modal xác nhận đăng: ${mErr.message}`, 'WARN');
     }
 
-    // Kiểm tra xem có popup yêu cầu xác minh danh tính "Verify it's really you" hay không
-    const verifyModalSelectors = [
-      'div[role="dialog"]:has-text("Verify it\'s really you")',
-      'div[role="dialog"]:has-text("verify your identity")',
-      'div:has-text("Verify it\'s really you")',
-      'div:has-text("Before you continue, verify your identity")',
-      'div:has-text("Xác minh danh tính")',
-      'div:has-text("Xác minh bạn là chính bạn")',
-    ];
-
-    let isVerifyRequired = false;
-    for (const vSel of verifyModalSelectors) {
-      if (await page.locator(vSel).first().isVisible({ timeout: 1500 }).catch(() => false)) {
-        isVerifyRequired = true;
-        break;
-      }
-    }
-
-    if (isVerifyRequired) {
-      notify('TikTok yêu cầu xác minh danh tính ("Verify it\'s really you" qua Email/Phone)!', 'WARN');
-      if (!headless) {
-        notify('Trình duyệt đang mở. Vui lòng bấm Email và nhập mã xác minh từ TikTok trong tối đa 120 giây...', 'WARN');
-        const startWait = Date.now();
-        while (Date.now() - startWait < 120000) {
-          await page.waitForTimeout(3000);
-          let stillVerify = false;
-          for (const vSel of verifyModalSelectors) {
-            if (await page.locator(vSel).first().isVisible({ timeout: 1000 }).catch(() => false)) {
-              stillVerify = true;
-              break;
-            }
-          }
-          if (!stillVerify) {
-            notify('Đã xác minh danh tính thành công trên TikTok!', 'SUCCESS');
-            isVerifyRequired = false;
-            await page.waitForTimeout(3000);
-            const retryPostBtn = page.locator('[data-e2e="post_video_button"]').first();
-            if (await retryPostBtn.isVisible().catch(() => false)) {
-              await retryPostBtn.click().catch(() => {});
-            }
-            break;
-          }
-        }
-      }
-
-      if (isVerifyRequired) {
-        throw new Error('TikTok yêu cầu xác minh danh tính ("Verify it\'s really you" qua Email). Hãy chạy "pnpm tiktok:login" hoặc mở trình duyệt để xác thực mã Email.');
-      }
-    }
+    // Kiểm tra xem có popup yêu cầu xác minh danh tính "Verify it's really you" hay không và tự động xử lý qua Gmail
+    await handleTikTokVerificationModal(page, context, notify, headless);
 
     notify('Đang chờ TikTok hoàn tất xử lý xuất bản video...');
     await page.waitForTimeout(8000);
