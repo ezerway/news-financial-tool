@@ -51,14 +51,14 @@ async function fetchLatestTikTokOTP(gmailPage: any): Promise<{ code: string | nu
     await gmailPage.goto('https://mail.google.com/mail/u/0/#search/from%3Atiktok', {
       waitUntil: 'domcontentloaded',
       timeout: 20000,
-    }).catch(() => {});
+    }).catch(() => { });
     await gmailPage.waitForTimeout(3000);
 
     const firstRow = gmailPage.locator('tr[role="row"]').first();
     if (!(await firstRow.isVisible({ timeout: 4000 }).catch(() => false))) {
       return { code: null, msgId: null, preview: '' };
     }
-    await firstRow.click().catch(() => {});
+    await firstRow.click().catch(() => { });
     await gmailPage.waitForTimeout(2000);
 
     const msgs = gmailPage.locator('[data-message-id]');
@@ -98,7 +98,7 @@ async function submitTikTokOTPInput(
   notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void
 ): Promise<boolean> {
   notify(`Tiến hành nhập mã OTP [${code}] vào ô placeholder="Enter 6-digit code"...`);
-  await page.bringToFront().catch(() => {});
+  await page.bringToFront().catch(() => { });
   await page.waitForTimeout(1000);
 
   const codeInputSelectors = [
@@ -125,9 +125,9 @@ async function submitTikTokOTPInput(
   }
 
   // Focus, clear và nhập từng ký tự
-  await targetInput.click({ timeout: 2000 }).catch(() => {});
-  await targetInput.fill('').catch(() => {});
-  await targetInput.pressSequentially(code, { delay: 80 }).catch(() => {});
+  await targetInput.click({ timeout: 2000 }).catch(() => { });
+  await targetInput.fill('').catch(() => { });
+  await targetInput.pressSequentially(code, { delay: 80 }).catch(() => { });
 
   // Dispatch React input event để kích hoạt state & enable nút Next
   await page.evaluate(({ c, selectors }: { c: string; selectors: string[] }) => {
@@ -148,7 +148,7 @@ async function submitTikTokOTPInput(
   }, { c: code, selectors: codeInputSelectors });
 
   // Paste / gõ thêm bằng bàn phím phòng trường hợp
-  await page.keyboard.type(code, { delay: 50 }).catch(() => {});
+  await page.keyboard.type(code, { delay: 50 }).catch(() => { });
   await page.waitForTimeout(1000);
 
   // Click nút Next / Verify
@@ -166,7 +166,7 @@ async function submitTikTokOTPInput(
     const btn = page.locator(bSel).first();
     if (await btn.isVisible({ timeout: 1500 }).catch(() => false)) {
       notify(`Đang click nút xác nhận [${bSel}]...`);
-      await btn.click({ timeout: 2000 }).catch(() => {});
+      await btn.click({ timeout: 2000 }).catch(() => { });
       break;
     }
   }
@@ -225,7 +225,7 @@ async function handleTikTokVerificationModal(
       initialMsgId = initialInfo.msgId || '';
       notify(`[Gmail] Mã TikTok hiện có trong hòm thư: ${fallbackLatestCode} (msgId: ${initialMsgId})`);
     }
-    await checkPage.close().catch(() => {});
+    await checkPage.close().catch(() => { });
   } catch (err: any) {
     notify(`[Gmail] Chưa đọc được mã cũ: ${err?.message || err}`, 'INFO');
   }
@@ -263,9 +263,9 @@ async function handleTikTokVerificationModal(
           notify(`Tìm thấy ${count} phần tử [${sel}], click gửi mã...`);
           const box = await targetItem.boundingBox().catch(() => null);
           if (box) {
-            await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2).catch(() => {});
+            await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2).catch(() => { });
           }
-          await targetItem.click({ force: true }).catch(() => {});
+          await targetItem.click({ force: true }).catch(() => { });
           break;
         }
       }
@@ -279,7 +279,7 @@ async function handleTikTokVerificationModal(
             if ((await target.count().catch(() => 0)) === 0) {
               target = frameItems.first();
             }
-            await target.click({ force: true }).catch(() => {});
+            await target.click({ force: true }).catch(() => { });
             break;
           }
         }
@@ -359,7 +359,7 @@ async function handleTikTokVerificationModal(
     notify(`Lỗi khi truy vấn Gmail: ${gmailErr?.message || gmailErr}`, 'WARN');
   } finally {
     if (gmailPage && !gmailPage.isClosed()) {
-      await gmailPage.close().catch(() => {});
+      await gmailPage.close().catch(() => { });
     }
   }
 
@@ -396,21 +396,21 @@ async function handleTikTokVerificationModal(
     const resendBtn = page.locator('text=/resend code/i, [class*="resend"]').first();
     if (await resendBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
       notify('Modal chưa đóng hoặc mã hết hạn, click "Resend code" để nhận mã mới...', 'WARN');
-      await resendBtn.click({ timeout: 2000 }).catch(() => {});
+      await resendBtn.click({ timeout: 2000 }).catch(() => { });
       await page.waitForTimeout(4000);
 
       // Đọc lại Gmail một lần nữa
       try {
         const retryGmailPage = await context.newPage();
         const newInfo = await fetchLatestTikTokOTP(retryGmailPage);
-        await retryGmailPage.close().catch(() => {});
+        await retryGmailPage.close().catch(() => { });
         if (newInfo.code && newInfo.code !== verificationCode) {
           notify(`Đã nhận mã OTP mới sau khi Resend: ${newInfo.code}`, 'SUCCESS');
           await submitTikTokOTPInput(page, newInfo.code, notify);
           await page.waitForTimeout(3000);
           isClosed = await checkModalClosed();
         }
-      } catch {}
+      } catch { }
     }
   }
 
@@ -422,7 +422,7 @@ async function handleTikTokVerificationModal(
     const retryPostBtn = page.locator('[data-e2e="post_video_button"]').first();
     if (await retryPostBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
       notify('Bấm lại nút Đăng video (post_video_button) sau khi xác minh hoàn tất...');
-      await retryPostBtn.click().catch(() => {});
+      await retryPostBtn.click().catch(() => { });
       await page.waitForTimeout(3000);
     }
     return true;
@@ -479,8 +479,8 @@ export async function postCommentsOnTikTokStudio(
 
     if (!isTextareaVisible) {
       if (isDirectAfterPost) {
-        notify('Bình luận ngay sau khi đăng: Đang đợi 12-15s để TikTok Studio xử lý video trước khi click [data-icon="Comments"]...');
-        await page.waitForTimeout(13000);
+        notify('Bình luận ngay sau khi đăng: Đang đợi 30s để TikTok Studio xử lý video trước khi click [data-icon="Comments"]...');
+        await page.waitForTimeout(30000);
       }
 
       notify('Đang tìm nút mở bình luận [data-icon="Comments"]...');
@@ -515,7 +515,7 @@ export async function postCommentsOnTikTokStudio(
       }
 
       if (await commentBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await commentBtn.scrollIntoViewIfNeeded().catch(() => {});
+        await commentBtn.scrollIntoViewIfNeeded().catch(() => { });
         await commentBtn.click();
         notify('Đã click mở bảng bình luận TikTok Studio.');
         await page.waitForTimeout(2500);
@@ -537,7 +537,7 @@ export async function postCommentsOnTikTokStudio(
       const cmt = comments[i];
       notify(`Đang nhập bình luận (${i + 1}/${comments.length}): "${cmt}"...`);
 
-      await textarea.scrollIntoViewIfNeeded().catch(() => {});
+      await textarea.scrollIntoViewIfNeeded().catch(() => { });
       await textarea.click();
       await textarea.fill('');
       await page.waitForTimeout(300);
@@ -1217,7 +1217,7 @@ export async function commentTikTokVideoOnly(
       });
       try {
         (window as any).chrome = { runtime: {} };
-      } catch {}
+      } catch { }
     });
 
     // Ưu tiên bình luận qua TikTok Studio để tránh bị Captcha chặn
@@ -1231,7 +1231,7 @@ export async function commentTikTokVideoOnly(
       if (studioRes.success) {
         if (context) {
           for (const p of context.pages()) {
-            if (!p.isClosed()) await p.close().catch(() => {});
+            if (!p.isClosed()) await p.close().catch(() => { });
           }
         }
         const isDev = isDeveloperMode();
@@ -1239,10 +1239,10 @@ export async function commentTikTokVideoOnly(
         const targetVideo = video || (page && !page.isClosed() ? page.video() : null);
         if (targetVideo) {
           if (isDev) {
-            await targetVideo.saveAs(path.join(VIDEOS_DIR, videoFileName)).catch(() => {});
+            await targetVideo.saveAs(path.join(VIDEOS_DIR, videoFileName)).catch(() => { });
             savedVideo = videoFileName;
           } else {
-            await targetVideo.delete().catch(() => {});
+            await targetVideo.delete().catch(() => { });
           }
         }
         return {
@@ -1373,8 +1373,8 @@ export async function commentTikTokVideoOnly(
 
       const isDisabled = await postBtn.isDisabled().catch(() => false);
       if (isDisabled) {
-        await editor.focus().catch(() => {});
-        await page.keyboard.type(' ').catch(() => {});
+        await editor.focus().catch(() => { });
+        await page.keyboard.type(' ').catch(() => { });
         await page.waitForTimeout(500);
 
         const stillDisabled = await postBtn.isDisabled().catch(() => false);
@@ -1406,7 +1406,7 @@ export async function commentTikTokVideoOnly(
           if (json.status_code === 0 || json.comment) {
             apiSuccess = true;
           }
-        } catch {}
+        } catch { }
       }
 
       await page.waitForTimeout(2500);
@@ -1435,7 +1435,7 @@ export async function commentTikTokVideoOnly(
     // Đóng pages để hoàn tất ghi video
     if (context) {
       for (const p of context.pages()) {
-        if (!p.isClosed()) await p.close().catch(() => {});
+        if (!p.isClosed()) await p.close().catch(() => { });
       }
     }
 
@@ -1445,10 +1445,10 @@ export async function commentTikTokVideoOnly(
 
     if (targetVideo) {
       if (isDevMode) {
-        await targetVideo.saveAs(path.join(VIDEOS_DIR, videoFileName)).catch(() => {});
+        await targetVideo.saveAs(path.join(VIDEOS_DIR, videoFileName)).catch(() => { });
         savedVideoFileName = videoFileName;
       } else {
-        await targetVideo.delete().catch(() => {});
+        await targetVideo.delete().catch(() => { });
       }
     }
 
@@ -1467,17 +1467,17 @@ export async function commentTikTokVideoOnly(
 
     if (page && !page.isClosed()) {
       try {
-        await page.screenshot({ path: screenshotFullPath, fullPage: false }).catch(() => {});
+        await page.screenshot({ path: screenshotFullPath, fullPage: false }).catch(() => { });
         savedScreenshotFileName = screenshotFileName;
         logActivity('WARN', 'COMMENT_TIKTOK', `Đã lưu ảnh chụp màn hình lỗi TikTok: ${screenshotFileName}`);
-      } catch {}
+      } catch { }
     }
 
     // Đóng pages để Playwright flush video
     if (context) {
       const pages = context.pages();
       for (const p of pages) {
-        if (!p.isClosed()) await p.close().catch(() => {});
+        if (!p.isClosed()) await p.close().catch(() => { });
       }
     }
 
@@ -1502,7 +1502,7 @@ export async function commentTikTokVideoOnly(
     };
   } finally {
     if (context) {
-      await context.close().catch(() => {});
+      await context.close().catch(() => { });
     }
   }
 }
