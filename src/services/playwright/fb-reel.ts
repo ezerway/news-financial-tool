@@ -666,101 +666,9 @@ export async function uploadFacebookReel(
           await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
         }
 
-        const commentBoxSelectors = [
-          'div[contenteditable="true"][role="textbox"]',
-          'div[aria-label*="Comment as" i]',
-          'div[aria-label*="Bình luận dưới tên" i]',
-          'div[aria-label*="Write a comment" i]',
-          'div[aria-label*="Viết bình luận" i]',
-          'div[contenteditable="true"]',
-        ].join(', ');
-
-        const commentIconSelectors = [
-          '[aria-label="Comment" i][role="button"]',
-          '[aria-label="Comments" i][role="button"]',
-          '[aria-label*="Comment" i][role="button"]',
-          '[aria-label="Bình luận" i][role="button"]',
-          '[aria-label*="Bình luận" i][role="button"]',
-          '[aria-label="Comment" i]',
-          '[aria-label="Comments" i]',
-          '[aria-label*="Comment" i]',
-          '[aria-label="Bình luận" i]',
-          '[aria-label*="Bình luận" i]',
-        ].join(', ');
-
-        // Tìm ô nhập bình luận (hỗ trợ cả trang Post Insights lẫn trang Reel công khai)
-        let commentBox = page.locator(commentBoxSelectors).first();
-        if (!(await commentBox.isVisible({ timeout: 4000 }).catch(() => false))) {
-          // Thử bấm icon bình luận bên phải player nếu ô nhập chưa mở
-          const commentIcon = page.locator(commentIconSelectors).first();
-          if (await commentIcon.isVisible({ timeout: 2500 }).catch(() => false)) {
-            await commentIcon.click();
-            await page.waitForTimeout(1500);
-          }
-          commentBox = page.locator(commentBoxSelectors).first();
-        }
-
-        const commentItems = finalComment
-          .split('|')
-          .map((c) => c.trim())
-          .filter(Boolean);
-
-        if (commentItems.length === 0) {
-          notify('Nội dung bình luận trống sau khi xử lý.');
-        } else {
-          notify(`Bắt đầu đăng ${commentItems.length} bình luận lên Reel Facebook...`);
-          let sentCount = 0;
-
-          for (let i = 0; i < commentItems.length; i++) {
-            const itemComment = commentItems[i];
-            notify(`Đang nhập bình luận Facebook (${i + 1}/${commentItems.length}): "${itemComment}"...`);
-
-            let cBox = page.locator(commentBoxSelectors).first();
-            if (!(await cBox.isVisible({ timeout: 4000 }).catch(() => false))) {
-              const cIcon = page.locator(commentIconSelectors).first();
-              if (await cIcon.isVisible({ timeout: 2000 }).catch(() => false)) {
-                await cIcon.click();
-                await page.waitForTimeout(1500);
-              }
-              cBox = page.locator(commentBoxSelectors).first();
-            }
-
-            if (await cBox.isVisible({ timeout: 5000 }).catch(() => false)) {
-              await cBox.scrollIntoViewIfNeeded().catch(() => {});
-              await cBox.click();
-              await page.waitForTimeout(600);
-              await page.keyboard.insertText(itemComment);
-              await page.waitForTimeout(1500);
-
-              const postCommentBtn = page
-                .locator('[aria-label="Post comment" i], [aria-label="Đăng bình luận" i]')
-                .first();
-              if (await postCommentBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-                notify(`Bấm nút gửi bình luận (${i + 1}/${commentItems.length})...`);
-                await postCommentBtn.click();
-              } else {
-                notify(`Gửi bình luận (${i + 1}/${commentItems.length}) bằng phím Enter...`);
-                await page.keyboard.press('Enter');
-              }
-              await page.waitForTimeout(3500);
-              sentCount++;
-              notify(`Đã gửi bình luận (${i + 1}/${commentItems.length}) thành công!`, 'SUCCESS');
-
-              if (i < commentItems.length - 1) {
-                await page.waitForTimeout(2500);
-              }
-            } else {
-              notify(`Không tìm thấy ô nhập bình luận cho phần ${i + 1}.`, 'WARN');
-            }
-          }
-
-          if (sentCount > 0) {
-            commentSuccess = true;
-            notify(`Đã tự động gửi ${sentCount}/${commentItems.length} bình luận thành công cho Reel!`, 'SUCCESS');
-          } else {
-            notify('Không thể gửi bình luận nào lên giao diện Reel / Insights.', 'WARN');
-          }
-        }
+        // Gửi các bình luận qua hàm dùng chung
+        const commentResult = await postCommentsOnFacebookPage(page, finalComment, notify);
+        commentSuccess = commentResult.success;
       } catch (cmErr: any) {
         notify(`Lỗi trong quá trình tự động bình luận Reel: ${cmErr.message}`, 'WARN');
       }
@@ -868,6 +776,103 @@ export async function uploadFacebookReel(
 /**
  * Bình luận trực tiếp lên một Reel Facebook đã xuất bản (hỗ trợ cả link share, link reel, và link insights)
  */
+/**
+ * Helper dùng chung để đăng danh sách bình luận (phân cách bởi dấu |) lên trang Facebook Reel
+ */
+export async function postCommentsOnFacebookPage(
+  page: Page,
+  rawComment: string,
+  notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void = () => {}
+): Promise<{ success: boolean; sentCount: number; total: number; error?: string }> {
+  const finalComment = replaceDateWildcards(rawComment).trim();
+  const commentItems = finalComment
+    .split('|')
+    .map((c) => c.trim())
+    .filter(Boolean);
+
+  if (commentItems.length === 0) {
+    return { success: true, sentCount: 0, total: 0 };
+  }
+
+  const commentBoxSelectors = [
+    'div[contenteditable="true"][role="textbox"]',
+    'div[aria-label*="Comment as" i]',
+    'div[aria-label*="Bình luận dưới tên" i]',
+    'div[aria-label*="Write a comment" i]',
+    'div[aria-label*="Viết bình luận" i]',
+    'div[contenteditable="true"]',
+  ].join(', ');
+
+  const commentIconSelectors = [
+    '[aria-label="Comment" i][role="button"]',
+    '[aria-label="Comments" i][role="button"]',
+    '[aria-label*="Comment" i][role="button"]',
+    '[aria-label="Bình luận" i][role="button"]',
+    '[aria-label*="Bình luận" i][role="button"]',
+    '[aria-label="Comment" i]',
+    '[aria-label="Comments" i]',
+    '[aria-label*="Comment" i]',
+    '[aria-label="Bình luận" i]',
+    '[aria-label*="Bình luận" i]',
+  ].join(', ');
+
+  notify(`Bắt đầu đăng ${commentItems.length} bình luận lên Facebook Reel...`);
+  let sentCount = 0;
+
+  for (let i = 0; i < commentItems.length; i++) {
+    const itemComment = commentItems[i];
+    notify(`Đang nhập bình luận Facebook (${i + 1}/${commentItems.length}): "${itemComment}"...`);
+
+    let commentBox = page.locator(commentBoxSelectors).first();
+    if (!(await commentBox.isVisible({ timeout: 4000 }).catch(() => false))) {
+      const commentIcon = page.locator(commentIconSelectors).first();
+      if (await commentIcon.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await commentIcon.click();
+        await page.waitForTimeout(1500);
+      }
+      commentBox = page.locator(commentBoxSelectors).first();
+    }
+
+    if (await commentBox.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await commentBox.scrollIntoViewIfNeeded().catch(() => {});
+      await commentBox.click();
+      await page.waitForTimeout(600);
+      await page.keyboard.insertText(itemComment);
+      await page.waitForTimeout(1500);
+
+      const postCommentBtn = page.locator('[aria-label="Post comment" i], [aria-label="Đăng bình luận" i]').first();
+      if (await postCommentBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        notify(`Bấm nút gửi bình luận (${i + 1}/${commentItems.length})...`);
+        await postCommentBtn.click();
+      } else {
+        notify(`Gửi bình luận (${i + 1}/${commentItems.length}) bằng phím Enter...`);
+        await page.keyboard.press('Enter');
+      }
+      await page.waitForTimeout(3500);
+      sentCount++;
+      notify(`Đã gửi bình luận (${i + 1}/${commentItems.length}) thành công!`, 'SUCCESS');
+
+      if (i < commentItems.length - 1) {
+        await page.waitForTimeout(2000);
+      }
+    } else {
+      notify(`Không tìm thấy ô nhập bình luận Facebook cho phần ${i + 1}.`, 'WARN');
+    }
+  }
+
+  if (sentCount > 0) {
+    notify(`Đã tự động gửi ${sentCount}/${commentItems.length} bình luận thành công cho Reel!`, 'SUCCESS');
+    return { success: true, sentCount, total: commentItems.length };
+  } else {
+    return {
+      success: false,
+      sentCount: 0,
+      total: commentItems.length,
+      error: 'Không tìm thấy ô nhập bình luận trên giao diện Reel.',
+    };
+  }
+}
+
 export async function commentFacebookReelOnly(options: {
   reelUrl: string;
   comment: string;
@@ -1019,86 +1024,12 @@ export async function commentFacebookReelOnly(options: {
       await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
     }
 
-    const commentItems = finalComment
-      .split('|')
-      .map((c) => c.trim())
-      .filter(Boolean);
-
-    if (commentItems.length === 0) {
-      return { success: true, realReelUrl: publicReelUrl || page.url() || resolvedUrl };
+    const commentResult = await postCommentsOnFacebookPage(page, finalComment, notify);
+    if (!commentResult.success) {
+      throw new Error(commentResult.error || 'Không tìm thấy ô nhập bình luận trên giao diện Reel.');
     }
 
-    const commentBoxSelectors = [
-      'div[contenteditable="true"][role="textbox"]',
-      'div[aria-label*="Comment as" i]',
-      'div[aria-label*="Bình luận dưới tên" i]',
-      'div[aria-label*="Write a comment" i]',
-      'div[aria-label*="Viết bình luận" i]',
-      'div[contenteditable="true"]',
-    ].join(', ');
-
-    const commentIconSelectors = [
-      '[aria-label="Comment" i][role="button"]',
-      '[aria-label="Comments" i][role="button"]',
-      '[aria-label*="Comment" i][role="button"]',
-      '[aria-label="Bình luận" i][role="button"]',
-      '[aria-label*="Bình luận" i][role="button"]',
-      '[aria-label="Comment" i]',
-      '[aria-label="Comments" i]',
-      '[aria-label*="Comment" i]',
-      '[aria-label="Bình luận" i]',
-      '[aria-label*="Bình luận" i]',
-    ].join(', ');
-
-    notify(`Bắt đầu đăng ${commentItems.length} bình luận lên Facebook Reel...`);
-    let sentCount = 0;
-
-    for (let i = 0; i < commentItems.length; i++) {
-      const itemComment = commentItems[i];
-      notify(`Đang nhập bình luận Facebook (${i + 1}/${commentItems.length}): "${itemComment}"...`);
-
-      let commentBox = page.locator(commentBoxSelectors).first();
-      if (!(await commentBox.isVisible({ timeout: 4000 }).catch(() => false))) {
-        const commentIcon = page.locator(commentIconSelectors).first();
-        if (await commentIcon.isVisible({ timeout: 2000 }).catch(() => false)) {
-          await commentIcon.click();
-          await page.waitForTimeout(1500);
-        }
-        commentBox = page.locator(commentBoxSelectors).first();
-      }
-
-      if (await commentBox.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await commentBox.scrollIntoViewIfNeeded().catch(() => {});
-        await commentBox.click();
-        await page.waitForTimeout(600);
-        await page.keyboard.insertText(itemComment);
-        await page.waitForTimeout(1500);
-
-        const postCommentBtn = page.locator('[aria-label="Post comment" i], [aria-label="Đăng bình luận" i]').first();
-        if (await postCommentBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-          notify('Đã tìm thấy nút gửi bình luận, đang bấm gửi...');
-          await postCommentBtn.click();
-        } else {
-          notify('Gửi bình luận bằng phím Enter...');
-          await page.keyboard.press('Enter');
-        }
-        await page.waitForTimeout(3500);
-        sentCount++;
-        notify(`Đã gửi bình luận (${i + 1}/${commentItems.length}) thành công!`, 'SUCCESS');
-
-        if (i < commentItems.length - 1) {
-          await page.waitForTimeout(2000);
-        }
-      } else {
-        notify(`Không tìm thấy ô nhập bình luận Facebook cho phần ${i + 1}.`, 'WARN');
-      }
-    }
-
-    if (sentCount > 0) {
-      return { success: true, realReelUrl: publicReelUrl || page.url() || resolvedUrl };
-    } else {
-      throw new Error('Không tìm thấy ô nhập bình luận trên giao diện Reel.');
-    }
+    return { success: true, realReelUrl: publicReelUrl || page.url() || resolvedUrl };
   } catch (err: any) {
     const errorMsg = err?.message || String(err);
     notify(`Lỗi khi bình luận lên Reel: ${errorMsg}`, 'ERROR');

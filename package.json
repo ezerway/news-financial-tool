@@ -16,6 +16,8 @@
     "youtube:login": "tsx scripts/youtube-login.ts",
     "fb:post-reel": "tsx scripts/post-reel.ts",
     "post-reel": "tsx scripts/post-reel.ts",
+    "connection:status": "tsx scripts/connection-status.ts",
+    "status": "tsx scripts/connection-status.ts",
     "auto-cycle": "tsx scripts/auto-cycle.ts",
     "cron-daemon": "tsx scripts/cron-daemon.ts"
   },

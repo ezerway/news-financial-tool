@@ -461,28 +461,14 @@ export async function uploadYouTubeShortVideo(options: {
     let commentSuccess = false;
     if (comment && comment.trim() && shortsUrl && !isScheduled) {
       try {
-        notify(`Đang chuyển đến video để gửi bình luận đầu tiên: "${comment.trim()}"...`);
+        notify(`Đang chuyển đến video để gửi bình luận...`);
         await page.goto(shortsUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
         await page.waitForTimeout(3000);
 
-        const commentBtn = page.locator('[aria-label="View comments"]').first();
-        await commentBtn.click();
-
-        const commentBox = page.locator('#placeholder-area, #contenteditable-root, ytd-commentbox #contenteditable-textarea').first();
-        await commentBox.scrollIntoViewIfNeeded().catch(() => { });
-        if (await commentBox.isVisible({ timeout: 10000 }).catch(() => false)) {
-          await commentBox.click();
-          await page.keyboard.type(comment.trim());
-          await page.waitForTimeout(1000);
-
-          const submitBtn = page.locator('button[aria-label*="Comment"], button[aria-label*="Bình luận"]').first();
-          await submitBtn.click();
-          await page.waitForTimeout(2000);
-          commentSuccess = true;
-          notify('Đã gửi bình luận đầu tiên thành công trên YouTube Shorts!', 'SUCCESS');
-        }
+        const commentRes = await postCommentsOnYouTubePage(page, comment, notify);
+        commentSuccess = commentRes.success;
       } catch (cErr: any) {
-        notify(`Không thể gửi bình luận đầu tiên trên YouTube: ${cErr.message}`, 'WARN');
+        notify(`Không thể gửi bình luận trên YouTube: ${cErr.message}`, 'WARN');
       }
     }
 
@@ -572,6 +558,100 @@ export async function uploadYouTubeShortVideo(options: {
 }
 
 /**
+ * Helper dùng chung để gửi danh sách bình luận (phân cách bởi dấu |) lên trang YouTube (Shorts hoặc Watch page)
+ */
+export async function postCommentsOnYouTubePage(
+  page: Page,
+  rawComment: string,
+  notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void = () => {}
+): Promise<{ success: boolean; sentCount: number; total: number; error?: string }> {
+  const comments = rawComment
+    .split('|')
+    .map((c) => replaceDateWildcards(c.trim()))
+    .filter(Boolean);
+
+  if (comments.length === 0) {
+    return { success: true, sentCount: 0, total: 0 };
+  }
+
+  const isShorts = page.url().includes('/shorts/');
+
+  if (isShorts) {
+    // Mở drawer bình luận trên YouTube Shorts nếu chưa mở
+    const commentDrawer = page.locator('#comment-dialog, ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-comments-section"]').first();
+    const isDrawerVisible = await commentDrawer.isVisible().catch(() => false);
+
+    if (!isDrawerVisible) {
+      const commentBtn = page.locator(
+        '#comments-button, ytd-reel-player-overlay-renderer #comments-button, [aria-label="View comments"], [aria-label*="comments" i], [aria-label*="bình luận" i], button[aria-label*="Comment" i]'
+      ).first();
+
+      if (await commentBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+        notify('Nhấp mở bảng bình luận Shorts...');
+        await commentBtn.click();
+        await page.waitForTimeout(2000);
+      }
+    }
+  } else {
+    // Regular YouTube watch page: scroll xuống phần comments
+    notify('Cuộn xuống phần bình luận của video...');
+    await page.evaluate(() => window.scrollBy(0, 500));
+    await page.waitForTimeout(2000);
+  }
+
+  let sentCount = 0;
+  for (let i = 0; i < comments.length; i++) {
+    const cText = comments[i];
+    notify(`Đang gửi bình luận ${i + 1}/${comments.length}: "${cText}"...`);
+
+    // Tìm ô nhập comment
+    const commentBox = page.locator(
+      '#placeholder-area, #contenteditable-root, ytd-commentbox #contenteditable-textarea, #simplebox-placeholder, #comment-dialog #contenteditable-root'
+    ).first();
+
+    await commentBox.scrollIntoViewIfNeeded().catch(() => { });
+    await commentBox.waitFor({ state: 'visible', timeout: 15000 });
+    await commentBox.click();
+    await page.waitForTimeout(800);
+
+    const inputEditable = page.locator('#contenteditable-root, ytd-commentbox #contenteditable-textarea, div[contenteditable="true"]').first();
+    if (await inputEditable.isVisible().catch(() => false)) {
+      await inputEditable.click();
+      await page.keyboard.type(cText, { delay: 25 });
+    } else {
+      await page.keyboard.type(cText, { delay: 25 });
+    }
+    await page.waitForTimeout(1000);
+
+    // Nhấp nút gửi bình luận
+    const submitBtn = page.locator(
+      'button[aria-label="Comment"], button[aria-label="Bình luận"], button[aria-label*="Comment" i], button[aria-label*="Bình luận" i]'
+    ).first();
+
+    await submitBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await submitBtn.click();
+    await page.waitForTimeout(3000);
+    sentCount++;
+    notify(`Đã gửi bình luận ${sentCount}/${comments.length} thành công!`, 'SUCCESS');
+
+    if (i < comments.length - 1) {
+      await page.waitForTimeout(2000);
+    }
+  }
+
+  if (sentCount > 0) {
+    return { success: true, sentCount, total: comments.length };
+  } else {
+    return {
+      success: false,
+      sentCount: 0,
+      total: comments.length,
+      error: 'Không thể gửi bình luận vào video YouTube.',
+    };
+  }
+}
+
+/**
  * Tự động đăng bình luận lên video YouTube Shorts / YouTube Video đã có sẵn link công khai
  */
 export async function commentYouTubeVideoOnly(
@@ -649,71 +729,12 @@ export async function commentYouTubeVideoOnly(
     await page.goto(videoUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
     await page.waitForTimeout(3000);
 
-    const isShorts = videoUrl.includes('/shorts/') || page.url().includes('/shorts/');
-
-    if (isShorts) {
-      // Mở drawer bình luận trên YouTube Shorts nếu chưa mở
-      const commentDrawer = page.locator('#comment-dialog, ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-comments-section"]').first();
-      const isDrawerVisible = await commentDrawer.isVisible().catch(() => false);
-
-      if (!isDrawerVisible) {
-        const commentBtn = page.locator(
-          '#comments-button, ytd-reel-player-overlay-renderer #comments-button, [aria-label="View comments"], [aria-label*="comments" i], [aria-label*="bình luận" i], button[aria-label*="Comment" i]'
-        ).first();
-
-        if (await commentBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-          notify('Nhấp mở bảng bình luận Shorts...');
-          await commentBtn.click();
-          await page.waitForTimeout(2000);
-        }
-      }
-    } else {
-      // Regular YouTube watch page: scroll xuống phần comments
-      notify('Cuộn xuống phần bình luận của video...');
-      await page.evaluate(() => window.scrollBy(0, 500));
-      await page.waitForTimeout(2000);
+    // Gửi bình luận qua helper dùng chung
+    const commentRes = await postCommentsOnYouTubePage(page, comment, notify);
+    if (!commentRes.success) {
+      throw new Error(commentRes.error || 'Không thể gửi bình luận vào video YouTube');
     }
-
-    // Đăng lần lượt các bình luận
-    let sentCount = 0;
-    for (let i = 0; i < comments.length; i++) {
-      const cText = comments[i];
-      notify(`Đang gửi bình luận ${i + 1}/${comments.length}: "${cText}"...`);
-
-      // Tìm ô nhập comment
-      const commentBox = page.locator(
-        '#placeholder-area, #contenteditable-root, ytd-commentbox #contenteditable-textarea, #simplebox-placeholder, #comment-dialog #contenteditable-root'
-      ).first();
-
-      await commentBox.scrollIntoViewIfNeeded().catch(() => { });
-      await commentBox.waitFor({ state: 'visible', timeout: 15000 });
-      await commentBox.click();
-      await page.waitForTimeout(800);
-
-      const inputEditable = page.locator('#contenteditable-root, ytd-commentbox #contenteditable-textarea, div[contenteditable="true"]').first();
-      if (await inputEditable.isVisible().catch(() => false)) {
-        await inputEditable.click();
-        await page.keyboard.type(cText, { delay: 25 });
-      } else {
-        await page.keyboard.type(cText, { delay: 25 });
-      }
-      await page.waitForTimeout(1000);
-
-      // Nhấp nút gửi bình luận
-      const submitBtn = page.locator(
-        'button[aria-label="Comment"], button[aria-label="Bình luận"]'
-      ).first();
-
-      await submitBtn.waitFor({ state: 'visible', timeout: 10000 });
-      await submitBtn.click();
-      await page.waitForTimeout(15500);
-      sentCount++;
-      notify(`Đã gửi bình luận ${sentCount} thành công!`);
-
-      if (i < comments.length - 1) {
-        await page.waitForTimeout(2000);
-      }
-    }
+    const sentCount = commentRes.sentCount;
 
     // Đóng pages & context
     if (context) {
