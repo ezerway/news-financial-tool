@@ -183,6 +183,7 @@ Dự án cung cấp bộ công cụ toàn diện cho Video ngắn:
   - Tự động chèn nhạc nền thịnh hành từ thư viện TikTok Studio (hỗ trợ điều chỉnh volume, giảm âm thanh gốc hoặc hòa âm).
   - Tự động bình luận đầu tiên (First Comment) sau khi đăng thành công trên cả Facebook Reel và TikTok.
   - Ghi hình video debug và ảnh screenshot đối soát kết quả đăng trên cả 2 nền tảng.
+  - **Tự động dọn dẹp bộ nhớ**: Tiến trình `cron-daemon` tự động dọn video và ảnh screenshot của các post Reel đã tạo từ 2 ngày trước khi khởi động và sau mỗi chu kỳ để tiết kiệm dung lượng ổ cứng VPS (hỗ trợ điều chỉnh `--clean-days` hoặc nút dọn dẹp thủ công trong Cài đặt).
 
 ---
 

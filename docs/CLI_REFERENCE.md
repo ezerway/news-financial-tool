@@ -119,9 +119,10 @@ pnpm post-reel -f "./video.mp4" -c "Nội dung" --headless
 
 ### 2.5. Daemon Chạy ngầm (`scripts/cron-daemon.ts`)
 
-Tiến trình chạy nền 24/7 thực hiện 2 nhiệm vụ song song:
+Tiến trình chạy nền 24/7 thực hiện 3 nhiệm vụ song song:
 1. Chạy chu kỳ cào tin và đăng bài định kỳ (mặc định mỗi 60 phút).
 2. Quét hàng đợi video Reel hẹn giờ mỗi 30 giây để xuất bản tự động khi đến giờ.
+3. Tự động dọn dẹp bộ nhớ: xóa video và ảnh screenshot của các post Reel đã tạo từ 2 ngày trước đó (chạy lúc khởi động daemon và sau mỗi chu kỳ).
 
 ```bash
 # Chạy daemon với tính năng tự động xuất bản Facebook
@@ -132,12 +133,16 @@ pnpm cron-daemon --publish --interval 30
 
 # Giới hạn số bài đăng mỗi lần chạy
 pnpm cron-daemon --publish --limit 2 --interval 60
+
+# Tùy chỉnh số ngày dọn dẹp Reel cũ (mặc định: 2 ngày)
+pnpm cron-daemon --publish --clean-days 2
 ```
 
 **Các tham số hỗ trợ:**
 - `--publish`: Kích hoạt chế độ đăng thật lên Facebook cho các chu kỳ.
 - `--interval <minutes>` hoặc `-i <minutes>`: Khoảng thời gian lặp lại tính bằng phút.
 - `--limit <count>` hoặc `-l <count>`: Số lượng bài viết tối đa cho mỗi chu kỳ.
+- `--clean-days <days>` hoặc `-c <days>`: Số ngày lưu trữ video/screenshot Reel trước khi dọn dẹp (mặc định: `2`).
 
 ---
 

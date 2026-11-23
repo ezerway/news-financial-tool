@@ -24,6 +24,7 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
+  Film,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import TikTokIcon from './TikTokIcon';
@@ -338,6 +339,30 @@ export default function SettingsTab({
         if (onRefreshData) onRefreshData();
       } else {
         setStorageMsg({ text: data.error || 'Lỗi khi dọn dẹp', type: 'error' });
+      }
+    } catch (err: any) {
+      setStorageMsg({ text: 'Lỗi: ' + err.message, type: 'error' });
+    } finally {
+      setIsCleaningStorage(false);
+    }
+  };
+
+  const handleCleanOldReels = async () => {
+    setIsCleaningStorage(true);
+    setStorageMsg(null);
+    try {
+      const res = await fetch('/api/storage/clean', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'old_reels', days: 2 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStorageMsg({ text: data.message, type: 'success' });
+        fetchStorageStats();
+        if (onRefreshData) onRefreshData();
+      } else {
+        setStorageMsg({ text: data.error || 'Lỗi khi dọn dẹp Reel cũ', type: 'error' });
       }
     } catch (err: any) {
       setStorageMsg({ text: 'Lỗi: ' + err.message, type: 'error' });
@@ -1281,8 +1306,8 @@ export default function SettingsTab({
           <div className="pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <p className="text-[11px] text-slate-400">
               💡 {lang === 'vi'
-                ? 'Thao tác sẽ xóa các file ảnh/video tạm và gỡ liên kết trong bài viết/reel, không ảnh hưởng đến dữ liệu văn bản.'
-                : 'This deletes temporary image/video files and resets database references without touching text data.'}
+                ? 'Thao tác sẽ xóa các file ảnh/video tạm và gỡ liên kết trong bài viết/reel, không ảnh hưởng đến dữ liệu văn bản. Cron-daemon cũng tự động dọn video & screenshot các post Reel cũ (> 2 ngày) sau mỗi chu kỳ.'
+                : 'This deletes temporary image/video files and resets database references without touching text data. Cron daemon also automatically cleans up videos & screenshots of Reels created 2+ days ago after each cycle.'}
             </p>
 
             {showConfirmClean ? (
@@ -1315,18 +1340,35 @@ export default function SettingsTab({
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => setShowConfirmClean(true)}
-                disabled={(storageStats?.totalCount ?? 0) === 0 || isCleaningStorage}
-                className="btn btn-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/80 text-xs font-semibold self-start sm:self-auto cursor-pointer inline-flex items-center gap-1.5"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>
-                  {lang === 'vi' ? 'Xóa hết Screenshot & Video' : 'Delete All Screenshots & Videos'}
-                  {storageStats?.totalCount ? ` (${storageStats.totalCount})` : ''}
-                </span>
-              </button>
+              <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={handleCleanOldReels}
+                  disabled={isCleaningStorage}
+                  className="btn btn-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                  title={lang === 'vi' ? 'Dọn dẹp video & screenshot của các Reel đã tạo từ 2 ngày trước' : 'Clean up videos & screenshots of Reels created 2+ days ago'}
+                >
+                  {isCleaningStorage ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Film className="w-3.5 h-3.5" />
+                  )}
+                  <span>{lang === 'vi' ? 'Dọn Reel cũ (> 2 ngày)' : 'Clean Reels (> 2 days)'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmClean(true)}
+                  disabled={(storageStats?.totalCount ?? 0) === 0 || isCleaningStorage}
+                  className="btn btn-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>
+                    {lang === 'vi' ? 'Xóa hết Screenshot & Video' : 'Delete All Screenshots & Videos'}
+                    {storageStats?.totalCount ? ` (${storageStats.totalCount})` : ''}
+                  </span>
+                </button>
+              </div>
             )}
           </div>
         </div>

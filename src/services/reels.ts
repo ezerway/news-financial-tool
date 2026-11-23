@@ -668,6 +668,8 @@ export async function postCommentToTikTokReel(
   }
 }
 
+export { cleanOldReelsStorage } from './storage-cleanup';
+
 // Background scheduler singleton in Node.js runtime
 declare global {
   var __reelSchedulerStarted: boolean | undefined;
