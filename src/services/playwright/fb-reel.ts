@@ -255,6 +255,41 @@ export async function uploadFacebookReel(
     notify(`Đã bắt được filechooser! Đang put file: ${resolvedPath}...`);
     await fileChooser.setFiles(resolvedPath);
     notify('Đã put file thành công qua filechooser!', 'SUCCESS');
+    await page.waitForTimeout(3000);
+
+    // Kiểm tra và đảm bảo video đã được nạp vào form Create Reel
+    const ensureVideoLoaded = async (activePage: Page) => {
+      const fileInput = activePage.locator('input[type="file"]').first();
+      if ((await fileInput.count()) > 0) {
+        notify('Nạp file bổ sung vào input[type="file"] của form...');
+        await fileInput.setInputFiles(resolvedPath).catch(() => {});
+        await activePage.waitForTimeout(2000);
+      }
+
+      const addVideoPrompt = activePage
+        .locator('div:has-text("Add video"), div:has-text("Thêm video")')
+        .filter({ hasText: /drag and drop|kéo và thả/i })
+        .first();
+
+      if (await addVideoPrompt.isVisible({ timeout: 3000 }).catch(() => false)) {
+        notify('Phát hiện ô "Add video" vẫn hiển thị, kích hoạt filechooser trực tiếp từ nút...');
+        try {
+          const fcPromise = activePage.waitForEvent('filechooser', { timeout: 10000 });
+          await addVideoPrompt.click({ force: true });
+          const fc = await fcPromise.catch(() => null);
+          if (fc) {
+            await fc.setFiles(resolvedPath);
+            notify('Đã setFiles thành công qua nút Add video!', 'SUCCESS');
+          }
+        } catch (e: any) {
+          notify(`Lỗi khi click ô Add video: ${e.message}`, 'WARN');
+        }
+        await activePage.waitForTimeout(3000);
+      }
+    };
+    if (page) {
+      await ensureVideoLoaded(page);
+    }
 
     // Bước 6: Nhập content vào '[aria-label="Posts"] [contenteditable="true"]'
     notify('Đang chờ khung nhập nội dung bài viết [aria-label="Posts"] [contenteditable="true"]...');
@@ -314,27 +349,46 @@ export async function uploadFacebookReel(
 
     await audioTab.waitFor({ state: 'visible', timeout: 25000 });
     await audioTab.scrollIntoViewIfNeeded().catch(() => { });
-    await audioTab.click();
+
+    // Chờ cho video xử lý xong và Audio tab được enable
+    try {
+      const handle = await audioTab.elementHandle();
+      if (handle) {
+        await page.waitForFunction(
+          (el) => el && el.getAttribute('aria-disabled') !== 'true' && !el.hasAttribute('disabled'),
+          handle,
+          { timeout: 35000 }
+        );
+      }
+    } catch {
+      notify('Audio tab vẫn aria-disabled hoặc timeout, tiếp tục click với force...');
+    }
+
+    await audioTab.click({ force: true });
     notify('Đã click vào thẻ Audio.');
     await page.waitForTimeout(2000);
 
-    // Bước 8: Click 1 item '[role="listitem"]' bất kỳ trong list '[aria-label="Music Library Song List"][role="list"]'
-    notify('Đang tìm danh sách bài hát [aria-label="Music Library Song List"][role="list"]...');
-    const musicList = page.locator('[aria-label="Music Library Song List"][role="list"]');
-    await musicList.waitFor({ state: 'visible', timeout: 30000 });
+    // Bước 8: Chọn nhạc trong Music Library nếu có
+    try {
+      notify('Đang tìm danh sách bài hát [aria-label="Music Library Song List"][role="list"]...');
+      const musicList = page.locator('[aria-label="Music Library Song List"][role="list"]');
+      await musicList.waitFor({ state: 'visible', timeout: 10000 });
 
-    const songItems = page.locator('[aria-label="Music Library Song List"][role="list"] [role="listitem"]');
-    await songItems.first().waitFor({ state: 'visible', timeout: 20000 });
-    const songCount = await songItems.count();
-    notify(`Tìm thấy ${songCount} bài hát trong Music Library Song List.`);
+      const songItems = page.locator('[aria-label="Music Library Song List"][role="list"] [role="listitem"]');
+      await songItems.first().waitFor({ state: 'visible', timeout: 10000 });
+      const songCount = await songItems.count();
+      notify(`Tìm thấy ${songCount} bài hát trong Music Library Song List.`);
 
-    if (songCount > 0) {
-      const randomIndex = Math.floor(Math.random() * songCount);
-      const targetSong = songItems.nth(randomIndex);
-      notify(`Đang chọn bài hát số ${randomIndex + 1}...`);
-      await targetSong.scrollIntoViewIfNeeded().catch(() => { });
-      await targetSong.click();
-      await page.waitForTimeout(2000);
+      if (songCount > 0) {
+        const randomIndex = Math.floor(Math.random() * songCount);
+        const targetSong = songItems.nth(randomIndex);
+        notify(`Đang chọn bài hát số ${randomIndex + 1}...`);
+        await targetSong.scrollIntoViewIfNeeded().catch(() => { });
+        await targetSong.click();
+        await page.waitForTimeout(2000);
+      }
+    } catch (musicErr: any) {
+      notify(`Bỏ qua chọn nhạc thư viện (${musicErr.message}), tiếp tục quy trình đăng Reel...`, 'WARN');
     }
 
     // Helper tắt âm thanh gốc cho Reel Facebook:
@@ -391,13 +445,14 @@ export async function uploadFacebookReel(
     // Thử tắt âm gốc ngay sau khi chọn bài hát
     let isOriginalMuted = await muteOriginalAudioIfPresent('sau khi chọn bài hát');
 
-    // Bước 9: Sau đó click '[aria-label="Done"][role="button"]'
-    notify('Đang tìm và click nút [aria-label="Done"][role="button"]...');
+    // Bước 9: Sau đó click '[aria-label="Done"][role="button"]' nếu có
+    notify('Đang kiểm tra nút [aria-label="Done"][role="button"]...');
     const doneBtn = page.locator('[aria-label="Done"][role="button"]').first();
-    await doneBtn.waitFor({ state: 'visible', timeout: 20000 });
-    await doneBtn.click();
-    notify('Đã click nút Done.');
-    await page.waitForTimeout(2000);
+    if (await doneBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await doneBtn.click();
+      notify('Đã click nút Done.');
+      await page.waitForTimeout(2000);
+    }
 
     // Nếu trước khi bấm Done chưa tắt được âm gốc thì thử lại sau khi bấm Done
     if (!isOriginalMuted) {

@@ -1062,6 +1062,13 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
       // Fallback: Nếu bình luận qua TikTok Studio chưa thành công mà đã lấy được link công khai
       if (commentSuccess === false && tiktokVideoUrl) {
         notify(`Thử lại bình luận qua link video TikTok công khai: ${tiktokVideoUrl}...`);
+        if (context) {
+          for (const p of context.pages()) {
+            if (!p.isClosed()) await p.close().catch(() => { });
+          }
+          await context.close().catch(() => { });
+          context = null;
+        }
         try {
           const fallbackRes = await commentTikTokVideoOnly(tiktokVideoUrl, options.comment, { headless });
           if (fallbackRes.success) {
