@@ -4,8 +4,6 @@ import React, { useState } from 'react';
 import {
   Flame,
   RefreshCw,
-  CheckCircle2,
-  AlertTriangle,
   Sparkles,
   LogOut,
   Loader2,
@@ -21,14 +19,13 @@ import {
   Activity,
   Settings,
 } from 'lucide-react';
-import FacebookIcon from './FacebookIcon';
 import { useI18n } from '@/context/I18nThemeContext';
 
 export interface HeaderProps {
-  fbStatus: { loggedIn: boolean; username?: string; message: string };
+  fbStatus?: { loggedIn: boolean; username?: string; message: string };
   onRunCycle: () => void;
   onRefresh: () => void;
-  onConnectFb: () => void;
+  onConnectFb?: () => void;
   isRunning: boolean;
   autoRefreshInterval: number;
   onChangeAutoRefresh: (seconds: number) => void;
@@ -75,20 +72,6 @@ export default function Header({
     { label: t('refresh_120s'), value: 120 },
   ];
 
-  let fbLabel = t('connect_fb');
-  if (fbStatus.loggedIn) {
-    if (fbStatus.username) {
-      if (fbStatus.username.includes('[Fanpage:')) {
-        const match = fbStatus.username.match(/\[Fanpage:\s*([^\]]+)\]/);
-        fbLabel = match ? match[1] : 'Fanpage';
-      } else {
-        fbLabel = fbStatus.username;
-      }
-    } else {
-      fbLabel = t('connected');
-    }
-  }
-
   const tabs: Array<{
     id: 'overview' | 'trends' | 'posts' | 'reels' | 'logs' | 'settings';
     label: string;
@@ -125,44 +108,8 @@ export default function Header({
           </div>
 
 
-          {/* Center: Facebook Status Pill */}
-          <div className="hidden lg:flex items-center">
-            <button
-              onClick={onConnectFb}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                fbStatus.loggedIn
-                  ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/50'
-                  : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300 hover:bg-amber-100/50'
-              }`}
-              title={fbStatus.message}
-            >
-              <FacebookIcon className="w-3.5 h-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span className="max-w-[140px] truncate">{fbLabel}</span>
-              {fbStatus.loggedIn ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              ) : (
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-              )}
-            </button>
-          </div>
-
           {/* Right: Controls & Actions */}
           <div className="flex items-center gap-2">
-            {/* Mobile FB button */}
-            <button
-              onClick={onConnectFb}
-              className="lg:hidden h-8 w-8 flex items-center justify-center rounded-lg app-tag relative"
-              title={fbStatus.message}
-            >
-              <FacebookIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              <span
-                className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${
-                  fbStatus.loggedIn ? 'bg-emerald-500' : 'bg-amber-500'
-                }`}
-              />
-            </button>
-
             {/* Refresh & Auto-Refresh dropdown */}
             <div className="relative">
               <div className="h-8 flex items-center rounded-lg app-tag overflow-hidden text-xs">

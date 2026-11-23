@@ -48,7 +48,7 @@ export async function postCommentsOnZaloPage(
   page: Page,
   rawComment: string,
   targetRow?: any,
-  notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void = () => {}
+  notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void = () => { }
 ): Promise<{ success: boolean; sentCount: number; total: number; error?: string }> {
   const comments = rawComment
     .split('|')
@@ -79,7 +79,7 @@ export async function postCommentsOnZaloPage(
       const cText = comments[i];
       notify(`Đang nhập bình luận Zalo (${i + 1}/${comments.length}): "${cText}"...`);
 
-      await commentInput.scrollIntoViewIfNeeded().catch(() => {});
+      await commentInput.scrollIntoViewIfNeeded().catch(() => { });
       await commentInput.click();
       await page.waitForTimeout(500);
 
@@ -174,7 +174,7 @@ export async function uploadZaloVideo(options: PostZaloOptions): Promise<PostZal
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
       try {
         (window as any).chrome = { runtime: {} };
-      } catch {}
+      } catch { }
     });
 
     // 1. Mở trang Video Creator
@@ -222,9 +222,9 @@ export async function uploadZaloVideo(options: PostZaloOptions): Promise<PostZal
     const publishBtn = page
       .locator('button')
       .filter({ hasText: /^Đăng video$/i })
-      .first();
+      .last();
     await publishBtn.waitFor({ state: 'visible', timeout: 20000 });
-    await publishBtn.scrollIntoViewIfNeeded().catch(() => {});
+    await publishBtn.scrollIntoViewIfNeeded().catch(() => { });
     await publishBtn.click();
     notify('Đã bấm "Đăng video", chờ hệ thống tiếp nhận...');
     await page.waitForTimeout(4000);
@@ -244,7 +244,7 @@ export async function uploadZaloVideo(options: PostZaloOptions): Promise<PostZal
     notify(`Đang chờ Zalo xử lý video (tối đa 3 phút, kiểm tra mỗi 5s)...`);
     for (let attempt = 0; attempt < 36; attempt++) {
       await page.waitForTimeout(5000);
-      await page.reload({ waitUntil: 'domcontentloaded', timeout: 35000 }).catch(() => {});
+      await page.reload({ waitUntil: 'domcontentloaded', timeout: 35000 }).catch(() => { });
       await page.waitForTimeout(2000);
 
       const rows = await page.locator('tbody tr.ant-table-row, tbody tr').all();
@@ -307,7 +307,7 @@ export async function uploadZaloVideo(options: PostZaloOptions): Promise<PostZal
     // Đóng pages để hoàn tất ghi video
     if (context) {
       for (const p of context.pages()) {
-        if (!p.isClosed()) await p.close().catch(() => {});
+        if (!p.isClosed()) await p.close().catch(() => { });
       }
     }
 
@@ -316,16 +316,16 @@ export async function uploadZaloVideo(options: PostZaloOptions): Promise<PostZal
       if (isDev) {
         try {
           const finalVideoPath = path.join(VIDEOS_DIR, videoFileName);
-          await targetVideo.saveAs(finalVideoPath).catch(() => {});
+          await targetVideo.saveAs(finalVideoPath).catch(() => { });
           savedDebugVideoFileName = videoFileName;
-        } catch {}
+        } catch { }
       } else {
-        await targetVideo.delete().catch(() => {});
+        await targetVideo.delete().catch(() => { });
       }
     }
 
     if (context) {
-      await context.close().catch(() => {});
+      await context.close().catch(() => { });
       context = null;
     }
 
@@ -350,12 +350,12 @@ export async function uploadZaloVideo(options: PostZaloOptions): Promise<PostZal
       try {
         await page.screenshot({ path: screenshotFullPath, fullPage: true });
         savedScreenshotFileName = screenshotFileName;
-      } catch {}
+      } catch { }
     }
 
     if (context) {
       for (const p of context.pages()) {
-        if (!p.isClosed()) await p.close().catch(() => {});
+        if (!p.isClosed()) await p.close().catch(() => { });
       }
     }
 
@@ -364,16 +364,16 @@ export async function uploadZaloVideo(options: PostZaloOptions): Promise<PostZal
       if (isDev) {
         try {
           const finalVideoPath = path.join(VIDEOS_DIR, errVideoFileName);
-          await targetVideo.saveAs(finalVideoPath).catch(() => {});
+          await targetVideo.saveAs(finalVideoPath).catch(() => { });
           savedDebugVideoFileName = errVideoFileName;
-        } catch {}
+        } catch { }
       } else {
-        await targetVideo.delete().catch(() => {});
+        await targetVideo.delete().catch(() => { });
       }
     }
 
     if (context) {
-      await context.close().catch(() => {});
+      await context.close().catch(() => { });
       context = null;
     }
 
@@ -478,7 +478,7 @@ export async function commentZaloVideoOnly(
     // Đóng pages & context
     if (context) {
       for (const p of context.pages()) {
-        if (!p.isClosed()) await p.close().catch(() => {});
+        if (!p.isClosed()) await p.close().catch(() => { });
       }
     }
 
@@ -487,16 +487,16 @@ export async function commentZaloVideoOnly(
       if (isDev) {
         try {
           const finalVideoPath = path.join(VIDEOS_DIR, videoFileName);
-          await targetVideo.saveAs(finalVideoPath).catch(() => {});
+          await targetVideo.saveAs(finalVideoPath).catch(() => { });
           savedDebugVideoFileName = videoFileName;
-        } catch {}
+        } catch { }
       } else {
-        await targetVideo.delete().catch(() => {});
+        await targetVideo.delete().catch(() => { });
       }
     }
 
     if (context) {
-      await context.close().catch(() => {});
+      await context.close().catch(() => { });
       context = null;
     }
 
@@ -513,14 +513,14 @@ export async function commentZaloVideoOnly(
       try {
         await page.screenshot({ path: screenshotFullPath, fullPage: true });
         savedScreenshotFileName = screenshotFileName;
-      } catch {}
+      } catch { }
     }
 
     if (context) {
       for (const p of context.pages()) {
-        if (!p.isClosed()) await p.close().catch(() => {});
+        if (!p.isClosed()) await p.close().catch(() => { });
       }
-      await context.close().catch(() => {});
+      await context.close().catch(() => { });
       context = null;
     }
 
