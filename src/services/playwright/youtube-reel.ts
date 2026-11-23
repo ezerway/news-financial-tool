@@ -563,7 +563,7 @@ export async function uploadYouTubeShortVideo(options: {
 export async function postCommentsOnYouTubePage(
   page: Page,
   rawComment: string,
-  notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void = () => {}
+  notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void = () => { }
 ): Promise<{ success: boolean; sentCount: number; total: number; error?: string }> {
   const comments = rawComment
     .split('|')
@@ -625,7 +625,7 @@ export async function postCommentsOnYouTubePage(
 
     // Nhấp nút gửi bình luận
     const submitBtn = page.locator(
-      'button[aria-label="Comment"], button[aria-label="Bình luận"], button[aria-label*="Comment" i], button[aria-label*="Bình luận" i]'
+      'button[aria-label="Comment"], button[aria-label="Bình luận"]'
     ).first();
 
     await submitBtn.waitFor({ state: 'visible', timeout: 10000 });
