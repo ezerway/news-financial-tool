@@ -3,8 +3,8 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { uploadFacebookReel } from '../src/services/playwright/fb-reel';
-import { createReel, publishTikTokReelById, publishYouTubeReelById } from '../src/services/reels';
-import db, { logActivity, resolveHeadless, isDeveloperMode, isTikTokAutoPostEnabled, isYouTubeAutoPostEnabled } from '../src/lib/db';
+import { createReel, publishTikTokReelById, publishYouTubeReelById, publishZaloReelById } from '../src/services/reels';
+import db, { logActivity, resolveHeadless, isDeveloperMode, isTikTokAutoPostEnabled, isYouTubeAutoPostEnabled, isZaloAutoPostEnabled } from '../src/lib/db';
 import { checkFacebookLoginStatus } from '../src/services/playwright/session';
 
 function askQuestion(rl: readline.Interface, query: string): Promise<string> {
@@ -338,6 +338,27 @@ async function main() {
       }
     } catch (ytErr: any) {
       console.warn('⚠️ [YouTube] Lỗi ngoại lệ YouTube Shorts:', ytErr.message);
+    }
+  }
+
+  // ==========================================
+  // BƯỚC 4: XUẤT BẢN LÊN ZALO VIDEO THEO THỨ TỰ
+  // (Độc lập, không phụ thuộc vào kết quả Facebook / TikTok / YouTube)
+  // ==========================================
+  if (isZaloAutoPostEnabled()) {
+    console.log('🎬 [Zalo Video] Đang đồng bộ đăng video lên Zalo Video Creator...');
+    try {
+      const zlResult = await publishZaloReelById(reel.id, { headless });
+      if (zlResult.success) {
+        console.log('🎉 [Zalo Video] Đăng Zalo Video thành công!');
+        if (zlResult.zaloUrl) {
+          console.log('🔗 Link Zalo Video: ' + zlResult.zaloUrl);
+        }
+      } else {
+        console.warn('⚠️ [Zalo Video] Đăng Zalo Video thất bại:', zlResult.error || zlResult.message);
+      }
+    } catch (zlErr: any) {
+      console.warn('⚠️ [Zalo Video] Lỗi ngoại lệ Zalo Video:', zlErr.message);
     }
   }
 

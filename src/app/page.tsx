@@ -56,9 +56,11 @@ export default function DashboardPage() {
   const [publishingReelId, setPublishingReelId] = useState<string | null>(null);
   const [publishingTikTokId, setPublishingTikTokId] = useState<string | null>(null);
   const [publishingYouTubeId, setPublishingYouTubeId] = useState<string | null>(null);
+  const [publishingZaloId, setPublishingZaloId] = useState<string | null>(null);
   const [commentingReelId, setCommentingReelId] = useState<string | null>(null);
   const [commentingTikTokId, setCommentingTikTokId] = useState<string | null>(null);
   const [commentingYouTubeId, setCommentingYouTubeId] = useState<string | null>(null);
+  const [commentingZaloId, setCommentingZaloId] = useState<string | null>(null);
   const [commentingId, setCommentingId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isFbModalOpen, setIsFbModalOpen] = useState(false);
@@ -622,6 +624,9 @@ export default function DashboardPage() {
       youtube_post_url?: string | null;
       youtube_status?: string | null;
       youtube_comment_status?: string | null;
+      zalo_post_url?: string | null;
+      zalo_status?: string | null;
+      zalo_comment_status?: string | null;
     }
   ) => {
     try {
@@ -837,6 +842,67 @@ export default function DashboardPage() {
       await fetchData(true);
     } finally {
       setCommentingYouTubeId(null);
+    }
+  };
+
+  const handlePublishZalo = async (reelId: string) => {
+    setPublishingZaloId(reelId);
+    showToast(lang === 'vi' ? 'Đang khởi chạy Playwright Chromium để đăng video lên Zalo Video...' : 'Launching Playwright Chromium to publish Zalo Video...', 'info');
+    try {
+      const res = await fetch(`/api/reels/${reelId}/publish-zalo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headless: true }),
+      });
+      const resData = await res.json();
+      const reelObj = reels.find((r) => r.id === reelId);
+      const reelTitle = reelObj?.caption ? reelObj.caption.slice(0, 100) : (reelObj?.video_filename || 'Zalo Video');
+
+      if (res.ok && resData.success) {
+        showToast(lang === 'vi' ? 'Đã xuất bản video lên Zalo Video thành công!' : 'Published Zalo Video successfully!', 'success');
+        showBrowserNotification(lang === 'vi' ? '✅ Đã xuất bản video lên Zalo Video thành công!' : '✅ Published Zalo Video successfully!', {
+          body: reelTitle,
+          url: resData.result?.zaloUrl || undefined,
+        });
+        await fetchData(true);
+      } else {
+        const errorMsg = resData.error || resData.result?.message || (lang === 'vi' ? 'Có lỗi xảy ra' : 'An error occurred');
+        showToast(`${lang === 'vi' ? 'Xuất bản Zalo Video thất bại: ' : 'Zalo Video publish failed: '}${errorMsg}`, 'error');
+        showBrowserNotification(lang === 'vi' ? '❌ Xuất bản video Zalo Video thất bại' : '❌ Zalo Video publish failed', {
+          body: `${reelTitle}: ${errorMsg}`,
+        });
+        await fetchData(true);
+      }
+    } catch (err: any) {
+      showToast(`${lang === 'vi' ? 'Lỗi xuất bản Zalo Video: ' : 'Zalo Video publish error: '}${err.message}`, 'error');
+      showBrowserNotification(lang === 'vi' ? '❌ Lỗi xuất bản Zalo Video' : '❌ Zalo Video publish error', { body: err.message });
+      await fetchData(true);
+    } finally {
+      setPublishingZaloId(null);
+    }
+  };
+
+  const handleCommentZaloReel = async (reelId: string) => {
+    setCommentingZaloId(reelId);
+    showToast(lang === 'vi' ? 'Đang mở Playwright để gửi bình luận vào video Zalo Video...' : 'Opening Playwright to post comment to Zalo Video...', 'info');
+    try {
+      const res = await fetch(`/api/reels/${reelId}/comment-zalo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        showToast(lang === 'vi' ? 'Đã gửi bình luận vào video Zalo Video thành công!' : 'Commented on Zalo Video successfully!', 'success');
+        await fetchData(true);
+      } else {
+        showToast(`${lang === 'vi' ? 'Lỗi bình luận Zalo Video: ' : 'Zalo Video comment error: '}${resData.error || resData.message}`, 'error');
+        await fetchData(true);
+      }
+    } catch (err: any) {
+      showToast(`${lang === 'vi' ? 'Lỗi kết nối bình luận Zalo Video: ' : 'Zalo Video comment connection error: '}${err.message}`, 'error');
+      await fetchData(true);
+    } finally {
+      setCommentingZaloId(null);
     }
   };
 
@@ -1088,18 +1154,22 @@ export default function DashboardPage() {
               onPublishReel={handlePublishReel}
               onPublishTikTok={handlePublishTikTok}
               onPublishYouTube={handlePublishYouTube}
+              onPublishZalo={handlePublishZalo}
               onDeleteReel={handleDeleteReel}
               onUpdateReel={handleUpdateReel}
               onCreateReel={handleCreateReel}
               publishingReelId={publishingReelId}
               publishingTikTokId={publishingTikTokId}
               publishingYouTubeId={publishingYouTubeId}
+              publishingZaloId={publishingZaloId}
               onCommentReel={handleCommentReel}
               commentingReelId={commentingReelId}
               onCommentTikTokReel={handleCommentTikTokReel}
               commentingTikTokId={commentingTikTokId}
               onCommentYouTubeReel={handleCommentYouTubeReel}
               commentingYouTubeId={commentingYouTubeId}
+              onCommentZaloReel={handleCommentZaloReel}
+              commentingZaloId={commentingZaloId}
             />
           )}
 

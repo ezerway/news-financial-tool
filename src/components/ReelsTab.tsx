@@ -34,6 +34,7 @@ import Pagination from './Pagination';
 import TikTokIcon from './TikTokIcon';
 import FacebookIcon from './FacebookIcon';
 import YouTubeIcon from './YouTubeIcon';
+import ZaloIcon from './ZaloIcon';
 import { useI18n } from '@/context/I18nThemeContext';
 
 interface ReelsTabProps {
@@ -42,6 +43,7 @@ interface ReelsTabProps {
   onPublishReel: (reelId: string) => Promise<void>;
   onPublishTikTok?: (reelId: string) => Promise<void>;
   onPublishYouTube?: (reelId: string) => Promise<void>;
+  onPublishZalo?: (reelId: string) => Promise<void>;
   onDeleteReel: (reelId: string) => Promise<void>;
   onUpdateReel: (
     reelId: string,
@@ -57,6 +59,9 @@ interface ReelsTabProps {
       youtube_post_url?: string | null;
       youtube_status?: string | null;
       youtube_comment_status?: string | null;
+      zalo_post_url?: string | null;
+      zalo_status?: string | null;
+      zalo_comment_status?: string | null;
     }
   ) => Promise<void>;
   onCreateReel: (data: {
@@ -70,12 +75,15 @@ interface ReelsTabProps {
   publishingReelId: string | null;
   publishingTikTokId?: string | null;
   publishingYouTubeId?: string | null;
+  publishingZaloId?: string | null;
   onCommentReel?: (reelId: string) => Promise<void>;
   commentingReelId?: string | null;
   onCommentTikTokReel?: (reelId: string) => Promise<void>;
   commentingTikTokId?: string | null;
   onCommentYouTubeReel?: (reelId: string) => Promise<void>;
   commentingYouTubeId?: string | null;
+  onCommentZaloReel?: (reelId: string) => Promise<void>;
+  commentingZaloId?: string | null;
 }
 
 export default function ReelsTab({
@@ -84,18 +92,22 @@ export default function ReelsTab({
   onPublishReel,
   onPublishTikTok,
   onPublishYouTube,
+  onPublishZalo,
   onDeleteReel,
   onUpdateReel,
   onCreateReel,
   publishingReelId,
   publishingTikTokId,
   publishingYouTubeId,
+  publishingZaloId,
   onCommentReel,
   commentingReelId,
   onCommentTikTokReel,
   commentingTikTokId,
   onCommentYouTubeReel,
   commentingYouTubeId,
+  onCommentZaloReel,
+  commentingZaloId,
 }: ReelsTabProps) {
   const { t, lang, theme } = useI18n();
 
@@ -114,6 +126,7 @@ export default function ReelsTab({
   const [editFbPostUrl, setEditFbPostUrl] = useState('');
   const [editTikTokPostUrl, setEditTikTokPostUrl] = useState('');
   const [editYouTubePostUrl, setEditYouTubePostUrl] = useState('');
+  const [editZaloPostUrl, setEditZaloPostUrl] = useState('');
   const [editIsScheduled, setEditIsScheduled] = useState(false);
   const [editScheduledAt, setEditScheduledAt] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -123,9 +136,11 @@ export default function ReelsTab({
   const [correctFbUrl, setCorrectFbUrl] = useState('');
   const [correctTikTokUrl, setCorrectTikTokUrl] = useState('');
   const [correctYouTubeUrl, setCorrectYouTubeUrl] = useState('');
+  const [correctZaloUrl, setCorrectZaloUrl] = useState('');
   const [correctMarkFbPublished, setCorrectMarkFbPublished] = useState(true);
   const [correctMarkTikTokPublished, setCorrectMarkTikTokPublished] = useState(true);
   const [correctMarkYouTubePublished, setCorrectMarkYouTubePublished] = useState(true);
+  const [correctMarkZaloPublished, setCorrectMarkZaloPublished] = useState(true);
   const [isSavingCorrectLink, setIsSavingCorrectLink] = useState(false);
 
   // Delete confirmation
@@ -286,6 +301,7 @@ export default function ReelsTab({
     setEditFbPostUrl(reel.fb_post_url || '');
     setEditTikTokPostUrl(reel.tiktok_post_url || '');
     setEditYouTubePostUrl(reel.youtube_post_url || '');
+    setEditZaloPostUrl(reel.zalo_post_url || '');
     if (reel.scheduled_at) {
       setEditIsScheduled(true);
       const d = new Date(reel.scheduled_at);
@@ -327,6 +343,7 @@ export default function ReelsTab({
         fb_post_url: editFbPostUrl.trim() || null,
         tiktok_post_url: editTikTokPostUrl.trim() || null,
         youtube_post_url: editYouTubePostUrl.trim() || null,
+        zalo_post_url: editZaloPostUrl.trim() || null,
       });
 
       setEditingReel(null);
@@ -342,9 +359,11 @@ export default function ReelsTab({
     setCorrectFbUrl(reel.fb_post_url || '');
     setCorrectTikTokUrl(reel.tiktok_post_url || '');
     setCorrectYouTubeUrl(reel.youtube_post_url || '');
+    setCorrectZaloUrl(reel.zalo_post_url || '');
     setCorrectMarkFbPublished(reel.status !== 'published');
     setCorrectMarkTikTokPublished(reel.tiktok_status !== 'published');
     setCorrectMarkYouTubePublished(reel.youtube_status !== 'published');
+    setCorrectMarkZaloPublished(reel.zalo_status !== 'published');
   };
 
   const handleSaveCorrectLink = async () => {
@@ -355,11 +374,13 @@ export default function ReelsTab({
       const trimmedFb = correctFbUrl.trim() || null;
       const trimmedTikTok = correctTikTokUrl.trim() || null;
       const trimmedYouTube = correctYouTubeUrl.trim() || null;
+      const trimmedZalo = correctZaloUrl.trim() || null;
 
       const updateData: any = {
         fb_post_url: trimmedFb,
         tiktok_post_url: trimmedTikTok,
         youtube_post_url: trimmedYouTube,
+        zalo_post_url: trimmedZalo,
       };
 
       if (trimmedFb && correctMarkFbPublished && correctingLinkReel.status !== 'published') {
@@ -372,6 +393,10 @@ export default function ReelsTab({
 
       if (trimmedYouTube && correctMarkYouTubePublished && correctingLinkReel.youtube_status !== 'published') {
         updateData.youtube_status = 'published';
+      }
+
+      if (trimmedZalo && correctMarkZaloPublished && correctingLinkReel.zalo_status !== 'published') {
+        updateData.zalo_status = 'published';
       }
 
       await onUpdateReel(correctingLinkReel.id, updateData);
@@ -528,6 +553,8 @@ export default function ReelsTab({
               (publishingTikTokId && publishingTikTokId === reel.id) || reel.tiktok_status === 'publishing';
             const isPublishingYouTubeThis =
               (publishingYouTubeId && publishingYouTubeId === reel.id) || reel.youtube_status === 'publishing';
+            const isPublishingZaloThis =
+              (publishingZaloId && publishingZaloId === reel.id) || reel.zalo_status === 'publishing';
             const isDeletingThis = isDeletingId === reel.id;
             const isExpanded = !!expandedCaptions[reel.id];
 
@@ -602,7 +629,8 @@ export default function ReelsTab({
                 {((reel.status === 'failed' && (reel.error_message || reel.debug_video_path || reel.screenshot_path)) ||
                   (reel.tiktok_status === 'failed' && (reel.tiktok_error_message || reel.tiktok_debug_video_path || reel.tiktok_screenshot_path)) ||
                   (reel.tiktok_comment_status === 'failed' && (reel.tiktok_error_message || reel.tiktok_debug_video_path || reel.tiktok_screenshot_path)) ||
-                  (reel.youtube_status === 'failed' && (reel.youtube_error_message || reel.youtube_debug_video_path || reel.youtube_screenshot_path))) && (
+                  (reel.youtube_status === 'failed' && (reel.youtube_error_message || reel.youtube_debug_video_path || reel.youtube_screenshot_path)) ||
+                  (reel.zalo_status === 'failed' && (reel.zalo_error_message || reel.zalo_debug_video_path || reel.zalo_screenshot_path))) && (
                   <div className="p-2.5 rounded-lg bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-800/40 text-[11px] text-rose-800 dark:text-rose-300 space-y-1.5">
                     {reel.error_message && (
                       <div className="flex items-start gap-1.5">
@@ -622,7 +650,13 @@ export default function ReelsTab({
                         <span className="line-clamp-2">[YouTube] {reel.youtube_error_message}</span>
                       </div>
                     )}
-                    {(reel.debug_video_path || reel.tiktok_debug_video_path || reel.youtube_debug_video_path || reel.screenshot_path || reel.tiktok_screenshot_path || reel.youtube_screenshot_path) && (
+                    {reel.zalo_error_message && (
+                      <div className="flex items-start gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0 text-blue-500 mt-0.5" />
+                        <span className="line-clamp-2">[Zalo] {reel.zalo_error_message}</span>
+                      </div>
+                    )}
+                    {(reel.debug_video_path || reel.tiktok_debug_video_path || reel.youtube_debug_video_path || reel.zalo_debug_video_path || reel.screenshot_path || reel.tiktok_screenshot_path || reel.youtube_screenshot_path || reel.zalo_screenshot_path) && (
                       <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-rose-200/50 dark:border-rose-800/40">
                         {reel.debug_video_path && (
                           <button
@@ -657,6 +691,17 @@ export default function ReelsTab({
                             <span>{lang === 'vi' ? 'Video lỗi YouTube' : 'YouTube Error Video'}</span>
                           </button>
                         )}
+                        {reel.zalo_debug_video_path && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDebugVideo(reel.zalo_debug_video_path || null)}
+                            className="inline-flex items-center gap-1.5 font-semibold text-blue-700 hover:text-blue-900 dark:text-blue-300 dark:hover:text-blue-100 hover:underline cursor-pointer"
+                            title={lang === 'vi' ? 'Xem video quá trình lỗi Zalo' : 'Watch Zalo error video'}
+                          >
+                            <Video className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                            <span>{lang === 'vi' ? 'Video lỗi Zalo' : 'Zalo Error Video'}</span>
+                          </button>
+                        )}
                         {reel.screenshot_path && (
                           <button
                             type="button"
@@ -688,6 +733,17 @@ export default function ReelsTab({
                           >
                             <ImageIcon className="w-3.5 h-3.5 text-red-500 shrink-0" />
                             <span>{lang === 'vi' ? 'Ảnh YouTube' : 'YouTube Screenshot'}</span>
+                          </button>
+                        )}
+                        {reel.zalo_screenshot_path && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewScreenshot(reel.zalo_screenshot_path || null)}
+                            className="inline-flex items-center gap-1.5 font-semibold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:underline cursor-pointer"
+                            title={lang === 'vi' ? 'Xem ảnh chụp màn hình lỗi Zalo' : 'View Zalo error screenshot'}
+                          >
+                            <ImageIcon className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                            <span>{lang === 'vi' ? 'Ảnh Zalo' : 'Zalo Screenshot'}</span>
                           </button>
                         )}
                       </div>
@@ -826,6 +882,23 @@ export default function ReelsTab({
                                 : (lang === 'vi' ? '○ YT: Chờ' : '○ YT: Pending')}
                             </span>
                           )}
+                          {reel.zalo_status === 'published' && reel.zalo_comment_status && (
+                            <span
+                              className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                                reel.zalo_comment_status === 'commented'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : reel.zalo_comment_status === 'failed'
+                                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                  : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+                              }`}
+                            >
+                              {reel.zalo_comment_status === 'commented'
+                                ? (lang === 'vi' ? '✓ ZL: Đã bình luận' : '✓ ZL: Commented')
+                                : reel.zalo_comment_status === 'failed'
+                                ? (lang === 'vi' ? '✗ ZL: Lỗi' : '✗ ZL: Failed')
+                                : (lang === 'vi' ? '○ ZL: Chờ' : '○ ZL: Pending')}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -864,14 +937,14 @@ export default function ReelsTab({
 
                 {/* Bottom Actions - 2-tier Modern Responsive Layout */}
                 <div className="pt-2 border-t border-[var(--app-border)] space-y-2">
-                  {/* Tier 1: Platform Channels (Facebook, TikTok & YouTube) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 items-stretch">
+                  {/* Tier 1: Platform Channels (Facebook, TikTok, YouTube & Zalo in 2x2 grid) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-stretch">
                     {/* Facebook Channel Box */}
-                    <div className="p-2 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 flex flex-col justify-between gap-2 h-full">
+                    <div className="p-2.5 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 flex flex-col justify-between gap-2 h-full">
                       <div className="flex items-center justify-between gap-1 min-h-[20px]">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 min-w-0">
                           <FacebookIcon className="w-3.5 h-3.5 fill-blue-600 dark:fill-blue-400 shrink-0" />
-                          <span className="truncate">Facebook Reel</span>
+                          <span className="whitespace-nowrap font-semibold">Facebook Reel</span>
                         </div>
                         {reel.fb_post_url ? (
                           <a
@@ -901,12 +974,12 @@ export default function ReelsTab({
                           {isPublishingThis ? (
                             <>
                               <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-                              <span className="truncate">{t('reel_status_publishing')}</span>
+                              <span className="truncate whitespace-nowrap">{t('reel_status_publishing')}</span>
                             </>
                           ) : (
                             <>
                               <Send className="w-3 h-3 shrink-0" />
-                              <span className="truncate">
+                              <span className="truncate whitespace-nowrap">
                                 {reel.status === 'published'
                                   ? (lang === 'vi' ? 'Đăng lại' : 'Republish')
                                   : (lang === 'vi' ? 'Đăng FB' : 'Post FB')}
@@ -925,12 +998,12 @@ export default function ReelsTab({
                             {commentingReelId === reel.id ? (
                               <>
                                 <Loader2 className="w-3 h-3 animate-spin text-blue-500 shrink-0" />
-                                <span className="truncate">{lang === 'vi' ? 'Gửi...' : 'Commenting...'}</span>
+                                <span className="truncate whitespace-nowrap">{lang === 'vi' ? 'Gửi...' : 'Commenting...'}</span>
                               </>
                             ) : (
                               <>
                                 <MessageSquare className="w-3 h-3 text-blue-600 dark:text-blue-400 shrink-0" />
-                                <span className="truncate">
+                                <span className="truncate whitespace-nowrap">
                                   {reel.comment_status === 'commented'
                                     ? (lang === 'vi' ? 'Bình luận lại' : 'Re-comment')
                                     : (lang === 'vi' ? 'Bình luận' : 'Comment')}
@@ -943,11 +1016,11 @@ export default function ReelsTab({
                     </div>
 
                     {/* TikTok Channel Box */}
-                    <div className="p-2 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 flex flex-col justify-between gap-2 h-full">
+                    <div className="p-2.5 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 flex flex-col justify-between gap-2 h-full">
                       <div className="flex items-center justify-between gap-1 min-h-[20px]">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300 min-w-0">
                           <TikTokIcon className="w-3.5 h-3.5 shrink-0" />
-                          <span className="truncate">TikTok</span>
+                          <span className="whitespace-nowrap font-semibold">TikTok</span>
                           {reel.tiktok_status === 'publishing' && (
                             <span className="text-[10px] text-amber-500 inline-flex items-center gap-0.5 font-normal shrink-0">
                               <Loader2 className="w-2.5 h-2.5 animate-spin" />
@@ -994,12 +1067,12 @@ export default function ReelsTab({
                             {isPublishingTikTokThis ? (
                               <>
                                 <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-                                <span className="truncate">TikTok...</span>
+                                <span className="truncate whitespace-nowrap">TikTok...</span>
                               </>
                             ) : (
                               <>
                                 <TikTokIcon className="w-3 h-3 shrink-0" />
-                                <span className="truncate">
+                                <span className="truncate whitespace-nowrap">
                                   {reel.tiktok_status === 'published'
                                     ? (lang === 'vi' ? 'Đăng lại' : 'Republish')
                                     : (lang === 'vi' ? 'Đăng TikTok' : 'Post TikTok')}
@@ -1019,12 +1092,12 @@ export default function ReelsTab({
                             {commentingTikTokId === reel.id ? (
                               <>
                                 <Loader2 className="w-3 h-3 animate-spin text-rose-500 shrink-0" />
-                                <span className="truncate">{lang === 'vi' ? 'Gửi...' : 'Commenting...'}</span>
+                                <span className="truncate whitespace-nowrap">{lang === 'vi' ? 'Gửi...' : 'Commenting...'}</span>
                               </>
                             ) : (
                               <>
                                 <MessageSquare className="w-3 h-3 text-rose-600 dark:text-rose-400 shrink-0" />
-                                <span className="truncate">
+                                <span className="truncate whitespace-nowrap">
                                   {reel.tiktok_comment_status === 'commented'
                                     ? (lang === 'vi' ? 'Bình luận lại' : 'Re-comment')
                                     : (lang === 'vi' ? 'Bình luận' : 'Comment')}
@@ -1037,11 +1110,11 @@ export default function ReelsTab({
                     </div>
 
                     {/* YouTube Shorts Channel Box */}
-                    <div className="p-2 rounded-lg bg-red-50/50 dark:bg-red-950/20 border border-red-200/60 dark:border-red-900/40 flex flex-col justify-between gap-2 h-full">
+                    <div className="p-2.5 rounded-lg bg-red-50/50 dark:bg-red-950/20 border border-red-200/60 dark:border-red-900/40 flex flex-col justify-between gap-2 h-full">
                       <div className="flex items-center justify-between gap-1 min-h-[20px]">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-red-700 dark:text-red-300 min-w-0">
                           <YouTubeIcon className="w-3.5 h-3.5 text-red-600 shrink-0" />
-                          <span className="truncate whitespace-nowrap">YouTube Shorts</span>
+                          <span className="whitespace-nowrap font-semibold">YouTube Shorts</span>
                           {reel.youtube_status === 'publishing' && (
                             <span className="text-[10px] text-amber-500 inline-flex items-center gap-0.5 font-normal shrink-0">
                               <Loader2 className="w-2.5 h-2.5 animate-spin" />
@@ -1088,12 +1161,12 @@ export default function ReelsTab({
                             {isPublishingYouTubeThis ? (
                               <>
                                 <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-                                <span className="truncate">Shorts...</span>
+                                <span className="truncate whitespace-nowrap">Shorts...</span>
                               </>
                             ) : (
                               <>
                                 <YouTubeIcon className="w-3 h-3 shrink-0" />
-                                <span className="truncate">
+                                <span className="truncate whitespace-nowrap">
                                   {reel.youtube_status === 'published'
                                     ? (lang === 'vi' ? 'Đăng lại' : 'Republish')
                                     : (lang === 'vi' ? 'Đăng Shorts' : 'Post Shorts')}
@@ -1113,13 +1186,120 @@ export default function ReelsTab({
                             {commentingYouTubeId === reel.id ? (
                               <>
                                 <Loader2 className="w-3 h-3 animate-spin text-red-500 shrink-0" />
-                                <span className="truncate">{lang === 'vi' ? 'Gửi...' : 'Commenting...'}</span>
+                                <span className="truncate whitespace-nowrap">{lang === 'vi' ? 'Gửi...' : 'Commenting...'}</span>
                               </>
                             ) : (
                               <>
                                 <MessageSquare className="w-3 h-3 text-red-600 dark:text-red-400 shrink-0" />
-                                <span className="truncate">
+                                <span className="truncate whitespace-nowrap">
                                   {reel.youtube_comment_status === 'commented'
+                                    ? (lang === 'vi' ? 'Bình luận lại' : 'Re-comment')
+                                    : (lang === 'vi' ? 'Bình luận' : 'Comment')}
+                                </span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Zalo Video Channel Box */}
+                    <div className="p-2.5 rounded-lg bg-sky-50/50 dark:bg-sky-950/20 border border-sky-200/60 dark:border-sky-900/40 flex flex-col justify-between gap-2 h-full">
+                      <div className="flex items-center justify-between gap-1 min-h-[20px]">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-sky-700 dark:text-sky-300 min-w-0">
+                          <ZaloIcon className="w-3.5 h-3.5 text-[#0068FF] shrink-0" />
+                          <span className="whitespace-nowrap font-semibold">Zalo Video</span>
+                          {reel.zalo_status === 'publishing' && (
+                            <span className="text-[10px] text-amber-500 inline-flex items-center gap-0.5 font-normal shrink-0">
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                              <span>{lang === 'vi' ? 'Đang đăng...' : 'Posting...'}</span>
+                            </span>
+                          )}
+                          {reel.zalo_status === 'failed' && (
+                            <span
+                              className="text-[10px] text-sky-500 inline-flex items-center gap-0.5 cursor-help font-normal shrink-0"
+                              title={reel.zalo_error_message || (lang === 'vi' ? 'Đăng Zalo lỗi' : 'Zalo post failed')}
+                            >
+                              <AlertCircle className="w-2.5 h-2.5" />
+                              <span>{lang === 'vi' ? 'Lỗi' : 'Failed'}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {reel.zalo_post_url ? (
+                          <a
+                            href={reel.zalo_post_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline inline-flex items-center gap-0.5 font-medium shrink-0"
+                            title={lang === 'vi' ? 'Mở xem video trên Zalo Video' : 'Open video on Zalo Video'}
+                          >
+                            <span>Zalo</span>
+                            <ExternalLink className="w-3 h-3 text-slate-400" />
+                          </a>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 italic shrink-0">
+                            {lang === 'vi' ? 'Chưa có link' : 'No link'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        {onPublishZalo && (
+                          <button
+                            onClick={() => onPublishZalo(reel.id)}
+                            disabled={isPublishingThis || isPublishingTikTokThis || isPublishingYouTubeThis || isPublishingZaloThis}
+                            className="flex-1 min-w-0 btn btn-xs bg-[#0068FF] hover:bg-[#0054d1] text-white font-semibold text-xs py-1.5 inline-flex items-center justify-center gap-1 rounded-lg border border-[#0068FF] shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
+                            title={lang === 'vi' ? 'Xuất bản video lên Zalo Video' : 'Publish video to Zalo Video'}
+                          >
+                            {isPublishingZaloThis ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                                <span className="truncate whitespace-nowrap">Zalo...</span>
+                              </>
+                            ) : (
+                              <>
+                                <ZaloIcon className="w-3 h-3 shrink-0" />
+                                <span className="truncate whitespace-nowrap">
+                                  {reel.zalo_status === 'published'
+                                    ? (lang === 'vi' ? 'Đăng lại' : 'Republish')
+                                    : (lang === 'vi' ? 'Đăng Zalo' : 'Post Zalo')}
+                                </span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        {(reel.zalo_status === 'published' || reel.zalo_post_url) && onCommentZaloReel && (
+                          <button
+                            onClick={() => onCommentZaloReel(reel.id)}
+                            disabled={isPublishingThis || isPublishingTikTokThis || isPublishingYouTubeThis || isPublishingZaloThis || commentingZaloId === reel.id}
+                            className="flex-1 min-w-0 btn btn-xs text-xs py-1.5 inline-flex items-center justify-center gap-1 rounded-lg font-semibold border border-sky-300 dark:border-sky-700/70 bg-white hover:bg-sky-50 dark:bg-sky-950/40 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
+                            title={lang === 'vi' ? 'Gửi bình luận vào video Zalo Video' : 'Comment on Zalo Video'}
+                          >
+                            {commentingZaloId === reel.id ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin text-sky-500 shrink-0" />
+                                <span className="truncate whitespace-nowrap">{lang === 'vi' ? 'Gửi...' : 'Commenting...'}</span>
+                              </>
+                            ) : (
+                              <>
+                                <MessageSquare className="w-3 h-3 text-sky-600 dark:text-sky-400 shrink-0" />
+                                <span className="truncate whitespace-nowrap">
+                                  {reel.zalo_comment_status === 'commented'
+                                    ? (lang === 'vi' ? 'Bình luận lại' : 'Re-comment')
+                                    : (lang === 'vi' ? 'Bình luận' : 'Comment')}
+                                </span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                              <>
+                                <MessageSquare className="w-3 h-3 text-blue-600 dark:text-blue-400 shrink-0" />
+                                <span className="truncate">
+                                  {reel.zalo_comment_status === 'commented'
                                     ? (lang === 'vi' ? 'Bình luận lại' : 'Re-comment')
                                     : (lang === 'vi' ? 'Bình luận' : 'Comment')}
                                 </span>
@@ -1760,6 +1940,35 @@ export default function ReelsTab({
                   className="app-input w-full text-xs p-2 rounded-lg border border-[var(--app-border)] font-mono text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
                 />
               </div>
+
+              {/* Zalo Video Link */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-[var(--app-text)] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <ZaloIcon className="w-3.5 h-3.5" />
+                    <span>{lang === 'vi' ? 'Link Zalo Video:' : 'Zalo Video Link:'}</span>
+                  </span>
+                  {editZaloPostUrl && (
+                    <a
+                      href={editZaloPostUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-blue-500 hover:underline inline-flex items-center gap-1"
+                      title={lang === 'vi' ? 'Mở thử liên kết' : 'Test link in new tab'}
+                    >
+                      <span>Mở thử</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </label>
+                <input
+                  type="url"
+                  value={editZaloPostUrl}
+                  onChange={(e) => setEditZaloPostUrl(e.target.value)}
+                  placeholder="https://video.zalo.me/creator/phan-tich/noi-dung/video-..."
+                  className="app-input w-full text-xs p-2 rounded-lg border border-[var(--app-border)] font-mono text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
+                />
+              </div>
             </div>
 
             {/* Schedule Toggle & Picker */}
@@ -1976,6 +2185,39 @@ export default function ReelsTab({
               </p>
             </div>
 
+            {/* Zalo Video Link */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--app-text)] flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <ZaloIcon className="w-3.5 h-3.5" />
+                  <span>{lang === 'vi' ? 'Link Zalo Video:' : 'Zalo Video Link:'}</span>
+                </span>
+                {correctZaloUrl && (
+                  <a
+                    href={correctZaloUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-blue-500 hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>{lang === 'vi' ? 'Mở thử' : 'Test open'}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </label>
+              <input
+                type="url"
+                value={correctZaloUrl}
+                onChange={(e) => setCorrectZaloUrl(e.target.value)}
+                placeholder="https://video.zalo.me/creator/phan-tich/noi-dung/video-..."
+                className="app-input w-full text-xs p-2.5 rounded-lg border border-[var(--app-border)] font-mono text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
+              />
+              <p className="text-[10px] text-[var(--app-text-secondary)]">
+                {lang === 'vi'
+                  ? 'Dán link video Zalo Video để xem và thực hiện bình luận tự động.'
+                  : 'Paste the Zalo Video link to view and comment.'}
+              </p>
+            </div>
+
             {/* Status updates options */}
             <div className="p-3 rounded-lg app-subcard border border-[var(--app-border)] space-y-2">
               <div className="text-[11px] font-semibold text-[var(--app-text)]">
@@ -2023,6 +2265,21 @@ export default function ReelsTab({
                     {lang === 'vi'
                       ? 'Đánh dấu YouTube Shorts là "Đã xuất bản" (Published) nếu có link'
                       : 'Mark YouTube Shorts as "Published" if link is provided'}
+                  </span>
+                </label>
+              )}
+              {correctingLinkReel.zalo_status !== 'published' && (
+                <label className="flex items-center gap-2 text-xs text-[var(--app-text)] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={correctMarkZaloPublished}
+                    onChange={(e) => setCorrectMarkZaloPublished(e.target.checked)}
+                    className="rounded border-[var(--app-border)] text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>
+                    {lang === 'vi'
+                      ? 'Đánh dấu Zalo Video là "Đã xuất bản" (Published) nếu có link'
+                      : 'Mark Zalo Video as "Published" if link is provided'}
                   </span>
                 </label>
               )}

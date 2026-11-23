@@ -61,6 +61,12 @@ export interface ReelItem {
   youtube_error_message?: string | null;
   youtube_debug_video_path?: string | null;
   youtube_screenshot_path?: string | null;
+  zalo_post_url?: string | null;
+  zalo_status?: 'idle' | 'publishing' | 'published' | 'failed' | null;
+  zalo_comment_status?: 'idle' | 'commented' | 'failed' | null;
+  zalo_error_message?: string | null;
+  zalo_debug_video_path?: string | null;
+  zalo_screenshot_path?: string | null;
   error_message?: string | null;
   screenshot_path?: string | null;
   debug_video_path?: string | null;

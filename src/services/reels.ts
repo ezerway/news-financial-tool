@@ -1,12 +1,15 @@
 import path from 'path';
 import fs from 'fs';
-import db, { logActivity, resolveHeadless, isTikTokAutoPostEnabled, isYouTubeAutoPostEnabled } from '@/lib/db';
+import db, { logActivity, resolveHeadless } from '@/lib/db';
 import { uploadFacebookReel, commentFacebookReelOnly, PostReelResult } from '@/services/playwright/fb-reel';
 import { uploadTikTokVideo, commentTikTokVideoOnly, PostTikTokResult } from '@/services/playwright/tiktok-reel';
 import { uploadYouTubeShortVideo, commentYouTubeVideoOnly, PostYouTubeResult } from '@/services/playwright/youtube-reel';
+import { uploadZaloVideo, commentZaloVideoOnly, PostZaloResult } from '@/services/playwright/zalo-reel';
 import { checkFacebookLoginStatus } from '@/services/playwright/session';
 import { checkTikTokLoginStatus } from '@/services/playwright/tiktok-session';
 import { checkYouTubeLoginStatus } from '@/services/playwright/youtube-session';
+import { checkZaloLoginStatus } from '@/services/playwright/zalo-session';
+import { isTikTokAutoPostEnabled, isYouTubeAutoPostEnabled, isZaloAutoPostEnabled } from '@/lib/db';
 import { sendServerPushNotification } from './notifications';
 import { ReelItem } from '@/types';
 
@@ -62,7 +65,7 @@ export function createReel(data: {
 
 export function updateReel(
   id: string,
-  data: Partial<Pick<ReelItem, 'caption' | 'comment_content' | 'comment_status' | 'scheduled_at' | 'status' | 'video_path' | 'video_filename' | 'fb_post_url' | 'tiktok_post_url' | 'tiktok_status' | 'tiktok_comment_status' | 'youtube_post_url' | 'youtube_status' | 'youtube_comment_status' | 'published_at' | 'error_message' | 'tiktok_error_message' | 'youtube_error_message' | 'screenshot_path' | 'tiktok_screenshot_path' | 'youtube_screenshot_path' | 'debug_video_path' | 'tiktok_debug_video_path' | 'youtube_debug_video_path'>>
+  data: Partial<Pick<ReelItem, 'caption' | 'comment_content' | 'comment_status' | 'scheduled_at' | 'status' | 'video_path' | 'video_filename' | 'fb_post_url' | 'tiktok_post_url' | 'tiktok_status' | 'tiktok_comment_status' | 'youtube_post_url' | 'youtube_status' | 'youtube_comment_status' | 'zalo_post_url' | 'zalo_status' | 'zalo_comment_status' | 'published_at' | 'error_message' | 'tiktok_error_message' | 'youtube_error_message' | 'zalo_error_message' | 'screenshot_path' | 'tiktok_screenshot_path' | 'youtube_screenshot_path' | 'zalo_screenshot_path' | 'debug_video_path' | 'tiktok_debug_video_path' | 'youtube_debug_video_path' | 'zalo_debug_video_path'>>
 ): ReelItem | null {
   const current = getReelById(id);
   if (!current) return null;
@@ -135,6 +138,21 @@ export function updateReel(
     updates.push('youtube_comment_status = ?');
     values.push(data.youtube_comment_status);
   }
+  if (data.zalo_post_url !== undefined) {
+    updates.push('zalo_post_url = ?');
+    values.push(data.zalo_post_url);
+    if (data.zalo_post_url !== current.zalo_post_url) {
+      logActivity('INFO', 'UPDATE_REEL_LINK', `Đã cập nhật thủ công link Zalo Video [${id}]: ${data.zalo_post_url || '(Đã xóa link)'}`);
+    }
+  }
+  if (data.zalo_status !== undefined) {
+    updates.push('zalo_status = ?');
+    values.push(data.zalo_status);
+  }
+  if (data.zalo_comment_status !== undefined) {
+    updates.push('zalo_comment_status = ?');
+    values.push(data.zalo_comment_status);
+  }
   if (data.published_at !== undefined) {
     updates.push('published_at = ?');
     values.push(data.published_at);
@@ -151,6 +169,10 @@ export function updateReel(
     updates.push('youtube_error_message = ?');
     values.push(data.youtube_error_message);
   }
+  if (data.zalo_error_message !== undefined) {
+    updates.push('zalo_error_message = ?');
+    values.push(data.zalo_error_message);
+  }
   if (data.screenshot_path !== undefined) {
     updates.push('screenshot_path = ?');
     values.push(data.screenshot_path);
@@ -163,6 +185,10 @@ export function updateReel(
     updates.push('youtube_screenshot_path = ?');
     values.push(data.youtube_screenshot_path);
   }
+  if (data.zalo_screenshot_path !== undefined) {
+    updates.push('zalo_screenshot_path = ?');
+    values.push(data.zalo_screenshot_path);
+  }
   if (data.debug_video_path !== undefined) {
     updates.push('debug_video_path = ?');
     values.push(data.debug_video_path);
@@ -174,6 +200,10 @@ export function updateReel(
   if (data.youtube_debug_video_path !== undefined) {
     updates.push('youtube_debug_video_path = ?');
     values.push(data.youtube_debug_video_path);
+  }
+  if (data.zalo_debug_video_path !== undefined) {
+    updates.push('zalo_debug_video_path = ?');
+    values.push(data.zalo_debug_video_path);
   }
 
   if (updates.length > 0) {
@@ -407,6 +437,20 @@ export async function publishReelById(
     } catch (ytErr: any) {
       const ytErrMsg = ytErr?.message || String(ytErr);
       logActivity('WARN', 'POST_YOUTUBE_SHORTS', `[YouTube] Lỗi ngoại lệ khi đồng bộ YouTube Shorts: ${ytErrMsg}`);
+    }
+  }
+
+  // ==========================================
+  // BƯỚC 4: XUẤT BẢN LÊN ZALO VIDEO THEO THỨ TỰ
+  // (Độc lập, không phụ thuộc vào kết quả Facebook, TikTok hay YouTube)
+  // ==========================================
+  if (isZaloAutoPostEnabled()) {
+    try {
+      logActivity('INFO', 'POST_ZALO_VIDEO', `[Zalo Video] Bắt đầu đồng bộ đăng video lên Zalo cho Reel ${id}...`);
+      await publishZaloReelById(id, { headless });
+    } catch (zlErr: any) {
+      const zlErrMsg = zlErr?.message || String(zlErr);
+      logActivity('WARN', 'POST_ZALO_VIDEO', `[Zalo Video] Lỗi ngoại lệ khi đồng bộ Zalo Video: ${zlErrMsg}`);
     }
   }
 
@@ -683,6 +727,131 @@ export async function publishYouTubeReelById(
   }
 }
 
+/**
+ * Xuất bản video Reel trực tiếp lên Zalo Video Creator
+ */
+export async function publishZaloReelById(
+  id: string,
+  options?: { headless?: boolean }
+): Promise<PostZaloResult> {
+  const reel = getReelById(id);
+  if (!reel) {
+    throw new Error(`Không tìm thấy Reel với ID: ${id}`);
+  }
+
+  // Kiểm tra kết nối tài khoản Zalo Video trước khi post
+  const zlStatus = await checkZaloLoginStatus();
+  if (!zlStatus.loggedIn) {
+    const errorMsg = zlStatus.message || 'Chưa kết nối tài khoản Zalo Video Creator';
+    db.prepare(`
+      UPDATE reels 
+      SET zalo_status = 'failed', 
+          zalo_error_message = ? 
+      WHERE id = ?
+    `).run(errorMsg, id);
+
+    logActivity('WARN', 'POST_ZALO_VIDEO', `[Zalo Video] Bỏ qua đăng Zalo Video [${id}]: ${errorMsg}`);
+    await sendServerPushNotification({
+      type: 'reel_zalo' as any,
+      status: 'failed',
+      title: reel.caption ? reel.caption.slice(0, 100) : (reel.video_filename || 'Zalo Video'),
+      error: errorMsg,
+    }).catch(() => { });
+
+    return {
+      success: false,
+      message: errorMsg,
+      error: errorMsg,
+    };
+  }
+
+  logActivity('INFO', 'POST_ZALO_VIDEO', `Bắt đầu xuất bản thủ công Zalo Video cho Reel: ${id} (${reel.video_filename || 'video'})...`);
+  db.prepare(`UPDATE reels SET zalo_status = 'publishing' WHERE id = ?`).run(id);
+
+  const headless = resolveHeadless(options?.headless !== undefined ? options.headless : true);
+
+  try {
+    const result = await uploadZaloVideo({
+      reelId: reel.id,
+      filePath: reel.video_path,
+      content: reel.caption || '',
+      comment: reel.comment_content || '',
+      headless,
+    });
+
+    if (result.success) {
+      const zlCommentStatus = reel.comment_content
+        ? (result.commentSuccess ? 'commented' : 'failed')
+        : (reel.zalo_comment_status || 'idle');
+
+      db.prepare(`
+        UPDATE reels 
+        SET zalo_post_url = ?, 
+            zalo_status = 'published', 
+            zalo_comment_status = ?,
+            zalo_debug_video_path = ?,
+            zalo_screenshot_path = ?,
+            zalo_error_message = NULL 
+        WHERE id = ?
+      `).run(
+        result.zaloUrl || null,
+        zlCommentStatus,
+        result.debugVideoPath || null,
+        result.screenshotPath || null,
+        id
+      );
+      logActivity(
+        'SUCCESS',
+        'POST_ZALO_VIDEO',
+        `Xuất bản video Zalo Video thành công: ${reel.video_filename} ${result.zaloUrl ? `(Link: ${result.zaloUrl})` : ''}`
+      );
+
+      await sendServerPushNotification({
+        type: 'reel_zalo' as any,
+        status: 'success',
+        title: reel.caption ? reel.caption.slice(0, 100) : (reel.video_filename || 'Zalo Video'),
+        url: result.zaloUrl,
+      }).catch(() => { });
+
+      return result;
+    } else {
+      const errorMsg = result.error || result.message;
+      db.prepare(`
+        UPDATE reels 
+        SET zalo_status = 'failed', 
+            zalo_post_url = COALESCE(?, zalo_post_url),
+            zalo_debug_video_path = ?,
+            zalo_screenshot_path = ?,
+            zalo_error_message = ? 
+        WHERE id = ?
+      `).run(result.zaloUrl || null, result.debugVideoPath || null, result.screenshotPath || null, errorMsg, id);
+      logActivity('WARN', 'POST_ZALO_VIDEO', `Xuất bản video Zalo Video thất bại: ${errorMsg}`);
+
+      await sendServerPushNotification({
+        type: 'reel_zalo' as any,
+        status: 'failed',
+        title: reel.caption ? reel.caption.slice(0, 100) : (reel.video_filename || 'Zalo Video'),
+        error: errorMsg,
+      }).catch(() => { });
+
+      return result;
+    }
+  } catch (err: any) {
+    const errorMsg = err?.message || String(err);
+    db.prepare(`
+      UPDATE reels 
+      SET zalo_status = 'failed', zalo_error_message = ? 
+      WHERE id = ?
+    `).run(errorMsg, id);
+    logActivity('ERROR', 'POST_ZALO_VIDEO', `Lỗi nghiêm trọng khi xuất bản Zalo Video: ${errorMsg}`);
+    return {
+      success: false,
+      message: 'Lỗi xuất bản Zalo Video: ' + errorMsg,
+      error: errorMsg,
+    };
+  }
+}
+
 let isProcessingScheduledReels = false;
 
 export async function processScheduledReels(): Promise<{
@@ -757,7 +926,7 @@ export async function processScheduledReels(): Promise<{
   return { processed, successful, failed };
 }
 
-export type ReelPlatform = 'facebook' | 'tiktok' | 'youtube';
+export type ReelPlatform = 'facebook' | 'tiktok' | 'youtube' | 'zalo';
 
 interface PlatformCommentDef {
   name: string;
@@ -852,6 +1021,33 @@ const PLATFORM_COMMENT_MAP: Record<ReelPlatform, PlatformCommentDef> = {
     },
     successMessage: 'Đã gửi bình luận thành công cho video YouTube Shorts!',
   },
+  zalo: {
+    name: 'Zalo Video',
+    logTag: 'COMMENT_ZALO',
+    getUrl: (r) => r.zalo_post_url,
+    noUrlMessage: 'Video chưa có liên kết Zalo để bình luận',
+    runComment: (url, comment) => commentZaloVideoOnly(url, comment),
+    onSuccess: (id, comment, res) => {
+      db.prepare(`
+        UPDATE reels
+        SET comment_content = ?,
+            zalo_comment_status = 'commented',
+            zalo_debug_video_path = COALESCE(?, zalo_debug_video_path)
+        WHERE id = ?
+      `).run(comment, res.debugVideoPath || null, id);
+    },
+    onFailure: (id, res) => {
+      db.prepare(`
+        UPDATE reels 
+        SET zalo_comment_status = 'failed',
+            zalo_debug_video_path = COALESCE(?, zalo_debug_video_path),
+            zalo_screenshot_path = COALESCE(?, zalo_screenshot_path),
+            zalo_error_message = ?
+        WHERE id = ?
+      `).run(res.debugVideoPath || null, res.screenshotPath || null, res.error || res.message, id);
+    },
+    successMessage: 'Đã gửi bình luận thành công cho video Zalo Video!',
+  },
 };
 
 /**
@@ -926,6 +1122,16 @@ export async function postCommentToYouTubeReel(
 }
 
 /**
+ * Thực hiện bình luận thủ công hoặc chạy lại bình luận cho video Zalo Video
+ */
+export async function postCommentToZaloReel(
+  id: string,
+  customComment?: string
+): Promise<{ success: boolean; message: string; error?: string }> {
+  return postCommentToPlatform('zalo', id, customComment);
+}
+
+/**
  * Gửi bình luận đến tất cả các nền tảng đã có liên kết bài đăng của Reel
  */
 export async function postCommentToAllPlatforms(
@@ -935,6 +1141,7 @@ export async function postCommentToAllPlatforms(
   facebook?: { success: boolean; message: string; error?: string };
   tiktok?: { success: boolean; message: string; error?: string };
   youtube?: { success: boolean; message: string; error?: string };
+  zalo?: { success: boolean; message: string; error?: string };
 }> {
   const reel = getReelById(id);
   if (!reel) {
@@ -950,6 +1157,9 @@ export async function postCommentToAllPlatforms(
   }
   if (reel.youtube_post_url) {
     results.youtube = await postCommentToPlatform('youtube', id, customComment);
+  }
+  if (reel.zalo_post_url) {
+    results.zalo = await postCommentToPlatform('zalo', id, customComment);
   }
   return results;
 }

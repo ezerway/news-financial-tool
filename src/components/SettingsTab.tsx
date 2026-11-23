@@ -29,6 +29,7 @@ import {
 import FacebookIcon from './FacebookIcon';
 import TikTokIcon from './TikTokIcon';
 import YouTubeIcon from './YouTubeIcon';
+import ZaloIcon from './ZaloIcon';
 import BackupRestoreSection from './BackupRestoreSection';
 import AdminSecuritySection from './AdminSecuritySection';
 import { useI18n } from '@/context/I18nThemeContext';
@@ -62,7 +63,7 @@ export default function SettingsTab({
   onRefreshData,
 }: SettingsTabProps) {
   const { t, lang } = useI18n();
-  const [activeSection, setActiveSection] = useState<'all' | 'facebook' | 'tiktok' | 'youtube' | 'notifications' | 'ai' | 'storage' | 'security' | 'backup' | 'pwa'>('all');
+  const [activeSection, setActiveSection] = useState<'all' | 'facebook' | 'tiktok' | 'youtube' | 'zalo' | 'notifications' | 'ai' | 'storage' | 'security' | 'backup' | 'pwa'>('all');
   const [form, setForm] = useState<Record<string, string>>({
     gemini_api_key: settings.gemini_api_key || '',
     fb_target_type: settings.fb_target_type || 'page',
@@ -76,6 +77,7 @@ export default function SettingsTab({
     tiktok_auto_post: settings.tiktok_auto_post || 'true',
     youtube_auto_post: settings.youtube_auto_post || 'true',
     youtube_channel_url: settings.youtube_channel_url || '',
+    zalo_auto_post: settings.zalo_auto_post || 'true',
     browser_notify_enabled: settings.browser_notify_enabled || 'true',
     telegram_notify_enabled: settings.telegram_notify_enabled || 'false',
     telegram_bot_token: settings.telegram_bot_token || '',
@@ -106,6 +108,7 @@ export default function SettingsTab({
       tiktok_auto_post: settings.tiktok_auto_post ?? prev.tiktok_auto_post,
       youtube_auto_post: settings.youtube_auto_post ?? prev.youtube_auto_post,
       youtube_channel_url: settings.youtube_channel_url ?? prev.youtube_channel_url,
+      zalo_auto_post: settings.zalo_auto_post ?? prev.zalo_auto_post,
       browser_notify_enabled: settings.browser_notify_enabled ?? prev.browser_notify_enabled,
       telegram_notify_enabled: settings.telegram_notify_enabled ?? prev.telegram_notify_enabled,
       telegram_bot_token: settings.telegram_bot_token ?? prev.telegram_bot_token,
@@ -133,9 +136,6 @@ export default function SettingsTab({
   });
   const [isOpeningTiktok, setIsOpeningTiktok] = useState(false);
   const [tiktokMsg, setTiktokMsg] = useState<string | null>(null);
-  const [showTiktokCookieInput, setShowTiktokCookieInput] = useState(false);
-  const [rawTiktokCookies, setRawTiktokCookies] = useState('');
-  const [isSavingTiktokCookies, setIsSavingTiktokCookies] = useState(false);
 
   const fetchTiktokStatus = async () => {
     try {
@@ -172,31 +172,6 @@ export default function SettingsTab({
       setTiktokMsg((lang === 'vi' ? 'Lỗi kết nối: ' : 'Connection error: ') + err.message);
     } finally {
       setIsOpeningTiktok(false);
-    }
-  };
-
-  const handleSaveTiktokCookies = async () => {
-    if (!rawTiktokCookies.trim()) return;
-    setIsSavingTiktokCookies(true);
-    try {
-      const res = await fetch('/api/tiktok-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rawCookies: rawTiktokCookies }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setTiktokMsg(data.message);
-        setShowTiktokCookieInput(false);
-        setRawTiktokCookies('');
-        if (data.status) setTiktokStatus(data.status);
-      } else {
-        alert(data.error || data.message || (lang === 'vi' ? 'Lỗi lưu cookie' : 'Failed to save cookie'));
-      }
-    } catch (err: any) {
-      alert((lang === 'vi' ? 'Lỗi: ' : 'Error: ') + err.message);
-    } finally {
-      setIsSavingTiktokCookies(false);
     }
   };
 
@@ -243,6 +218,52 @@ export default function SettingsTab({
       setYoutubeMsg((lang === 'vi' ? 'Lỗi kết nối: ' : 'Connection error: ') + err.message);
     } finally {
       setIsOpeningYouTube(false);
+    }
+  };
+
+  // Zalo session states
+  const [zaloStatus, setZaloStatus] = useState<{ loggedIn: boolean; message: string }>({
+    loggedIn: false,
+    message: 'Đang kiểm tra...',
+  });
+  const [isOpeningZalo, setIsOpeningZalo] = useState(false);
+  const [zaloMsg, setZaloMsg] = useState<string | null>(null);
+
+  const fetchZaloStatus = async () => {
+    try {
+      const res = await fetch('/api/zalo-session');
+      const data = await res.json();
+      if (data.status) {
+        setZaloStatus(data.status);
+      }
+    } catch { }
+  };
+
+  useEffect(() => {
+    fetchZaloStatus();
+  }, []);
+
+  const handleOpenZaloBrowser = async () => {
+    setIsOpeningZalo(true);
+    setZaloMsg(null);
+    try {
+      const res = await fetch('/api/zalo-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setZaloMsg(lang === 'vi' ? 'Trình duyệt Zalo Video đang mở...' : 'Zalo Video browser is opening...');
+        setTimeout(() => setZaloMsg(null), 8000);
+        setTimeout(fetchZaloStatus, 10000);
+      } else {
+        setZaloMsg(data.error || (lang === 'vi' ? 'Không thể mở trình duyệt' : 'Could not open browser'));
+      }
+    } catch (err: any) {
+      setZaloMsg((lang === 'vi' ? 'Lỗi kết nối: ' : 'Connection error: ') + err.message);
+    } finally {
+      setIsOpeningZalo(false);
     }
   };
 
@@ -465,6 +486,7 @@ export default function SettingsTab({
     { id: 'facebook', label: 'Facebook', icon: FacebookIcon },
     { id: 'tiktok', label: 'TikTok', icon: TikTokIcon },
     { id: 'youtube', label: 'YouTube', icon: YouTubeIcon },
+    { id: 'zalo', label: 'Zalo Video', icon: ZaloIcon },
     { id: 'notifications', label: lang === 'vi' ? 'Thông báo' : 'Notifications', icon: Bell },
     { id: 'ai', label: 'Gemini AI', icon: Sparkles },
     { id: 'storage', label: lang === 'vi' ? 'Bộ nhớ' : 'Storage', icon: Trash2 },
@@ -585,16 +607,6 @@ export default function SettingsTab({
                   </span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => onConnectFb(form.fb_page_url || undefined)}
-                  className="btn btn-md btn-ghost text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                  title={lang === 'vi' ? 'Nhập cookie c_user/xs hoặc tải file session' : 'Import cookies or session file'}
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>{lang === 'vi' ? 'Tuỳ chọn phiên (Cookie / File)' : 'Session Options (Cookie/File)'}</span>
-                </button>
-
                 {browserMsg && (
                   <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium animate-in fade-in">
                     ✓ {browserMsg}
@@ -690,55 +702,12 @@ export default function SettingsTab({
                   </span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setShowTiktokCookieInput(!showTiktokCookieInput)}
-                  className="btn btn-md btn-ghost text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                  title={lang === 'vi' ? 'Nhập cookie TikTok từ Cookie-Editor' : 'Import cookies from Cookie-Editor'}
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>{lang === 'vi' ? 'Nhập Cookie (Thủ công / VPS)' : 'Import Cookies (Manual/VPS)'}</span>
-                </button>
-
                 {tiktokMsg && (
                   <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium animate-in fade-in">
                     ✓ {tiktokMsg}
                   </span>
                 )}
               </div>
-
-              {/* Collapsible Cookie Input Box */}
-              {showTiktokCookieInput && (
-                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-[var(--app-border)] space-y-2.5 animate-in fade-in">
-                  <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200">
-                    {lang === 'vi' ? 'Dán Cookie TikTok (JSON từ Cookie-Editor hoặc Name=Value):' : 'Paste TikTok Cookies (JSON or Name=Value):'}
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={rawTiktokCookies}
-                    onChange={(e) => setRawTiktokCookies(e.target.value)}
-                    placeholder='[{"name": "sessionid", "value": "..."}, ...]'
-                    className="w-full p-2 app-input rounded-lg text-xs font-mono placeholder-slate-400"
-                  />
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowTiktokCookieInput(false)}
-                      className="btn btn-sm btn-ghost text-xs"
-                    >
-                      {lang === 'vi' ? 'Hủy' : 'Cancel'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveTiktokCookies}
-                      disabled={isSavingTiktokCookies || !rawTiktokCookies.trim()}
-                      className="btn btn-sm btn-primary text-xs"
-                    >
-                      {isSavingTiktokCookies ? (lang === 'vi' ? 'Đang lưu...' : 'Saving...') : (lang === 'vi' ? 'Lưu Cookie' : 'Save Cookies')}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -846,6 +815,96 @@ export default function SettingsTab({
                 {youtubeMsg && (
                   <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium animate-in fade-in">
                     ✓ {youtubeMsg}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SECTION: ZALO VIDEO INTEGRATION */}
+        {(activeSection === 'all' || activeSection === 'zalo') && (
+          <div className="p-4 sm:p-6 rounded-2xl app-card shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 sm:pb-4 border-b border-[var(--app-border)]">
+              <div className="flex items-center gap-2.5 sm:gap-3.5">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-50 dark:bg-blue-600/15 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30 flex items-center justify-center shadow-xs shrink-0">
+                  <ZaloIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-inherit">
+                    {lang === 'vi' ? 'Kết nối Zalo Video Creator' : 'Zalo Video Creator Integration'}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {lang === 'vi'
+                      ? 'Dùng chung session trình duyệt hiện tại. Đăng nhập tại video.zalo.me/creator/video để đăng video và bình luận tự động.'
+                      : 'Uses current shared browser profile. Log in at video.zalo.me/creator/video to auto post video and comment.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="self-start sm:self-auto px-2.5 py-0.5 rounded-full text-xs font-semibold app-tag shrink-0">
+                {zaloStatus.loggedIn ? (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                    {lang === 'vi' ? '● Đã kết nối' : '● Connected'}
+                  </span>
+                ) : (
+                  <span className="text-slate-400">
+                    {lang === 'vi' ? '○ Chưa kết nối' : '○ Disconnected'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Toggle Tự động đăng Reel lên Zalo Video */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-[var(--app-border)]">
+                <div className="space-y-0.5 pr-4">
+                  <span className="text-xs font-semibold text-slate-900 dark:text-white">
+                    {lang === 'vi' ? 'Tự động đăng lên Zalo Video khi xuất bản Reel' : 'Auto post to Zalo Video when posting Reel'}
+                  </span>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {lang === 'vi'
+                      ? 'Mỗi khi xuất bản Reel, hệ thống sẽ tự động đồng bộ đăng lên kênh Zalo Video Creator.'
+                      : 'When publishing Reel, automatically post it to Zalo Video Creator channel.'}
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={form.zalo_auto_post === 'true'}
+                    onChange={(e) => setForm({ ...form, zalo_auto_post: e.target.checked ? 'true' : 'false' })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              {/* Status message */}
+              {zaloStatus.message && (
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100/60 dark:bg-slate-800/40 p-2.5 rounded-lg border border-[var(--app-border)]">
+                  💡 {zaloStatus.message}
+                </div>
+              )}
+
+              {/* Action Button */}
+              <div className="pt-1 flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleOpenZaloBrowser}
+                  disabled={isOpeningZalo}
+                  className="btn btn-md bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs border-blue-500 shadow-xs"
+                >
+                  <ZaloIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span>
+                    {isOpeningZalo
+                      ? (lang === 'vi' ? 'Đang mở trình duyệt...' : 'Opening browser...')
+                      : (lang === 'vi' ? 'Mở trình duyệt đăng nhập Zalo Video' : 'Open Zalo Video Login Browser')}
+                  </span>
+                </button>
+
+                {zaloMsg && (
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium animate-in fade-in">
+                    ✓ {zaloMsg}
                   </span>
                 )}
               </div>

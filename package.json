@@ -14,6 +14,7 @@
     "fb:login": "tsx scripts/fb-login.ts",
     "tiktok:login": "tsx scripts/tiktok-login.ts",
     "youtube:login": "tsx scripts/youtube-login.ts",
+    "zalo:login": "tsx scripts/zalo-login.ts",
     "fb:post-reel": "tsx scripts/post-reel.ts",
     "post-reel": "tsx scripts/post-reel.ts",
     "connection:status": "tsx scripts/connection-status.ts",

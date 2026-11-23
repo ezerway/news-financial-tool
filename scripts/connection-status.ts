@@ -3,9 +3,11 @@ import path from 'path';
 import { checkFacebookLoginStatus, getSessionPath, getUserDataDir } from '../src/services/playwright/session';
 import { checkTikTokLoginStatus, getTikTokSessionPath } from '../src/services/playwright/tiktok-session';
 import { checkYouTubeLoginStatus } from '../src/services/playwright/youtube-session';
+import { checkZaloLoginStatus } from '../src/services/playwright/zalo-session';
 import {
   isTikTokAutoPostEnabled,
   isYouTubeAutoPostEnabled,
+  isZaloAutoPostEnabled,
   getYouTubeChannelUrl,
   getSetting,
   resolveHeadless,
@@ -114,6 +116,30 @@ async function main() {
     console.log(`   Trạng thái:    ⚠️ Lỗi kiểm tra: ${err.message}`);
   }
 
+  console.log('\n------------------------------------------------------');
+
+  // 4. Zalo Video
+  console.log('💬 [4] ZALO VIDEO');
+  try {
+    const zlStatus = await checkZaloLoginStatus();
+    const zlAutoPost = isZaloAutoPostEnabled();
+    const userDataDir = getUserDataDir();
+
+    if (zlStatus.loggedIn) {
+      console.log('   Trạng thái:    ✅ ĐÃ KẾT NỐI (Connected)');
+      console.log(`   Tự động đăng:  ${zlAutoPost ? '🟢 BẬT (Auto-post On)' : '⚪ TẮT (Chỉ đăng thủ công)'}`);
+      console.log(`   Thư mục profile: ${path.relative(process.cwd(), userDataDir)}`);
+      console.log(`   Thông tin:     ${zlStatus.message}`);
+    } else {
+      console.log('   Trạng thái:    ❌ CHƯA KẾT NỐI (Not connected)');
+      console.log(`   Tự động đăng:  ${zlAutoPost ? '🟢 BẬT' : '⚪ TẮT'}`);
+      console.log(`   Lý do:         ${zlStatus.message}`);
+      console.log('   👉 Kết nối:    Chạy "pnpm zalo:login" để đăng nhập Zalo Video Creator.');
+    }
+  } catch (err: any) {
+    console.log(`   Trạng thái:    ⚠️ Lỗi kiểm tra: ${err.message}`);
+  }
+
   console.log('\n======================================================');
   console.log('⚙️ CẤU HÌNH HỆ THỐNG');
   const defaultHeadless = resolveHeadless(true);
@@ -124,6 +150,7 @@ async function main() {
   console.log('   - Đăng nhập Facebook:       pnpm fb:login');
   console.log('   - Đăng nhập TikTok:         pnpm tiktok:login');
   console.log('   - Đăng nhập YouTube Studio: pnpm youtube:login');
+  console.log('   - Đăng nhập Zalo Video:     pnpm zalo:login');
   console.log('   - Xuất bản Reel:            pnpm post-reel');
   console.log('======================================================\n');
 }

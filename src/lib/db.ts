@@ -178,6 +178,24 @@ export function initSchema(database: Database.Database) {
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN youtube_screenshot_path TEXT`);
   } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN zalo_post_url TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN zalo_status TEXT DEFAULT 'idle'`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN zalo_comment_status TEXT DEFAULT 'idle'`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN zalo_error_message TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN zalo_debug_video_path TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN zalo_screenshot_path TEXT`);
+  } catch {}
 
   // Insert default settings if not exists
   try {
@@ -190,6 +208,7 @@ export function initSchema(database: Database.Database) {
       tiktok_auto_post: 'true',
       youtube_auto_post: 'true',
       youtube_channel_url: '',
+      zalo_auto_post: 'true',
       browser_notify_enabled: 'true',
       telegram_notify_enabled: 'false',
       telegram_bot_token: process.env.TELEGRAM_BOT_TOKEN || '',
@@ -476,6 +495,14 @@ export function isTikTokAutoPostEnabled(): boolean {
 export function isYouTubeAutoPostEnabled(): boolean {
   try {
     return getSetting('youtube_auto_post', 'true') === 'true';
+  } catch {
+    return true;
+  }
+}
+
+export function isZaloAutoPostEnabled(): boolean {
+  try {
+    return getSetting('zalo_auto_post', 'true') === 'true';
   } catch {
     return true;
   }
