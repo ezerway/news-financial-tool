@@ -70,9 +70,40 @@ pnpm youtube:login
 
 ---
 
-### 2.4. Chu kỳ Tự động hóa (`scripts/auto-cycle.ts`)
+### 2.4. Đăng nhập Zalo Video Creator (`scripts/zalo-login.ts`)
 
-Cào dữ liệu từ Google Trends, phân loại tin tức tài chính, kiểm tra trùng lặp trong 24 giờ, dùng Gemini viết bài và đưa vào database hoặc xuất bản ngay.
+Mở trình duyệt quản lý và lưu phiên làm việc trên Zalo Video Creator.
+
+```bash
+pnpm zalo:login
+```
+
+**Hành vi:**
+- Mở Chromium điều hướng tới trang Zalo Video Creator (`https://video.zalo.me/creator/video`).
+- Bạn tiến hành quét mã QR Zalo hoặc đăng nhập bằng số điện thoại.
+- Trình duyệt tự động lưu trữ profile và cookies vào `storage/zalo_sessions`.
+
+---
+
+### 2.5. Kiểm tra Trạng thái Kết nối (`scripts/connection-status.ts`)
+
+Kiểm tra nhanh tình trạng đăng nhập của cả 4 nền tảng mạng xã hội ngay trên Terminal.
+
+```bash
+pnpm connection:status
+# hoặc:
+pnpm status
+```
+
+**Hành vi:**
+- Kiểm tra file session và cấu hình của **Facebook**, **TikTok**, **YouTube Shorts** và **Zalo Video**.
+- In bảng tổng hợp kết quả (Connected / Missing Session) trực quan trên console để quản trị viên kiểm soát trước khi đăng bài.
+
+---
+
+### 2.6. Chu kỳ Tự động hóa (`scripts/auto-cycle.ts`)
+
+Cào dữ liệu từ Google Trends, bóc tách bài báo nguồn toàn văn, phân loại tin tức tài chính, kiểm tra trùng lặp trong 24 giờ, dùng Gemini viết bài và đưa vào database hoặc xuất bản ngay.
 
 ```bash
 # Cào và lưu bài nháp vào database (không đăng ngay)
@@ -102,16 +133,16 @@ pnpm auto-cycle --trend <TREND_ID> --publish
 
 ---
 
-### 2.4. Đăng Video Reel / TikTok (`scripts/post-reel.ts`)
+### 2.7. Đăng Video Đa Nền Tảng (`scripts/post-reel.ts`)
 
-Đăng video ngắn lên Facebook Reels và tùy chọn đồng bộ sang TikTok Web.
+Đăng video ngắn lên **Facebook Reels**, **TikTok Video**, **YouTube Shorts** và **Zalo Video**.
 
 ```bash
 # 1. Chế độ tương tác từng bước (Interactive prompt)
 pnpm post-reel
 
 # 2. Đăng nhanh bằng cờ tham số (kèm bình luận nguồn tự động)
-pnpm post-reel --file "/path/to/video.mp4" --content "Tiêu đề video #hashtag" --comment "Link nguồn 1: https://... | Link nguồn 2: https://..."
+pnpm post-reel --file "/path/to/video.mp4" --content "Tiêu đề video #Shorts #TikTok" --comment "Nguồn: https://... | Link 2: https://..."
 
 # 3. Hẹn giờ đăng video
 pnpm post-reel -f "./video.mp4" -c "Tin tức kinh tế" -m "Nguồn: https://..." --schedule "2026-11-20 18:30"
@@ -133,7 +164,7 @@ pnpm post-reel -f "./video.mp4" -c "Nội dung" --headless
 
 ---
 
-### 2.5. Daemon Chạy ngầm (`scripts/cron-daemon.ts`)
+### 2.8. Daemon Chạy ngầm (`scripts/cron-daemon.ts`)
 
 Tiến trình chạy nền 24/7 thực hiện 3 nhiệm vụ song song:
 1. Chạy chu kỳ cào tin và đăng bài định kỳ (mặc định mỗi 60 phút).

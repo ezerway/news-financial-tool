@@ -3,10 +3,26 @@ import { TrendItem, PostItem, NewsArticle } from '@/types';
 import db, { getSetting, logActivity } from '@/lib/db';
 import { findExactNewsSources } from './crawler';
 import { findDuplicatePost } from './dedup';
+import { extractArticlesContent } from './article-extractor';
 import crypto from 'crypto';
 
+export function resolveGeminiApiKey(): string {
+  const dbKey = (getSetting('gemini_api_key') || '').trim();
+  const envKey = (process.env.GEMINI_API_KEY || '').trim();
+
+  // Ưu tiên key chuẩn Google AI (luôn bắt đầu bằng 'AIza')
+  if (dbKey.startsWith('AIza')) return dbKey;
+  if (envKey.startsWith('AIza')) return envKey;
+
+  // Nếu người dùng lỡ lưu mật khẩu autofill (như 'admin123') vào ô API key thì bỏ qua
+  if (dbKey && dbKey !== 'admin123' && dbKey.length > 20) return dbKey;
+  if (envKey && envKey !== 'admin123' && envKey.length > 20) return envKey;
+
+  return dbKey || envKey;
+}
+
 export async function generateSocialPost(trend: TrendItem, customTone?: string, options?: { force?: boolean }): Promise<PostItem> {
-  const apiKey = getSetting('gemini_api_key') || process.env.GEMINI_API_KEY || '';
+  const apiKey = resolveGeminiApiKey();
   const tone = customTone || getSetting('post_tone', 'finance_news');
 
   // DEDUPLICATION GUARD: Prevent creating duplicate posts for trends that already have posts
@@ -60,6 +76,26 @@ export async function generateSocialPost(trend: TrendItem, customTone?: string, 
     throw new Error(`Chỉ cho phép tạo bài khi có liên kết nguồn (source link). Xu hướng "${trend.title}" hiện chưa tìm thấy link bài báo nguồn.`);
   }
 
+  // TỰ ĐỘNG ĐỌC VÀ TRÍCH XUẤT NỘI DUNG TỪ CÁC LINK NGUỒN BÁO CHÍ
+  // Giúp AI đọc hiểu toàn văn, trích xuất chính xác số liệu, mốc thời gian và sự kiện thực tế
+  const needsExtraction = exactArticles.some((a) => !a.content || a.content.length < 100);
+  if (needsExtraction) {
+    try {
+      logActivity('INFO', 'GENERATE', `Đang đọc và trích xuất nội dung từ ${exactArticles.length} bài báo nguồn cho "${trend.title}"...`);
+      exactArticles = await extractArticlesContent(exactArticles);
+      trend.articles = exactArticles;
+      if (trend.id) {
+        db.prepare('UPDATE trends SET articles_json = ? WHERE id = ?').run(
+          JSON.stringify(exactArticles),
+          trend.id
+        );
+      }
+      logActivity('SUCCESS', 'GENERATE', `Đã hoàn tất trích xuất nội dung nguồn cho "${trend.title}".`);
+    } catch (extErr: any) {
+      logActivity('WARN', 'GENERATE', `Lỗi trong quá trình trích xuất nội dung bài báo: ${extErr?.message}`);
+    }
+  }
+
   logActivity('INFO', 'GENERATE', `Generating post for trend: "${trend.title}" with ${sourceUrls.length} source links (Tone: ${tone})`);
 
   let postContent = '';
@@ -68,36 +104,50 @@ export async function generateSocialPost(trend: TrendItem, customTone?: string, 
   if (apiKey) {
     try {
       const ai = new GoogleGenAI({ apiKey });
+
+      const articlesContext = exactArticles
+        .map((a, i) => {
+          const bodySnippet = a.content || a.snippet || '(Không có nội dung chi tiết)';
+          return `══════════════════════════════════════════════════════════════════════
+BÀI BÁO ${i + 1}: [${a.source || 'Báo chí'}] "${a.title}"
+URL nguồn: ${a.url}
+NỘI DUNG CHI TIẾT BÀI BÁO:
+${bodySnippet}
+══════════════════════════════════════════════════════════════════════`;
+        })
+        .join('\n\n');
+
       const prompt = `
 Bạn là một chuyên gia sáng tạo nội dung mạng xã hội chuyên nghiệp, có tư duy báo chí chuẩn mực, chuyên viết về tin tức thị trường, kinh tế, tài chính và các xu hướng nóng.
 
-Hãy viết 1 bài đăng Facebook dựa trên thông tin xu hướng Google Trends sau đây:
-- Chủ đề: "${trend.title}"
+Hãy đọc và nghiên cứu kỹ NỘI DUNG CHI TIẾT từ các bài báo chính thống dưới đây để viết 1 bài đăng Facebook tổng hợp sâu sắc:
+- Chủ đề xu hướng: "${trend.title}"
 - Lượt tìm kiếm ước tính: ${trend.approx_traffic}
 - Khu vực: ${trend.geo}
-- Các bài báo chính thống ghi nhận (BẮT BUỘC DÙNG LIÊN KẾT NGUỒN NÀY, TUYỆT ĐỐI KHÔNG DÙNG LINK GOOGLE HAY GOOGLE TRENDS):
-${exactArticles.map((a, i) => `${i + 1}. [${a.source}] ${a.title} - URL: ${a.url}`).join('\n')}
+- Phong cách viết (Tone): ${tone}
+
+${articlesContext}
 
 ══════════════════════════════════════════════════════════════════════
-🚨 3 NGUYÊN TẮC BẮT BUỘC KHI VIẾT NỘI DUNG (TUYỆT ĐỐI TUÂN THỦ):
+🚨 NGUYÊN TẮC BẮT BUỘC KHI TỔNG HỢP NỘI DUNG (TUYỆT ĐỐI TUÂN THỦ):
 ══════════════════════════════════════════════════════════════════════
-1. KHÔNG COPY-PASTE CÂU CHỮ:
-   - Nội dung bài đăng phải do bạn TỰ TỔNG HỢP VÀ VIẾT LẠI hoàn toàn bằng văn phong tự nhiên, súc tích.
-   - TUYỆT ĐỐI KHÔNG sao chép nguyên văn các câu văn, tiêu đề báo giật gân hoặc trích dẫn độc quyền của bài báo lên caption.
+1. ĐỌC HIỂU VÀ CHẮT LỌC SỐ LIỆU TỪ NỘI DUNG BÀI BÁO:
+   - Phải khai thác các SỐ LIỆU THỰC TẾ, MỐC THỜI GIAN, TÊN TỔ CHỨC / CÁ NHÂN LIÊN QUAN, BỐI CẢNH đã được đề cập trong nội dung các bài báo phía trên (ví dụ: tỷ giá, số lượng, phần trăm, giá trị hợp đồng, kết luận thanh tra, diễn biến cụ thể).
+   - Tổng hợp đa chiều từ các nguồn bài báo để người đọc có cái nhìn toàn diện, không phiến diện.
 
-2. THÔNG TIN PHẢI CHÍNH XÁC VỚI NGUỒN:
-   - Nội dung bạn diễn đạt lại KHÔNG ĐƯỢC bóp méo sự thật, KHÔNG suy diễn sai lệch so với bản tin gốc của báo chính thống.
-   - Giữ chuẩn xác mọi số liệu, tên sự kiện, mốc thời gian và bối cảnh khách quan.
+2. KHÔNG COPY-PASTE NGUYÊN VĂN CÂU CHỮ:
+   - Nội dung bài đăng phải do bạn TỰ TỔNG HỢP VÀ VIẾT LẠI hoàn toàn bằng văn phong tự nhiên, mạch lạc, súc tích và hấp dẫn.
+   - TUYỆT ĐỐI KHÔNG sao chép nguyên văn các câu văn hoặc đoạn văn của bài báo để tránh vi phạm bản quyền và tránh bị Facebook bóp tương tác.
 
-3. KHÔNG THÊM THẮT TIN GIẢ, XÚC PHẠM CÁ NHÂN / TỔ CHỨC:
-   - Bình luận, gợi mở thảo luận phải văn minh, tôn trọng pháp luật và đạo đức mạng xã hội.
-   - TUYỆT ĐỐI KHÔNG lợi dụng thông tin để vu khống, xúc phạm danh dự, nhân phẩm của bất kỳ cá nhân hay tổ chức nào; không kích động thù hằn, không xuyên tạc.
+3. THÔNG TIN CHUẨN XÁC, KHÔNG BỊA ĐẶT / SUY DIỄN SAI LỆCH:
+   - Không bóp méo sự thật, không suy diễn sai lệch so với bản tin gốc của báo chí chính thống.
+   - Bình luận, gợi mở thảo luận phải văn minh, tôn trọng pháp luật và đạo đức mạng xã hội; tuyệt đối không vu khống, xúc phạm danh dự của bất kỳ ai.
 
 ══════════════════════════════════════════════════════════════════════
 QUY CÁCH ĐỊNH DẠNG:
 1. BÀI ĐĂNG FACEBOOK (post_content):
-   - Hook mở đầu cuốn hút, có biểu tượng cảm xúc (emoji).
-   - Tóm lược 3-4 ý chính được tổng hợp lại bằng lời của bạn (gạch đầu dòng rõ ràng).
+   - Hook mở đầu cuốn hút, có biểu tượng cảm xúc (emoji) phù hợp với chủ đề.
+   - Thân bài gồm 3-4 ý chính được tổng hợp lại bằng lời của bạn, chứa số liệu và dữ kiện thực tế từ bài báo (sử dụng gạch đầu dòng rõ ràng).
    - 1 câu hỏi tương tác văn minh kích thích bạn đọc chia sẻ quan điểm.
    - 3-5 hashtag phù hợp (#TinTuc #XuHuong #${trend.category === 'finance' ? 'TaiChinh #KinhDoanh' : 'XaHoi'}).
    - TUYỆT ĐỐI KHÔNG chèn link bài báo vào caption bài viết (nhằm giữ tối đa phân phối Reach của Facebook). Kết bài bằng câu: "👇 Chi tiết các bài báo gốc và nguồn tin được để ở phần bình luận đầu tiên!".
@@ -116,12 +166,30 @@ Trả về duy nhất JSON hợp lệ (không kèm markdown \`\`\`json):
 }
 `;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-
-      const responseText = response.text || '';
+      let responseText = '';
+      const modelsToTry = [
+        'gemini-2.5-flash-lite',
+        'gemini-2.5-flash',
+        'gemini-3.1-flash-lite',
+        'gemini-3.5-flash-lite',
+        'gemini-3.6-flash',
+        'gemini-3.8-flash',
+        'gemini-flash-latest'
+      ];
+      for (const modelName of modelsToTry) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+          });
+          if (response.text) {
+            responseText = response.text;
+            break;
+          }
+        } catch (modelErr: any) {
+          logActivity('WARN', 'GENERATE', `Model ${modelName} gặp lỗi, thử model tiếp theo: ${modelErr?.message?.slice(0, 100)}`);
+        }
+      }
       try {
         const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
         const json = JSON.parse(cleaned);
@@ -139,7 +207,15 @@ Trả về duy nhất JSON hợp lệ (không kèm markdown \`\`\`json):
   if (!postContent) {
     const topicUpper = trend.title.toUpperCase();
     const articleSummaries = exactArticles.length > 0
-      ? exactArticles.slice(0, 3).map((a) => `• Ghi nhận theo ${a.source || 'báo chí'}: Tình hình xoay quanh "${a.title}" đang thu hút sự chú ý lớn từ dư luận.`).join('\n')
+      ? exactArticles.slice(0, 3).map((a) => {
+        // Nếu có nội dung trích xuất, lấy đoạn dẫn thực tế
+        let summary = '';
+        if (a.content && a.content.length > 50) {
+          const firstPara = a.content.replace(/^Tiêu đề:.*?\n+/i, '').replace(/^Tóm tắt:.*?\n+/i, '').replace(/^Nội dung chi tiết:.*?\n+/i, '').trim();
+          summary = firstPara.slice(0, 160).replace(/\n/g, ' ') + '...';
+        }
+        return `• Theo ${a.source || 'báo chí'}: ${summary || `Ghi nhận tình hình xoay quanh "${a.title}" đang thu hút sự chú ý lớn từ dư luận.`}`;
+      }).join('\n')
       : `• Diễn biến liên quan đến "${trend.title}" đang được các phương tiện truyền thông cập nhật liên tục.`;
 
     postContent = `🔥 [ĐIỂM TIN XU HƯỚNG] ${topicUpper} 🔥

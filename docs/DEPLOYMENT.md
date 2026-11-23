@@ -91,9 +91,9 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 
 ---
 
-## 4. Thiết lập Phiên Đăng nhập Facebook & TikTok trên VPS
+## 4. Thiết lập Phiên Đăng nhập 4 Kênh trên VPS (Facebook, TikTok, YouTube, Zalo)
 
-TrendPulse hỗ trợ cả phương thức đăng nhập qua Cookie CLI và giao diện đồ họa thông qua màn hình ảo:
+TrendPulse hỗ trợ các phương thức đăng nhập linh hoạt qua Cookie CLI, Web UI hoặc tương tác màn hình đồ họa thông qua màn hình ảo Xvfb:
 
 ### 4.1. Đăng nhập Facebook
 - **Cách 1: Sử dụng CLI Đăng nhập Cookie (Khuyên dùng trên VPS)**:
@@ -121,6 +121,48 @@ TrendPulse hỗ trợ cả phương thức đăng nhập qua Cookie CLI và giao
 
 - **Cách 2: Cấu hình qua Web Dashboard**:
   - Truy cập tab **Reels & Video** $\to$ bấm **"Kết nối TikTok"** $\to$ dán JSON cookie hoặc session id.
+
+### 4.3. Đăng nhập YouTube Shorts (YouTube Studio)
+- **Cách 1: Sử dụng CLI mở trình duyệt tương tác**:
+  ```bash
+  pnpm youtube:login
+  # hoặc: pnpm yt:login
+  ```
+  - Mở trình duyệt điều hướng tới `studio.youtube.com`. Sau khi đăng nhập tài khoản Google kênh YouTube của bạn, phiên đăng nhập được lưu tự động vào `storage/youtube-session.json`.
+  - Trên VPS: Mở qua màn hình ảo VNC (xem mục 5.1 bên dưới) hoặc tạo file `storage/youtube-session.json` từ máy cá nhân và copy lên VPS:
+    ```bash
+    scp storage/youtube-session.json root@<IP_VPS>:/home/trendpulse/storage/
+    ```
+
+- **Cách 2: Quản lý phiên từ Web Dashboard**:
+  - Truy cập tab **Reels & Video** $\to$ kiểm tra trạng thái **YouTube Shorts**.
+
+### 4.4. Đăng nhập Zalo Video (Zalo Video Creator Studio)
+- **Cách 1: Sử dụng CLI quét mã QR hoặc đăng nhập số điện thoại**:
+  ```bash
+  pnpm zalo:login
+  ```
+  - Mở trình duyệt truy cập `video.zalo.me/creator/video`.
+  - Quét mã QR bằng ứng dụng Zalo trên điện thoại hoặc đăng nhập bằng SĐT + mật khẩu.
+  - Trạng thái đăng nhập được tự động ghi nhận và lưu vào `storage/zalo-session.json`.
+  - Tương tự YouTube, bạn có thể đăng nhập trên máy cá nhân rồi đẩy file lên VPS:
+    ```bash
+    scp storage/zalo-session.json root@<IP_VPS>:/home/trendpulse/storage/
+    ```
+
+### 4.5. Kiểm tra Tình trạng Kết nối Toàn bộ Kênh (`connection:status`)
+Bất kỳ lúc nào, bạn có thể kiểm tra nhanh tính hợp lệ của tất cả 4 phiên đăng nhập và API keys bằng 1 câu lệnh CLI:
+```bash
+pnpm connection:status
+# Hoặc lệnh rút gọn:
+pnpm status
+```
+Hệ thống sẽ quét đồng thời:
+- Kết nối Facebook (`storage/fb-session.json`)
+- Kết nối TikTok (`storage/tiktok-session.json`)
+- Kết nối YouTube Studio (`storage/youtube-session.json`)
+- Kết nối Zalo Video Creator (`storage/zalo-session.json`)
+- Trạng thái Google Gemini API & Telegram / Slack Webhook
 
 ---
 

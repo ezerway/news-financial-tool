@@ -255,7 +255,7 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
 
 ---
 
-## 5. Facebook Reels & TikTok Video (`/api/reels`)
+## 5. Đăng Video Đa Nền Tảng: Facebook Reels, TikTok, YouTube Shorts & Zalo Video (`/api/reels`)
 
 ### 5.1. Tải file video lên server (`POST /api/reels/upload`)
 - **Content-Type**: `multipart/form-data`
@@ -273,7 +273,7 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
 ### 5.2. Lấy danh sách Reels (`GET /api/reels`)
 - **Query Parameters**:
   - `status`: `draft` | `scheduled` | `published` | `failed`
-- **Response**: Danh sách các Reels kèm trạng thái xuất bản trên Facebook và TikTok.
+- **Response**: Danh sách các Reels kèm trạng thái xuất bản độc lập trên cả 4 nền tảng (Facebook, TikTok, YouTube Shorts, Zalo Video).
 
 ### 5.3. Đăng Reel lên Facebook (`POST /api/reels/[id]/publish`)
 - **Response**:
@@ -295,18 +295,34 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   }
   ```
 
-### 5.5. Quét video hẹn giờ (`POST /api/reels/check-scheduled`)
-- Kích hoạt kiểm tra và đăng tất cả các Reel đã đến giờ hẹn.
-
-### 5.6. Gửi bình luận vào Reel Facebook (`POST /api/reels/[id]/comment`)
-- Tự động điều hướng đến liên kết công khai của Reel Facebook (hoặc tự trích xuất qua `m.facebook.com` / `facebook.com/content/insights`) và đăng bình luận (first comment).
-- **Hỗ trợ Multi-comments**: Nếu `comment` chứa ký tự `|` (ví dụ `Link 1: https://... | Link 2: https://...`), hệ thống sẽ tách thành mảng và đăng từng bình luận riêng biệt tuần tự.
-- **Request Body** (Tùy chọn):
+### 5.5. Đăng Reel lên YouTube Shorts (`POST /api/reels/[id]/publish-youtube`)
+- Tự động mở YouTube Studio (`https://studio.youtube.com/`), tải video lên, điền tiêu đề/mô tả kèm hashtag `#Shorts` và bấm xuất bản công khai.
+- **Response**:
   ```json
   {
-    "comment": "Nội dung bình luận tùy chọn (hỗ trợ nhiều bình luận phân tách bởi dấu '|')"
+    "success": true,
+    "youtube_post_url": "https://www.youtube.com/shorts/abcd1234xyz",
+    "debug_video_path": "storage/videos/debug_yt_123.mp4"
   }
   ```
+
+### 5.6. Đăng Reel lên Zalo Video (`POST /api/reels/[id]/publish-zalo`)
+- Tự động mở Zalo Video Creator (`https://video.zalo.me/creator/video`), tải video lên, điền nội dung chú thích, bấm "Đăng video", theo dõi trạng thái xử lý cho tới khi 'Thành công' và trích xuất link xem phân tích.
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "zalo_post_url": "https://video.zalo.me/creator/phan-tich/noi-dung/video-12345.html",
+    "debug_video_path": "storage/videos/debug_zalo_123.mp4"
+  }
+  ```
+
+### 5.7. Quét video hẹn giờ (`POST /api/reels/check-scheduled`)
+- Kích hoạt kiểm tra và đăng tất cả các Reel đã đến giờ hẹn trên các kênh đã kết nối.
+
+### 5.8. Gửi bình luận vào Reel Facebook (`POST /api/reels/[id]/comment`)
+- Tự động điều hướng đến liên kết công khai của Reel Facebook (hoặc tự trích xuất qua Content Library / Insights) và gửi bình luận đầu tiên.
+- **Hỗ trợ Multi-comments**: Tách chuỗi theo dấu `|` để gửi nhiều bình luận tuần tự.
 - **Response (200 OK)**:
   ```json
   {
@@ -315,48 +331,49 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   }
   ```
 
-### 5.7. Gửi bình luận vào video TikTok (`POST /api/reels/[id]/comment-tiktok`)
-- Tự động mở TikTok Studio (`https://www.tiktok.com/tiktokstudio/content`) hoặc trang video TikTok trên trình duyệt Playwright, nhập và gửi bình luận với cơ chế kiểm tra và chống checkpoint/captcha thông minh.
-- **Hỗ trợ Multi-comments**: Tự động tách chuỗi theo dấu `|` và gửi từng bình luận liên tiếp vào video TikTok.
-- **Tự động lưu video kiểm soát**: Nếu gặp lỗi hoặc Captcha, video quá trình được tự động lưu lại vào `storage/videos/` và hiển thị trên Dashboard.
-- **Request Body** (Tùy chọn):
-  ```json
-  {
-    "comment": "Nội dung bình luận tùy chọn (hỗ trợ nhiều bình luận phân tách bởi dấu '|')"
-  }
-  ```
+### 5.9. Gửi bình luận vào video TikTok (`POST /api/reels/[id]/comment-tiktok`)
+- Tự động mở TikTok Studio hoặc link công khai của video để gửi bình luận, hỗ trợ multi-comments tách bởi dấu `|`.
+
+### 5.10. Gửi bình luận vào YouTube Shorts (`POST /api/reels/[id]/comment-youtube`)
+- Mở link xem YouTube Shorts, kích hoạt ô bình luận và gửi bình luận nguồn tin.
 - **Response (200 OK)**:
   ```json
   {
     "success": true,
-    "message": "Đã gửi bình luận vào video TikTok thành công!"
+    "message": "Đã gửi bình luận vào YouTube Shorts thành công!"
   }
   ```
 
-### 5.8. Cập nhật nội dung & Sửa link Reel thủ công (`PUT /api/reels/[id]`, `PATCH /api/reels/[id]`)
-- Cho phép chỉnh sửa caption, chuỗi bình luận, lịch hẹn giờ hoặc bù đắp liên kết video Facebook / TikTok thủ công khi đăng qua kênh ngoài.
+### 5.11. Gửi bình luận vào Zalo Video (`POST /api/reels/[id]/comment-zalo`)
+- Điều hướng tới dòng video trong bảng Zalo Video Creator, mở hộp thoại bình luận và nhập nội dung.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Đã gửi bình luận vào Zalo Video thành công!"
+  }
+  ```
+
+### 5.12. Cập nhật nội dung & Sửa link Reel thủ công (`PUT /api/reels/[id]`, `PATCH /api/reels/[id]`)
+- Cho phép chỉnh sửa caption, chuỗi bình luận, lịch hẹn giờ hoặc bù đắp liên kết video cho cả 4 kênh thủ công.
 - **Request Body**:
   ```json
   {
     "caption": "Tiêu đề video mới...",
     "comment_content": "Link 1 | Link 2",
     "scheduled_at": "2026-11-20T10:00:00.000Z",
-    "status": "published", // draft | scheduled | publishing | published | failed
+    "status": "published",
     "fb_post_url": "https://www.facebook.com/reel/123456789",
     "tiktok_post_url": "https://www.tiktok.com/@channel/video/7428123456789",
     "tiktok_status": "published",
-    "tiktok_comment_status": "commented"
-  }
-  ```
-- **Response (200 OK)**:
-  ```json
-  {
-    "success": true,
-    "message": "Cập nhật Reel thành công!"
+    "youtube_post_url": "https://www.youtube.com/shorts/abcd1234xyz",
+    "youtube_status": "published",
+    "zalo_post_url": "https://video.zalo.me/creator/phan-tich/noi-dung/video-12345.html",
+    "zalo_status": "published"
   }
   ```
 
-### 5.9. Xóa video Reel (`DELETE /api/reels/[id]`)
+### 5.13. Xóa video Reel (`DELETE /api/reels/[id]`)
 - Xóa bản ghi video Reel trong database và tự động xóa file video gốc trong `storage/videos/` nếu có.
 - **Response (200 OK)**:
   ```json
@@ -367,7 +384,7 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
 
 ---
 
-## 6. Phiên làm việc Mạng Xã Hội (`/api/fb-session`, `/api/tiktok-session`)
+## 6. Phiên làm việc Mạng Xã Hội (`/api/fb-session`, `/api/tiktok-session`, `/api/youtube-session`, `/api/zalo-session`)
 
 ### 6.1. Kiểm tra trạng thái Facebook (`GET /api/fb-session`)
 - **Response**:
@@ -382,7 +399,7 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   ```
 
 ### 6.2. Nhập Session Facebook (`POST /api/fb-session`)
-- Hỗ trợ lưu qua cookies dạng JSON hoặc nhập chuỗi `c_user` và `xs`.
+- Mở trình duyệt tương tác đăng nhập Facebook hoặc lưu session vào `storage/fb-session.json`.
 
 ### 6.3. Kiểm tra trạng thái TikTok (`GET /api/tiktok-session`)
 - **Response**:
@@ -399,19 +416,16 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   }
   ```
 
-### 6.4. Nhập Cookie hoặc Mở trình duyệt đăng nhập TikTok (`POST /api/tiktok-session`)
-- **Cách 1: Nhập chuỗi Cookie / JSON**:
-  ```json
-  {
-    "rawCookies": "[{\"name\":\"sessionid\",\"value\":\"...\",\"domain\":\".tiktok.com\"}]"
-  }
-  ```
-- **Cách 2: Mở trình duyệt GUI (Chỉ khả dụng khi có màn hình hoặc GUI)**:
-  ```json
-  {
-    "url": "https://www.tiktok.com/login"
-  }
-  ```
+### 6.4. Mở trình duyệt đăng nhập TikTok (`POST /api/tiktok-session`)
+- Mở Chromium điều hướng tới `https://www.tiktok.com/login` để quét mã QR / đăng nhập. Session được lưu vào `storage/tiktok-session.json`.
+
+### 6.5. Trạng thái & Đăng nhập YouTube Studio (`GET /api/youtube-session`, `POST /api/youtube-session`)
+- **GET**: Trả về tình trạng phiên đăng nhập YouTube Studio (`loggedIn: boolean`).
+- **POST**: Mở Chromium truy cập `https://studio.youtube.com/` để đăng nhập Google Account lưu phiên vào `browser-profile`.
+
+### 6.6. Trạng thái & Đăng nhập Zalo Video (`GET /api/zalo-session`, `POST /api/zalo-session`)
+- **GET**: Kiểm tra phiên đăng nhập Zalo Video Creator (`loggedIn: boolean`, `message: string`).
+- **POST**: Khởi chạy trình duyệt mở `https://video.zalo.me/creator/video` để quét QR hoặc đăng nhập số điện thoại, tự động lưu session vào `storage/zalo_sessions`.
 
 ---
 

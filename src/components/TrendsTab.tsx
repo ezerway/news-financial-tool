@@ -536,9 +536,16 @@ export default function TrendsTab({
                           </div>
                           <div className="text-[10px] text-slate-500 mt-1 flex items-center justify-between">
                             <span className="font-medium text-slate-600 dark:text-slate-400">{art.source}</span>
-                            <span className="text-indigo-600 dark:text-indigo-400 group-hover:underline flex items-center gap-0.5 shrink-0">
-                              Đọc báo <ExternalLink className="w-2.5 h-2.5" />
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {art.content && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-medium">
+                                  ✓ {lang === 'vi' ? 'Đã đọc' : 'Parsed'}
+                                </span>
+                              )}
+                              <span className="text-indigo-600 dark:text-indigo-400 group-hover:underline flex items-center gap-0.5">
+                                Đọc báo <ExternalLink className="w-2.5 h-2.5" />
+                              </span>
+                            </div>
                           </div>
                         </a>
                       ))}

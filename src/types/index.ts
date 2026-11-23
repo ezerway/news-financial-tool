@@ -3,6 +3,8 @@ export interface NewsArticle {
   snippet: string;
   url: string;
   source: string;
+  content?: string;
+  extracted_at?: string;
 }
 
 export interface TrendItem {

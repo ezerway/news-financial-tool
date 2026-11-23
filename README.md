@@ -1,6 +1,6 @@
-# 🚀 TrendPulse - Google Trends, Facebook & TikTok Automation Tool
+# 🚀 TrendPulse - Google Trends, Facebook, TikTok, YouTube Shorts & Zalo Video Automation Tool
 
-**TrendPulse** là nền tảng tự động hóa toàn diện giúp theo dõi xu hướng, sáng tạo nội dung tin tức tài chính bằng AI và tự động xuất bản đa nền tảng (Facebook Post, Facebook Reels, TikTok Video) với cơ chế chống checkpoint, ghi hình kiểm soát và thông báo tức thời.
+**TrendPulse** là nền tảng tự động hóa toàn diện giúp theo dõi xu hướng, bóc tách nội dung báo chí toàn văn, sáng tạo nội dung tin tức tài chính chuyên sâu bằng AI và tự động xuất bản đa nền tảng (**Facebook Post, Facebook Reels, TikTok Video, YouTube Shorts, Zalo Video**) với cơ chế chống checkpoint, ghi hình kiểm soát, bộ nhớ đệm thông minh và thông báo tức thời.
 
 ---
 
@@ -23,10 +23,12 @@
    - Tự động tìm kiếm và trích xuất liên kết các bài báo nguồn chính thống (Publisher News Sources).
    - Cơ chế tự động sửa lỗi bất đồng bộ (`DB Auto-Repair`) và lọc bài trùng lặp trong phạm vi 24 giờ (`withinDays = 1`).
 
-2. **Sáng tạo nội dung với AI (Google Gemini 2.5 / 2.0)**:
-   - Tự động viết bài đăng Facebook chuẩn SEO & Engagement (Hook giật tít, tóm tắt điểm tin, bullet points, CTA, hashtag).
-   - **Chiến lược giữ Reach**: Tuyệt đối không chèn link vào bài viết chính để thuật toán Facebook không bóp tương tác.
-   - Dự phòng thông minh: Tự động chuyển đổi template nếu mất kết nối hoặc hết quota API Gemini.
+2. **Sáng tạo nội dung với AI & Bóc tách toàn văn bài báo (Article Content Extractor)**:
+   - **Tự động đọc bài báo nguồn**: Module `article-extractor` sử dụng Cheerio kết hợp dự phòng Playwright Headless để tự động bóc tách toàn văn tiêu đề, đoạn dẫn (Sapo) và các đoạn nội dung chứa số liệu thực tế từ các link bài báo nguồn chính thống (VnExpress, Dân Trí, Tuổi Trẻ, CafeF...).
+   - **Google Gemini thế hệ mới (`gemini-3.5-flash-lite`, `gemini-3.5-flash`, `gemini-3.8-flash`)**: Đọc hiểu sâu nội dung, đối chiếu đa chiều giữa các bài báo để trích xuất số liệu, mốc thời gian, trích dẫn phát ngôn chuẩn xác.
+   - **Tự tổng hợp bài đăng Facebook chuẩn SEO & Engagement**: Viết lại hoàn toàn bằng văn phong tự nhiên (Hook, bullet points điểm tin có số liệu, CTA, hashtag), không copy nguyên văn để giữ tối đa phân phối và tránh vi phạm bản quyền.
+   - **Chiến lược giữ Reach**: Tuyệt đối không chèn link vào bài viết chính để thuật toán Facebook không bóp tương tác. Toàn bộ link nguồn được đưa vào bình luận đầu tiên.
+   - **Bộ nhớ đệm (Caching)**: Dữ liệu bài báo đã trích xuất được lưu vào SQLite `trends.articles_json`, giúp tái sử dụng ngay khi đổi tone giọng hoặc tạo lại bài mà không cần cào lại mạng.
 
 3. **Tự động đăng bài Facebook & Auto-Comment nguồn (Playwright)**:
    - Tự động đăng lên **Trang cá nhân (Profile)** hoặc **Fanpage**.
@@ -35,16 +37,18 @@
    - **Sửa liên kết thủ công (Manual Link Correction)**: Hỗ trợ chỉnh sửa hoặc bù đắp liên kết bài viết Facebook trực tiếp trên Dashboard nếu cần lưu vết thủ công.
    - Cơ chế đóng pop-up thông minh (`Not now`, `Chuyển sang trang...`) và mô phỏng thao tác người dùng tự nhiên (Anti-detection).
 
-4. **Studio Đăng Facebook Reels & TikTok Video**:
+4. **Studio Đăng Đa Nền Tảng (Facebook Reels, TikTok, YouTube Shorts, Zalo Video)**:
    - Quản lý kho video ngắn, tải lên trực tiếp từ Dashboard hoặc qua CLI `pnpm post-reel`.
    - Hỗ trợ **hẹn giờ đăng tự động (Scheduled Reels)** chạy ngầm bởi daemon.
-   - Đăng đồng thời lên **Facebook Reels** và **TikTok Web**.
-   - **Tự động xử lý xác thực 2FA TikTok**: Tự động kết nối Gmail qua IMAP để đọc mã OTP xác thực đăng nhập TikTok và điền vào ô xác thực không cần can thiệp thủ công.
-   - **Hỗ trợ màn hình ảo Xvfb & VNC**: Tích hợp màn hình ảo `:99` và VNC Server trên cổng 5900 cho phép quan sát hoặc giải Captcha trực tiếp từ máy tính cá nhân.
-   - **Tự động chèn nhạc nền TikTok**: Tự động tìm kiếm và áp dụng nhạc nền thịnh hành (Background Music) từ thư viện TikTok Studio giúp tăng đề xuất mà không bị bản quyền âm thanh.
-   - **Auto-Comment Reel & Video**: Tự động trích xuất link công khai sau khi đăng và gửi bình luận đầu tiên (First Comment) trên cả Facebook Reels và video TikTok (qua TikTok Studio). Hỗ trợ tách nhiều bình luận liên tiếp với dấu `|`.
-   - **Giao diện di động 2 tầng hiện đại**: Thẻ Reel tự động tối ưu hiển thị tách biệt 2 khung mạng xã hội Facebook & TikTok, bubble bình luận trực quan đánh số thứ tự `#1`, `#2`, và thanh công cụ tiện ích gọn gàng.
-   - **Sửa link Facebook Reel & TikTok thủ công**: Cho phép cập nhật link trực tiếp và chuyển trạng thái "Đã xuất bản" chỉ với 1 click.
+   - **Đăng đồng thời hoặc độc lập lên 4 nền tảng**:
+     - **Facebook Reels**: Tự động tải video, chọn nhạc nền, đăng lên Page/Cá nhân và bình luận nguồn.
+     - **TikTok Video**: Tự động chèn nhạc nền thịnh hành từ thư viện TikTok Studio, đăng video và tự động bình luận. Hỗ trợ giải mã 2FA qua Gmail.
+     - **YouTube Shorts**: Tự động tải video lên YouTube Studio, thiết lập tiêu đề/mô tả và gửi bình luận đầu tiên.
+     - **Zalo Video**: Tự động tải video lên Zalo Video Creator (`https://video.zalo.me/creator/video`), theo dõi trạng thái xử lý video cho đến khi thành công, trích xuất link phân tích và gửi bình luận tự động.
+   - **Kiểm tra trạng thái độc lập**: Mỗi kênh được kiểm tra kết nối độc lập trước khi đăng, không phụ thuộc vào việc kênh khác thành công hay thất bại.
+   - **Giao diện lưới 2x2 hiện đại & Nhãn `✓ Đã cmt`**: Thiết kế 4 hộp nền tảng cân xứng không bị co cụm chữ (`whitespace-nowrap`), hiển thị trực quan huy hiệu `✓ Đã cmt` khi hoàn tất bình luận.
+   - **Sửa link thủ công cả 4 kênh**: Cho phép nhập link trực tiếp cho Facebook Reel, TikTok, YouTube Shorts và Zalo Video kèm tùy chọn đánh dấu "Đã xuất bản".
+   - **Xem video debug riêng biệt**: Nút `Video FB`, `Video TT`, `Video YT`, `Video Zalo` để đối soát toàn bộ quá trình tự động hóa của từng kênh.
 
 5. **Ghi hình & Chụp ảnh đối soát (Audit Trail)**:
    - Tùy chọn bật/tắt ghi video (MP4) và chụp ảnh màn hình (Screenshot) toàn bộ phiên tự động hóa để kiểm tra, xem lại trực tiếp trên Dashboard.
@@ -127,21 +131,30 @@ Mở trình duyệt tại: **`http://localhost:3000`**
 
 ---
 
-## 🔑 Kết nối Tài khoản (Facebook & TikTok)
+## 🔑 Kết nối Tài khoản (Facebook, TikTok, YouTube & Zalo)
 
 ### 1. Kết nối Facebook
-Hệ thống lưu trữ phiên làm việc trong `storage/fb-session.json`. Có 3 cách kết nối linh hoạt:
+Hệ thống lưu trữ phiên làm việc trong `storage/fb-session.json`. Có 2 cách kết nối linh hoạt:
+- **Cách 1 (Mở trình duyệt trực tiếp)**: Chạy lệnh `pnpm fb:login` hoặc bấm nút **"Mở trình duyệt quản lý Facebook"** trong tab **Cài đặt**. Trình duyệt sẽ mở Fanpage/Profile để bạn đăng nhập và xác thực 2FA. Session sẽ tự động được lưu.
+- **Cách 2 (Trên Linux VPS - Nhập Cookie CLI)**: Chạy `pnpm fb:login`. Script phát hiện môi trường VPS không GUI và hiển thị prompt để bạn dán 2 cookie `c_user` và `xs`.
 
-- **Cách 1 (Máy cá nhân Mac/Windows có màn hình)**:
-  Chạy lệnh `pnpm fb:login`. Trình duyệt Chromium sẽ mở lên, bạn chỉ cần đăng nhập Facebook và xác thực 2FA. Session sẽ tự động được lưu.
-- **Cách 2 (Trên Linux VPS - Nhập Cookie CLI)**:
-  Chạy `pnpm fb:login`. Script phát hiện môi trường VPS không GUI và hiển thị prompt để bạn dán 2 cookie `c_user` và `xs`.
-- **Cách 3 (Import qua Dashboard Web)**:
-  Vào tab **Cài đặt** $\to$ mục **Trạng thái kết nối Facebook** hoặc **Sao lưu & Khôi phục** để tải lên file `fb-session.json`.
+### 2. Kết nối TikTok
+- Chạy `pnpm tiktok:login` để mở trình duyệt đăng nhập TikTok và lưu session vào `storage/tiktok-session.json`.
+- Hoặc đăng nhập trực tiếp qua nút kết nối trong tab **Reels & Video** trên Dashboard.
 
-### 2. Kết nối TikTok (Dành cho tính năng Reels/Video)
-- Đăng nhập TikTok trên trình duyệt cá nhân, xuất cookie ra JSON hoặc sao lưu vào `storage/tiktok-session.json`.
-- Hoặc cấu hình tài khoản trực tiếp qua tab **Reels & Video** trên Dashboard.
+### 3. Kết nối YouTube Studio
+- Chạy `pnpm youtube:login` để mở trình duyệt Chromium và đăng nhập vào `https://studio.youtube.com/`. Phiên được lưu trữ an toàn trong `storage/browser-profile` dùng chung.
+
+### 4. Kết nối Zalo Video Creator
+- Chạy `pnpm zalo:login` để mở trình duyệt truy cập `https://video.zalo.me/creator/video`. Quét mã QR hoặc đăng nhập tài khoản Zalo. Session được lưu trữ vĩnh viễn trong `storage/zalo_sessions`.
+
+### 5. Kiểm tra tình trạng kết nối toàn bộ 4 nền tảng
+- Chạy lệnh kiểm tra nhanh:
+  ```bash
+  pnpm connection:status
+  # hoặc: pnpm status
+  ```
+  Script sẽ kiểm tra và hiển thị bảng trạng thái kết nối trực tiếp của **Facebook**, **TikTok**, **YouTube Shorts** và **Zalo Video**.
 
 ---
 
@@ -154,12 +167,15 @@ Hệ thống lưu trữ phiên làm việc trong `storage/fb-session.json`. Có 
 | `pnpm start` | Khởi chạy Next.js production server |
 | `pnpm fb:login` | Đăng nhập tài khoản Facebook để lấy session (hỗ trợ GUI và Cookie CLI) |
 | `pnpm tiktok:login` | Đăng nhập tài khoản TikTok để lấy session (nhập cookie chuỗi hoặc JSON) |
-| `pnpm auto-cycle` | Chạy 1 chu kỳ cào Google Trends $\to$ AI viết bài $\to$ lưu bản nháp vào Database |
+| `pnpm youtube:login` | Mở trình duyệt đăng nhập YouTube Studio lưu phiên đăng Shorts |
+| `pnpm zalo:login` | Mở trình duyệt đăng nhập Zalo Video Creator (`video.zalo.me`) |
+| `pnpm connection:status` / `pnpm status` | Kiểm tra tình trạng kết nối 4 nền tảng (Facebook, TikTok, YouTube, Zalo) |
+| `pnpm auto-cycle` | Chạy 1 chu kỳ cào Google Trends $\to$ đọc bài báo nguồn $\to$ AI viết bài $\to$ lưu bản nháp vào Database |
 | `pnpm auto-cycle --publish` | Chạy 1 chu kỳ hoàn chỉnh và **đăng ngay lập tức** lên Facebook |
 | `pnpm auto-cycle --limit 3` | Giới hạn xử lý tối đa 3 xu hướng trong chu kỳ này |
 | `pnpm auto-cycle --retry` | Chạy lại tìm kiếm link báo chí và xuất bản cho các xu hướng chưa có nguồn |
 | `pnpm auto-cycle --trend <id>` | Chạy riêng cho một xu hướng cụ thể theo mã ID |
-| `pnpm post-reel` | CLI đăng Reels lên Facebook & TikTok (chế độ tương tác hỏi - đáp) |
+| `pnpm post-reel` | CLI đăng Reels lên Facebook, TikTok, YouTube Shorts & Zalo Video (hỏi - đáp tương tác) |
 | `pnpm post-reel -f <video> -c "Cap"` | Đăng nhanh một video Reel qua tham số dòng lệnh |
 | `pnpm post-reel -f <video> --schedule "2026-11-15 10:00"` | Hẹn giờ đăng video Reel |
 | `pnpm cron-daemon --publish` | Khởi chạy Daemon chạy ngầm liên tục theo chu kỳ cấu hình |
@@ -170,20 +186,21 @@ Hệ thống lưu trữ phiên làm việc trong `storage/fb-session.json`. Có 
 
 ---
 
-## 🎬 Quản lý Facebook Reels & TikTok Video
+## 🎬 Quản lý Đăng Video Ngắn Đa Nền Tảng (Reels, TikTok, Shorts, Zalo)
 
 Dự án cung cấp bộ công cụ toàn diện cho Video ngắn:
-- **Tải lên & Xem trước**: Hỗ trợ định dạng MP4/MOV, tỉ lệ 9:16 tối ưu cho Reels/Shorts/TikTok.
+- **Tải lên & Xem trước**: Hỗ trợ định dạng MP4/MOV, tỉ lệ 9:16 tối ưu cho Reels/Shorts/TikTok/Zalo.
 - **Hẹn giờ đăng tự động (Scheduler)**:
   - Bạn có thể đặt lịch đăng cho từng video qua giao diện Web hoặc lệnh `--schedule`.
   - Tiến trình `cron-daemon` tự động kiểm tra mỗi 30 giây và xuất bản video đúng thời điểm.
-- **Đăng chéo Facebook & TikTok**:
+- **Đăng chéo 4 nền tảng (Facebook Reels, TikTok, YouTube Shorts, Zalo Video)**:
   - Tự động tải video lên Facebook Reels (Page hoặc cá nhân).
-  - Tự động đăng tiếp lên TikTok Web nếu bật cấu hình `tiktok_auto_post`.
-  - Tự động chèn nhạc nền thịnh hành từ thư viện TikTok Studio (hỗ trợ điều chỉnh volume, giảm âm thanh gốc hoặc hòa âm).
-  - Tự động bình luận đầu tiên (First Comment) sau khi đăng thành công trên cả Facebook Reel và TikTok.
-  - Ghi hình video debug và ảnh screenshot đối soát kết quả đăng trên cả 2 nền tảng.
-  - **Tự động dọn dẹp bộ nhớ**: Tiến trình `cron-daemon` tự động dọn video và ảnh screenshot của các post Reel đã tạo từ 2 ngày trước khi khởi động và sau mỗi chu kỳ để tiết kiệm dung lượng ổ cứng VPS (hỗ trợ điều chỉnh `--clean-days` hoặc nút dọn dẹp thủ công trong Cài đặt).
+  - Tự động đăng lên TikTok Web và chèn nhạc nền thịnh hành từ thư viện TikTok Studio.
+  - Tự động đăng lên YouTube Shorts và gửi bình luận đầu tiên.
+  - Tự động tải video lên Zalo Video Creator, đợi xử lý hoàn tất, lấy link phân tích và bình luận.
+  - Đăng độc lập từng kênh: Mỗi kênh tự kiểm tra kết nối và không phụ thuộc vào việc kênh khác thành công hay thất bại.
+  - Ghi hình video debug và ảnh screenshot đối soát kết quả đăng trên cả 4 nền tảng.
+  - **Tự động dọn dẹp bộ nhớ**: Tiến trình `cron-daemon` tự động dọn video và ảnh screenshot của các post Reel đã tạo từ 2 ngày trước khi khởi động và sau mỗi chu kỳ để tiết kiệm dung lượng ổ cứng VPS.
 
 ---
 

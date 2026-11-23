@@ -20,13 +20,20 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
                          - Lọc chống trùng lặp theo cửa sổ 24 giờ
                                       |
                                       v
-                         [ 2. AI Generator Service ]
-                         - Google Gemini 2.5 Flash / 2.0
+                        [ 2. Article Content Extractor ]
+                         - Trích xuất nội dung toàn văn bài báo
+                         - Cheerio bóc tách nhanh qua HTML meta/selectors
+                         - Playwright fallback vượt tường lửa/JavaScript
+                                      |
+                                      v
+                         [ 3. AI Generator Service ]
+                         - Google Gemini (3.5-flash-lite, 3.5-flash, 3.8-flash)
+                         - Phân tích insight từ full văn bản báo chí
                          - Viết bài chuẩn Hook & Insight tài chính
                          - Tách riêng link báo làm chuỗi Comment
                                       |
                                       v
-                        [ 3. Local SQLite Database ]
+                        [ 4. Local SQLite Database ]
                          - Chế độ WAL (Write-Ahead-Log)
                          - Bảng trends, posts, reels, logs, settings
                          - Tự động bảo trì & giải phóng xu hướng cũ
@@ -34,16 +41,19 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
             +-------------------------+-------------------------+
             |                                                   |
             v                                                   v
- [ 4. Playwright Browser Engine ]                     [ 5. Web UI & Dashboard ]
-  - Persistent User Profiles (Cookies & LocalStorage)  - Next.js 16 App Router (Turbopack)
-  - Anti-detect & Stealth Flags                        - Meta Astryx Design System
-  - Xvfb Virtual Display (:99) & x11vnc Server         - PWA (Progressive Web App)
-  - Auto-Publish Facebook Post & Comment               - Studio Duyệt bài & Hẹn giờ Reels
-  - FB Reels & TikTok Uploader                         - Ghi hình Video & Xem lại Screenshot
-  - Tự động giải mã OTP Gmail cho TikTok 2FA           - API Endpoints đa năng
+ [ 5. Playwright Browser Engine ]                     [ 6. Web UI & Dashboard ]
+  - Persistent User Profiles (4 kênh)                  - Next.js 16 App Router (Turbopack)
+    * Facebook (fb-session.json)                       - Meta Astryx Design System
+    * TikTok (tiktok-session.json)                     - PWA (Progressive Web App)
+    * YouTube Shorts (youtube-session.json)            - Studio Duyệt bài & Hẹn giờ Reels 4 kênh
+    * Zalo Video (zalo-session.json)                   - Ghi hình Video & Xem lại Screenshot
+  - Anti-detect & Stealth Flags                        - API Endpoints & CLI quản trị đa năng
+  - Xvfb Virtual Display (:99) & x11vnc Server
+  - Tự động hóa đăng bài & chuỗi comment 4 nền tảng
+  - Tự động giải mã OTP Gmail cho TikTok 2FA
             |
             v
- [ 6. Notification Service ]
+ [ 7. Notification Service ]
   - Telegram Bot Channel
   - Slack Incoming Webhook
   - Browser Web Push Notification
@@ -69,10 +79,11 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
      5. Độ tương đồng từ khóa cao (Token Jaccard Similarity $\ge$ 65%).
    - **Tự động giải phóng trạng thái cũ**: Các bài viết cũ hơn 1 ngày trước sẽ không chặn các chủ đề xuất hiện lại hôm nay; trình dọn dẹp `repairInconsistentTrendStatuses` tự động đưa các xu hướng cũ về lại `discovered`.
 
-3. **Sáng tạo nội dung (`ai-generator.ts`)**:
-   - Gửi tiêu đề xu hướng và ngữ cảnh bài báo tới Google Gemini API.
+3. **Sáng tạo nội dung chuyên sâu (`article-extractor.ts` & `ai-generator.ts`)**:
+   - Trước khi gửi bài cho AI, dịch vụ `article-extractor.ts` tự động cào và trích xuất toàn văn nội dung bài báo nguồn (sử dụng Cheerio để bóc tách nhanh các thẻ bài viết `article`, `.content-detail` và tự động fallback sang Playwright không đầu nếu gặp trang web SPA hoặc Cloudflare).
+   - Nội dung bài báo đầy đủ được đưa vào prompt ngữ cảnh cho Google Gemini API (danh sách model hiện đại: `gemini-3.5-flash-lite`, `gemini-3.5-flash`, `gemini-3.8-flash`).
    - Nhận về:
-     - `post_content`: Nội dung bài viết chính (tuyệt đối không chứa liên kết để giữ reach Facebook).
+     - `post_content`: Nội dung bài viết chính mang góc nhìn phân tích thị trường chuyên sâu, chuẩn công thức Hook & Insight (tuyệt đối không chứa liên kết để giữ reach tự nhiên).
      - `comment_content`: Nội dung bình luận trích dẫn đầy đủ nguồn gốc (hỗ trợ phân tách nhiều bình luận liên tiếp bằng ký tự `|`).
 
 4. **Đăng bài & Bình luận (`fb-automation.ts`)**:
@@ -92,7 +103,7 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
 
 ---
 
-### B. Chu kỳ Đăng Video Ngắn (Reel & TikTok Pipeline)
+### B. Chu kỳ Đăng Video Ngắn Đa Kênh (4-Platform Video Pipeline)
 
 ```
 [ Video File ] 
@@ -100,27 +111,31 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
       ▼
 [ Lưu vào storage/videos/ + Tạo record trong DB ] 
       │
-      ├──> Đăng ngay: Gọi fb-reel.ts + tiktok-reel.ts
+      ├──> Đăng ngay: Gọi fb-reel, tiktok-reel, youtube-reel, zalo-reel
       │
       └──> Hẹn giờ: Trạng thái 'scheduled'
             │
             ▼
       [ cron-daemon.ts ] (Quét mỗi 30 giây)
             │
-            ▼ (Đến giờ hẹn)
-      [ uploadFacebookReel ] ──> Đăng lên Fanpage/Cá nhân
-            │                       │
-            │                       ▼
-            │               [ Auto-Comment FB Reel ] ──> Lấy link công khai & bình luận
+            ├──> [ 1. Facebook Reel ] ──> uploadFacebookReel
+            │         │
+            │         └──> [ Auto-Comment ] ──> commentFacebookReelOnly
             │
-            ▼ (Nếu bật TikTok Auto Post)
-      [ uploadTikTokVideo ] ──> Chèn nhạc nền thịnh hành & Đăng lên TikTok Web
-            │                       │
-            │                       ▼
-            │               [ Auto-Comment TikTok ] ──> Tự động gửi bình luận & xử lý 2FA/Captcha
+            ├──> [ 2. TikTok Video ] ──> uploadTikTokVideo (Nhạc nền thịnh hành + 2FA Gmail)
+            │         │
+            │         └──> [ Auto-Comment ] ──> commentTikTokVideoOnly
+            │
+            ├──> [ 3. YouTube Shorts ] ──> uploadYouTubeShort (YouTube Studio)
+            │         │
+            │         └──> [ Auto-Comment ] ──> commentYouTubeShortOnly
+            │
+            └──> [ 4. Zalo Video ] ──> uploadZaloVideo (Zalo Video Creator Studio)
+                      │
+                      └──> [ Auto-Comment ] ──> commentZaloVideoOnly
             │
             ▼
-      [ Chụp ảnh / Video đối soát ] ──> Lưu vào DB
+      [ Chụp ảnh & Video đối soát ] ──> Lưu vào DB (fb/tiktok/youtube/zalo_debug_video_path)
             │
             ▼
       [ Gửi thông báo Telegram/Slack ]
@@ -131,7 +146,11 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
 - **`commentFacebookReelOnly`**: Tự động tìm liên kết công khai của Reel Facebook qua Content Library / Insights và bình luận nội dung. Hỗ trợ tách nhiều bình luận liên tiếp bằng dấu `|`.
 - **`uploadTikTokVideo`**: Mở trang upload TikTok Creator Center, tải file video, tìm kiếm và chèn bài nhạc nền thịnh hành từ thư viện TikTok Studio, điều chỉnh âm lượng gốc/nhạc nền, xuất bản và bình luận tự động.
 - **Tự động xử lý xác thực 2FA TikTok qua Gmail**: Khi TikTok hiển thị popup "Verify it's really you", bot tự động kích hoạt gửi mã OTP về Email, mở tab Gmail ngầm để đọc mã xác thực 6 số mới nhất và điền tự động.
-- **`commentTikTokVideoOnly`**: Hỗ trợ bình luận trực tiếp qua trang quản lý nội dung TikTok Studio (`/tiktokstudio/content`) hoặc trang video TikTok công khai, tự động phân tách chuỗi bình luận bằng `|` để bình luận nhiều lần liên tiếp; tự động bảo toàn video debug khi gặp lỗi.
+- **`commentTikTokVideoOnly`**: Hỗ trợ bình luận trực tiếp qua trang quản lý nội dung TikTok Studio (`/tiktokstudio/content`) hoặc trang video TikTok công khai, tự động phân tách chuỗi bình luận bằng `|` để bình luận nhiều lần liên tiếp.
+- **`uploadYouTubeShort` (`youtube-reel.ts`)**: Mở YouTube Studio (`studio.youtube.com`), tải video lên, nhập title/description, gắn nhãn Not for kids, chọn chế độ Public, trích xuất link dạng `https://youtube.com/shorts/{id}` và chờ render hoàn tất.
+- **`commentYouTubeShortOnly` (`youtube-reel.ts`)**: Mở trực tiếp link Shorts, kích hoạt panel comment, nhập bình luận và tự động submit.
+- **`uploadZaloVideo` (`zalo-reel.ts`)**: Mở Zalo Video Creator Studio (`video.zalo.me/creator/video`), kích hoạt modal đăng, upload file video, nhập caption vào contenteditable, ấn Đăng và theo dõi tiến độ xử lý video đến trạng thái "Thành công", trích xuất URL công khai.
+- **`commentZaloVideoOnly` (`zalo-reel.ts`)**: Điều hướng danh sách video đã đăng, click mở bảng bình luận qua `data-row-key` và gửi comment tự động.
 - **`executePublishAndComment` / `executeCommentOnly`**: Module tự động hóa bài viết văn bản Facebook (Profile & Fanpage), tự động đóng pop-up, đăng bài và gửi chuỗi bình luận nguồn tin tuần tự.
 
 ---
@@ -148,16 +167,27 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
 ### Các bảng dữ liệu chính:
 - `trends`: Lưu danh sách từ khóa xu hướng, vùng địa lý, lượng tìm kiếm ước tính, bài báo nguồn JSON, trạng thái (`discovered`, `drafted`, `published`).
 - `posts`: Lưu nội dung bài viết Facebook, nội dung bình luận nguồn, URL bài đăng, trạng thái (`draft`, `publishing`, `published`, `failed`), đường dẫn ảnh screenshot và video debug.
-- `reels`: Quản lý video ngắn, chú thích, lịch hẹn giờ đăng, trạng thái trên Facebook và TikTok, link bài viết và ảnh đối soát.
-- `activity_logs`: Nhật ký hành động phân cấp theo cấp độ (`INFO`, `WARN`, `ERROR`, `SUCCESS`) và module (`CRAWL`, `AI`, `PUBLISH`, `COMMENT`, `POST_REEL`, `POST_TIKTOK`, `CLEANUP`).
+- `reels`: Quản lý video ngắn, chú thích, lịch hẹn giờ đăng, trạng thái xuất bản và bình luận trên cả 4 nền tảng:
+  - Facebook: `status`, `comment_status`, `fb_post_url`, `debug_video_path`
+  - TikTok: `tiktok_status`, `tiktok_comment_status`, `tiktok_post_url`, `tiktok_debug_video_path`
+  - YouTube Shorts: `youtube_status`, `youtube_comment_status`, `youtube_post_url`, `youtube_debug_video_path`
+  - Zalo Video: `zalo_status`, `zalo_comment_status`, `zalo_post_url`, `zalo_debug_video_path`
+- `activity_logs`: Nhật ký hành động phân cấp theo cấp độ (`INFO`, `WARN`, `ERROR`, `SUCCESS`) và module (`CRAWL`, `AI`, `PUBLISH`, `COMMENT`, `POST_REEL`, `POST_TIKTOK`, `POST_YOUTUBE`, `POST_ZALO`, `CLEANUP`).
 - `settings`: Cấu hình hệ thống động dạng Key-Value (API Keys, cờ bật/tắt, interval, bộ lọc từ khóa, tài khoản Admin).
 
 ---
 
 ## 4. Cơ chế Chống Checkpoint, Màn hình ảo Xvfb & VPS Safety
 
-1. **Persistent Browser Session**:
-   - Lưu trữ cookies và storage state tại `storage/fb-session.json`, `storage/tiktok-session.json` và `storage/browser-profile`. Không đăng nhập lại từ đầu bằng ID/Password mỗi lần đăng để tránh kích hoạt checkpoint của Facebook & TikTok.
+1. **Persistent Browser Session (4 Nền tảng)**:
+   - Lưu trữ cookies và storage state tách biệt tại:
+     - `storage/fb-session.json`: Phiên Facebook
+     - `storage/tiktok-session.json`: Phiên TikTok
+     - `storage/youtube-session.json`: Phiên Google / YouTube Studio
+     - `storage/zalo-session.json`: Phiên Zalo Video Creator
+     - `storage/browser-profile`: Thư mục profile trình duyệt dùng chung
+   - Không đăng nhập lại từ đầu bằng tài khoản mật khẩu mỗi lần đăng bài, tránh kích hoạt cơ chế checkpoint / phát hiện bất thường của các nền tảng.
+   - Cung cấp CLI kiểm tra kết nối toàn diện: `pnpm connection:status`.
 
 2. **Dịch vụ Màn hình ảo Xvfb & VNC Server (`trendpulse-xvfb`)**:
    - Trên Linux VPS, Playwright chạy giao diện có đầu đọc đồ họa thông qua **Xvfb** (màn hình ảo DISPLAY `:99`).
