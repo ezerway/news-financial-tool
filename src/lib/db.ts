@@ -160,6 +160,24 @@ export function initSchema(database: Database.Database) {
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN tiktok_comment_status TEXT DEFAULT 'idle'`);
   } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN youtube_post_url TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN youtube_status TEXT DEFAULT 'idle'`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN youtube_comment_status TEXT DEFAULT 'idle'`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN youtube_error_message TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN youtube_debug_video_path TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN youtube_screenshot_path TEXT`);
+  } catch {}
 
   // Insert default settings if not exists
   try {
@@ -170,6 +188,8 @@ export function initSchema(database: Database.Database) {
       auto_mode: 'false',
       developer_mode: 'false',
       tiktok_auto_post: 'true',
+      youtube_auto_post: 'true',
+      youtube_channel_url: '',
       browser_notify_enabled: 'true',
       telegram_notify_enabled: 'false',
       telegram_bot_token: process.env.TELEGRAM_BOT_TOKEN || '',
@@ -451,6 +471,39 @@ export function isTikTokAutoPostEnabled(): boolean {
   } catch {
     return true;
   }
+}
+
+export function isYouTubeAutoPostEnabled(): boolean {
+  try {
+    return getSetting('youtube_auto_post', 'true') === 'true';
+  } catch {
+    return true;
+  }
+}
+
+export function getYouTubeChannelUrl(): string {
+  try {
+    return getSetting('youtube_channel_url', '').trim();
+  } catch {
+    return '';
+  }
+}
+
+export function parseYouTubeChannelHandle(urlOrHandle: string): string {
+  if (!urlOrHandle) return '';
+  let clean = urlOrHandle.trim();
+  // Strip trailing slashes
+  clean = clean.replace(/\/+$/, '');
+  // Extract handle from URL if full URL is given (e.g. https://www.youtube.com/@channel or https://youtube.com/@channel)
+  const match = clean.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/(?:@|c\/|channel\/)?([^\s\/?#]+)/i);
+  if (match && match[1]) {
+    const raw = match[1];
+    return raw.startsWith('@') ? raw : `@${raw}`;
+  }
+  // If it's already a handle
+  if (clean.startsWith('@')) return clean;
+  // If user only typed the name
+  return `@${clean.replace(/^https?:\/\//i, '').replace(/^[^\/]+\//, '')}`;
 }
 
 export default db;

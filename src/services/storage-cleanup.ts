@@ -70,7 +70,9 @@ export async function cleanOldReelsStorage(days: number = 2): Promise<CleanupRes
       .prepare(
         `
         SELECT id, video_path, video_filename, screenshot_path, debug_video_path,
-               tiktok_screenshot_path, tiktok_debug_video_path, status, scheduled_at, created_at
+               tiktok_screenshot_path, tiktok_debug_video_path,
+               youtube_screenshot_path, youtube_debug_video_path,
+               status, scheduled_at, created_at
         FROM reels
         WHERE datetime(COALESCE(created_at, 'now')) <= datetime('now', '-' || ? || ' days')
           AND (status != 'scheduled' OR scheduled_at IS NULL OR datetime(scheduled_at) <= datetime('now'))
@@ -186,6 +188,18 @@ export async function cleanOldReelsStorage(days: number = 2): Promise<CleanupRes
       if (ttSc) safelyDeleteFile(ttSc, false);
     }
 
+    // F. Xóa video debug lỗi YouTube Shorts nếu có
+    if (reel.youtube_debug_video_path) {
+      const ytDbgVid = resolveStorageFile(reel.youtube_debug_video_path, videosDir);
+      if (ytDbgVid) safelyDeleteFile(ytDbgVid, true);
+    }
+
+    // G. Xóa ảnh screenshot lỗi YouTube Shorts nếu có
+    if (reel.youtube_screenshot_path) {
+      const ytSc = resolveStorageFile(reel.youtube_screenshot_path, screenshotsDir);
+      if (ytSc) safelyDeleteFile(ytSc, false);
+    }
+
     // Cập nhật reset các cột debug screenshot/video về NULL trong DB
     try {
       db.prepare(
@@ -194,7 +208,9 @@ export async function cleanOldReelsStorage(days: number = 2): Promise<CleanupRes
         SET screenshot_path = NULL,
             debug_video_path = NULL,
             tiktok_screenshot_path = NULL,
-            tiktok_debug_video_path = NULL
+            tiktok_debug_video_path = NULL,
+            youtube_screenshot_path = NULL,
+            youtube_debug_video_path = NULL
         WHERE id = ?
       `
       ).run(reel.id);
@@ -319,7 +335,7 @@ export async function cleanAllStorage(): Promise<CleanupResult> {
   } catch {}
   try {
     db.prepare(
-      `UPDATE reels SET screenshot_path = NULL, debug_video_path = NULL, tiktok_screenshot_path = NULL, tiktok_debug_video_path = NULL`
+      `UPDATE reels SET screenshot_path = NULL, debug_video_path = NULL, tiktok_screenshot_path = NULL, tiktok_debug_video_path = NULL, youtube_screenshot_path = NULL, youtube_debug_video_path = NULL`
     ).run();
   } catch {}
 

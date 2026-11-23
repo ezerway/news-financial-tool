@@ -54,7 +54,23 @@ pnpm tiktok:login
 
 ---
 
-### 2.3. Chu kỳ Tự động hóa (`scripts/auto-cycle.ts`)
+### 2.3. Đăng nhập YouTube Studio (`scripts/youtube-login.ts`)
+
+Lưu trữ và quản lý phiên YouTube Studio trên profile dùng chung `storage/browser-profile`.
+
+```bash
+pnpm youtube:login
+```
+
+**Hành vi:**
+- Khởi chạy Chromium (hỗ trợ hiển thị trên Desktop hoặc qua màn hình ảo Xvfb trên VPS).
+- Mở trang kênh mục tiêu hoặc `https://studio.youtube.com/`.
+- Bạn đăng nhập tài khoản Google và chuyển đúng kênh Shorts cần đăng.
+- Phiên được lưu trữ vĩnh viễn trên `browser-profile` dùng chung.
+
+---
+
+### 2.4. Chu kỳ Tự động hóa (`scripts/auto-cycle.ts`)
 
 Cào dữ liệu từ Google Trends, phân loại tin tức tài chính, kiểm tra trùng lặp trong 24 giờ, dùng Gemini viết bài và đưa vào database hoặc xuất bản ngay.
 

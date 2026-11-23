@@ -4,8 +4,9 @@ import fs from 'fs';
 import os from 'os';
 import { uploadFacebookReel } from '../src/services/playwright/fb-reel';
 import { uploadTikTokVideo } from '../src/services/playwright/tiktok-reel';
+import { uploadYouTubeShortVideo } from '../src/services/playwright/youtube-reel';
 import { createReel } from '../src/services/reels';
-import db, { logActivity, resolveHeadless, isDeveloperMode, isTikTokAutoPostEnabled } from '../src/lib/db';
+import db, { logActivity, resolveHeadless, isDeveloperMode, isTikTokAutoPostEnabled, isYouTubeAutoPostEnabled } from '../src/lib/db';
 
 function askQuestion(rl: readline.Interface, query: string): Promise<string> {
   return new Promise((resolve) => rl.question(query, resolve));
@@ -287,6 +288,48 @@ async function main() {
           }
         } catch (ttErr: any) {
           console.warn('⚠️ [TikTok] Lỗi ngoại lệ TikTok:', ttErr.message);
+        }
+      }
+
+      if (isYouTubeAutoPostEnabled()) {
+        console.log('🎬 [YouTube] Đang đồng bộ đăng video ngắn lên YouTube Shorts...');
+        try {
+          db.prepare(`UPDATE reels SET youtube_status = 'publishing' WHERE id = ?`).run(reel.id);
+          const ytResult = await uploadYouTubeShortVideo({
+            reelId: reel.id,
+            filePath: selectedFilePath,
+            content: selectedContent,
+            comment: selectedComment || '',
+            scheduledAt: scheduledAt,
+            headless,
+          });
+
+          if (ytResult.success) {
+            const ytCommentStatus = selectedComment
+              ? (ytResult.commentSuccess ? 'commented' : 'failed')
+              : 'idle';
+            db.prepare(`
+              UPDATE reels 
+              SET youtube_post_url = ?, 
+                  youtube_status = 'published', 
+                  youtube_comment_status = ?,
+                  youtube_error_message = NULL 
+              WHERE id = ?
+            `).run(ytResult.youtubeUrl || null, ytCommentStatus, reel.id);
+            console.log('🎉 [YouTube] Đăng YouTube Shorts thành công!');
+            if (ytResult.youtubeUrl) {
+              console.log('🔗 Link YouTube Shorts: ' + ytResult.youtubeUrl);
+            }
+          } else {
+            db.prepare(`
+              UPDATE reels 
+              SET youtube_status = 'failed', youtube_error_message = ? 
+              WHERE id = ?
+            `).run(ytResult.error || ytResult.message, reel.id);
+            console.warn('⚠️ [YouTube] Đăng YouTube Shorts thất bại:', ytResult.error || ytResult.message);
+          }
+        } catch (ytErr: any) {
+          console.warn('⚠️ [YouTube] Lỗi ngoại lệ YouTube Shorts:', ytErr.message);
         }
       }
 

@@ -55,6 +55,12 @@ export interface ReelItem {
   tiktok_error_message?: string | null;
   tiktok_debug_video_path?: string | null;
   tiktok_screenshot_path?: string | null;
+  youtube_post_url?: string | null;
+  youtube_status?: 'idle' | 'publishing' | 'published' | 'failed' | null;
+  youtube_comment_status?: 'idle' | 'commented' | 'failed' | null;
+  youtube_error_message?: string | null;
+  youtube_debug_video_path?: string | null;
+  youtube_screenshot_path?: string | null;
   error_message?: string | null;
   screenshot_path?: string | null;
   debug_video_path?: string | null;

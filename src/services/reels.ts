@@ -1,8 +1,9 @@
 import path from 'path';
 import fs from 'fs';
-import db, { logActivity, resolveHeadless, isTikTokAutoPostEnabled } from '@/lib/db';
+import db, { logActivity, resolveHeadless, isTikTokAutoPostEnabled, isYouTubeAutoPostEnabled } from '@/lib/db';
 import { uploadFacebookReel, commentFacebookReelOnly, PostReelResult } from '@/services/playwright/fb-reel';
 import { uploadTikTokVideo, commentTikTokVideoOnly, PostTikTokResult } from '@/services/playwright/tiktok-reel';
+import { uploadYouTubeShortVideo, commentYouTubeVideoOnly, PostYouTubeResult } from '@/services/playwright/youtube-reel';
 import { sendServerPushNotification } from './notifications';
 import { ReelItem } from '@/types';
 
@@ -58,7 +59,7 @@ export function createReel(data: {
 
 export function updateReel(
   id: string,
-  data: Partial<Pick<ReelItem, 'caption' | 'comment_content' | 'comment_status' | 'scheduled_at' | 'status' | 'video_path' | 'video_filename' | 'fb_post_url' | 'tiktok_post_url' | 'tiktok_status' | 'tiktok_comment_status' | 'published_at' | 'error_message' | 'tiktok_error_message' | 'screenshot_path' | 'debug_video_path'>>
+  data: Partial<Pick<ReelItem, 'caption' | 'comment_content' | 'comment_status' | 'scheduled_at' | 'status' | 'video_path' | 'video_filename' | 'fb_post_url' | 'tiktok_post_url' | 'tiktok_status' | 'tiktok_comment_status' | 'youtube_post_url' | 'youtube_status' | 'youtube_comment_status' | 'published_at' | 'error_message' | 'tiktok_error_message' | 'youtube_error_message' | 'screenshot_path' | 'tiktok_screenshot_path' | 'youtube_screenshot_path' | 'debug_video_path' | 'tiktok_debug_video_path' | 'youtube_debug_video_path'>>
 ): ReelItem | null {
   const current = getReelById(id);
   if (!current) return null;
@@ -116,6 +117,21 @@ export function updateReel(
     updates.push('tiktok_comment_status = ?');
     values.push(data.tiktok_comment_status);
   }
+  if (data.youtube_post_url !== undefined) {
+    updates.push('youtube_post_url = ?');
+    values.push(data.youtube_post_url);
+    if (data.youtube_post_url !== current.youtube_post_url) {
+      logActivity('INFO', 'UPDATE_REEL_LINK', `Đã cập nhật thủ công link YouTube Shorts [${id}]: ${data.youtube_post_url || '(Đã xóa link)'}`);
+    }
+  }
+  if (data.youtube_status !== undefined) {
+    updates.push('youtube_status = ?');
+    values.push(data.youtube_status);
+  }
+  if (data.youtube_comment_status !== undefined) {
+    updates.push('youtube_comment_status = ?');
+    values.push(data.youtube_comment_status);
+  }
   if (data.published_at !== undefined) {
     updates.push('published_at = ?');
     values.push(data.published_at);
@@ -128,13 +144,33 @@ export function updateReel(
     updates.push('tiktok_error_message = ?');
     values.push(data.tiktok_error_message);
   }
+  if (data.youtube_error_message !== undefined) {
+    updates.push('youtube_error_message = ?');
+    values.push(data.youtube_error_message);
+  }
   if (data.screenshot_path !== undefined) {
     updates.push('screenshot_path = ?');
     values.push(data.screenshot_path);
   }
+  if (data.tiktok_screenshot_path !== undefined) {
+    updates.push('tiktok_screenshot_path = ?');
+    values.push(data.tiktok_screenshot_path);
+  }
+  if (data.youtube_screenshot_path !== undefined) {
+    updates.push('youtube_screenshot_path = ?');
+    values.push(data.youtube_screenshot_path);
+  }
   if (data.debug_video_path !== undefined) {
     updates.push('debug_video_path = ?');
     values.push(data.debug_video_path);
+  }
+  if (data.tiktok_debug_video_path !== undefined) {
+    updates.push('tiktok_debug_video_path = ?');
+    values.push(data.tiktok_debug_video_path);
+  }
+  if (data.youtube_debug_video_path !== undefined) {
+    updates.push('youtube_debug_video_path = ?');
+    values.push(data.youtube_debug_video_path);
   }
 
   if (updates.length > 0) {
@@ -349,6 +385,70 @@ export async function publishReelById(
         }
       }
 
+      // Đăng đồng bộ lên YouTube Shorts nếu được bật cấu hình
+      if (isYouTubeAutoPostEnabled()) {
+        try {
+          logActivity('INFO', 'POST_YOUTUBE_SHORTS', `[YouTube] Bắt đầu đồng bộ đăng video Shorts cho Reel ${id}...`);
+          db.prepare(`UPDATE reels SET youtube_status = 'publishing' WHERE id = ?`).run(id);
+
+          const ytResult = await uploadYouTubeShortVideo({
+            reelId: reel.id,
+            filePath: reel.video_path,
+            content: reel.caption || '',
+            comment: reel.comment_content || '',
+            scheduledAt: reel.scheduled_at,
+            headless,
+          });
+
+          if (ytResult.success) {
+            const ytCommentStatus = reel.comment_content
+              ? (ytResult.commentSuccess ? 'commented' : 'failed')
+              : (reel.youtube_comment_status || 'idle');
+
+            db.prepare(`
+              UPDATE reels 
+              SET youtube_post_url = ?, 
+                  youtube_status = 'published', 
+                  youtube_comment_status = ?,
+                  youtube_debug_video_path = ?,
+                  youtube_screenshot_path = NULL,
+                  youtube_error_message = NULL 
+              WHERE id = ?
+            `).run(ytResult.youtubeUrl || null, ytCommentStatus, ytResult.debugVideoPath || null, id);
+            logActivity(
+              'SUCCESS',
+              'POST_YOUTUBE_SHORTS',
+              `[YouTube] Đã xuất bản video YouTube Shorts thành công: ${reel.video_filename} ${ytResult.youtubeUrl ? `(Link: ${ytResult.youtubeUrl})` : ''}`
+            );
+
+            await sendServerPushNotification({
+              type: 'reel_youtube' as any,
+              status: 'success',
+              title: reel.caption ? reel.caption.slice(0, 100) : (reel.video_filename || 'YouTube Shorts'),
+              url: ytResult.youtubeUrl,
+            }).catch(() => { });
+          } else {
+            db.prepare(`
+              UPDATE reels 
+              SET youtube_status = 'failed', 
+                  youtube_debug_video_path = ?,
+                  youtube_screenshot_path = ?,
+                  youtube_error_message = ? 
+              WHERE id = ?
+            `).run(ytResult.debugVideoPath || null, ytResult.screenshotPath || null, ytResult.error || ytResult.message, id);
+            logActivity('WARN', 'POST_YOUTUBE_SHORTS', `[YouTube] Đăng video lên YouTube Shorts thất bại: ${ytResult.error || ytResult.message}`);
+          }
+        } catch (ytErr: any) {
+          const ytErrMsg = ytErr?.message || String(ytErr);
+          db.prepare(`
+            UPDATE reels 
+            SET youtube_status = 'failed', youtube_error_message = ? 
+            WHERE id = ?
+          `).run(ytErrMsg, id);
+          logActivity('WARN', 'POST_YOUTUBE_SHORTS', `[YouTube] Lỗi ngoại lệ khi đăng YouTube Shorts: ${ytErrMsg}`);
+        }
+      }
+
       return result;
     } else {
       const errorMsg = result.error || result.message;
@@ -494,6 +594,116 @@ export async function publishTikTokReelById(
       success: false,
       message: 'Lỗi xuất bản TikTok: ' + errorMsg,
       filePath: reel.video_path,
+      error: errorMsg,
+    };
+  }
+}
+
+export async function publishYouTubeReelById(
+  id: string,
+  options?: { headless?: boolean }
+): Promise<PostYouTubeResult> {
+  const reel = getReelById(id);
+  if (!reel) {
+    return {
+      success: false,
+      message: 'Không tìm thấy Reel với ID: ' + id,
+    };
+  }
+
+  if (!fs.existsSync(reel.video_path)) {
+    const altPath = path.join(process.cwd(), 'storage', 'videos', path.basename(reel.video_path));
+    if (!fs.existsSync(altPath)) {
+      return {
+        success: false,
+        message: `Không tìm thấy file video: ${reel.video_path}. Vui lòng kiểm tra lại đường dẫn file trên máy chủ.`,
+      };
+    }
+  }
+
+  logActivity('INFO', 'POST_YOUTUBE_SHORTS', `Bắt đầu xuất bản thủ công YouTube Shorts cho Reel: ${id} (${reel.video_filename || 'video'})...`);
+  db.prepare(`UPDATE reels SET youtube_status = 'publishing' WHERE id = ?`).run(id);
+
+  const headless = resolveHeadless(options?.headless !== undefined ? options.headless : true);
+
+  try {
+    const result = await uploadYouTubeShortVideo({
+      reelId: reel.id,
+      filePath: reel.video_path,
+      content: reel.caption || '',
+      comment: reel.comment_content || '',
+      scheduledAt: reel.scheduled_at,
+      headless,
+    });
+
+    if (result.success) {
+      const ytCommentStatus = reel.comment_content
+        ? (result.commentSuccess ? 'commented' : 'failed')
+        : (reel.youtube_comment_status || 'idle');
+
+      db.prepare(`
+        UPDATE reels 
+        SET youtube_post_url = ?, 
+            youtube_status = 'published', 
+            youtube_comment_status = ?,
+            youtube_debug_video_path = ?,
+            youtube_screenshot_path = ?,
+            youtube_error_message = NULL 
+        WHERE id = ?
+      `).run(
+        result.youtubeUrl || null,
+        ytCommentStatus,
+        result.debugVideoPath || null,
+        result.screenshotPath || null,
+        id
+      );
+      logActivity(
+        'SUCCESS',
+        'POST_YOUTUBE_SHORTS',
+        `Xuất bản video YouTube Shorts thành công: ${reel.video_filename} ${result.youtubeUrl ? `(Link: ${result.youtubeUrl})` : ''}`
+      );
+
+      await sendServerPushNotification({
+        type: 'reel_youtube' as any,
+        status: 'success',
+        title: reel.caption ? reel.caption.slice(0, 100) : (reel.video_filename || 'YouTube Shorts'),
+        url: result.youtubeUrl,
+      }).catch(() => { });
+
+      return result;
+    } else {
+      const errorMsg = result.error || result.message;
+      db.prepare(`
+        UPDATE reels 
+        SET youtube_status = 'failed', 
+            youtube_post_url = COALESCE(?, youtube_post_url),
+            youtube_debug_video_path = ?,
+            youtube_screenshot_path = ?,
+            youtube_error_message = ? 
+        WHERE id = ?
+      `).run(result.youtubeUrl || null, result.debugVideoPath || null, result.screenshotPath || null, errorMsg, id);
+      logActivity('WARN', 'POST_YOUTUBE_SHORTS', `Xuất bản video YouTube Shorts thất bại: ${errorMsg}`);
+
+      await sendServerPushNotification({
+        type: 'reel_youtube' as any,
+        status: 'failed',
+        title: reel.caption ? reel.caption.slice(0, 100) : (reel.video_filename || 'YouTube Shorts'),
+        error: errorMsg,
+      }).catch(() => { });
+
+      return result;
+    }
+  } catch (err: any) {
+    const errorMsg = err?.message || String(err);
+    db.prepare(`
+      UPDATE reels 
+      SET youtube_status = 'failed', youtube_error_message = ? 
+      WHERE id = ?
+    `).run(errorMsg, id);
+    logActivity('ERROR', 'POST_YOUTUBE_SHORTS', `Lỗi nghiêm trọng khi xuất bản YouTube Shorts: ${errorMsg}`);
+    return {
+      success: false,
+      message: 'Lỗi xuất bản YouTube Shorts: ' + errorMsg,
       error: errorMsg,
     };
   }
@@ -665,6 +875,57 @@ export async function postCommentToTikTokReel(
     `).run(result.debugVideoPath || null, result.screenshotPath || null, result.error || result.message, id);
     logActivity('WARN', 'COMMENT_TIKTOK', `Bình luận cho video TikTok [${id}] thất bại: ${result.error || result.message}`);
     return { success: false, message: result.message || 'Bình luận TikTok thất bại', error: result.error };
+  }
+}
+
+/**
+ * Thực hiện bình luận thủ công hoặc chạy lại bình luận cho video YouTube Shorts
+ */
+export async function postCommentToYouTubeReel(
+  id: string,
+  customComment?: string
+): Promise<{ success: boolean; message: string; error?: string }> {
+  const reel = getReelById(id);
+  if (!reel) {
+    return { success: false, message: 'Reel không tồn tại' };
+  }
+
+  const commentToPost = customComment || reel.comment_content;
+  if (!commentToPost) {
+    return { success: false, message: 'Reel chưa có nội dung bình luận' };
+  }
+
+  if (!reel.youtube_post_url) {
+    return { success: false, message: 'Video chưa có liên kết YouTube để bình luận' };
+  }
+
+  const result = await commentYouTubeVideoOnly(
+    reel.youtube_post_url,
+    commentToPost
+  );
+
+  if (result.success) {
+    db.prepare(`
+      UPDATE reels
+      SET comment_content = ?,
+          youtube_comment_status = 'commented',
+          youtube_debug_video_path = COALESCE(?, youtube_debug_video_path)
+      WHERE id = ?
+    `).run(commentToPost, result.debugVideoPath || null, id);
+
+    logActivity('SUCCESS', 'COMMENT_YOUTUBE', `Bình luận thành công cho video YouTube [${id}]: ${commentToPost}`);
+    return { success: true, message: 'Đã gửi bình luận thành công cho video YouTube Shorts!' };
+  } else {
+    db.prepare(`
+      UPDATE reels 
+      SET youtube_comment_status = 'failed',
+          youtube_debug_video_path = COALESCE(?, youtube_debug_video_path),
+          youtube_screenshot_path = COALESCE(?, youtube_screenshot_path),
+          youtube_error_message = ?
+      WHERE id = ?
+    `).run(result.debugVideoPath || null, result.screenshotPath || null, result.error || result.message, id);
+    logActivity('WARN', 'COMMENT_YOUTUBE', `Bình luận cho video YouTube [${id}] thất bại: ${result.error || result.message}`);
+    return { success: false, message: result.message || 'Bình luận YouTube thất bại', error: result.error };
   }
 }
 

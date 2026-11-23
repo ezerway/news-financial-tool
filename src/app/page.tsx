@@ -55,8 +55,10 @@ export default function DashboardPage() {
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [publishingReelId, setPublishingReelId] = useState<string | null>(null);
   const [publishingTikTokId, setPublishingTikTokId] = useState<string | null>(null);
+  const [publishingYouTubeId, setPublishingYouTubeId] = useState<string | null>(null);
   const [commentingReelId, setCommentingReelId] = useState<string | null>(null);
   const [commentingTikTokId, setCommentingTikTokId] = useState<string | null>(null);
+  const [commentingYouTubeId, setCommentingYouTubeId] = useState<string | null>(null);
   const [commentingId, setCommentingId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isFbModalOpen, setIsFbModalOpen] = useState(false);
@@ -617,6 +619,9 @@ export default function DashboardPage() {
       tiktok_post_url?: string | null;
       tiktok_status?: string | null;
       tiktok_comment_status?: string | null;
+      youtube_post_url?: string | null;
+      youtube_status?: string | null;
+      youtube_comment_status?: string | null;
     }
   ) => {
     try {
@@ -726,6 +731,43 @@ export default function DashboardPage() {
     }
   };
 
+  const handlePublishYouTube = async (reelId: string) => {
+    setPublishingYouTubeId(reelId);
+    showToast(lang === 'vi' ? 'Đang khởi chạy Playwright Chromium để đăng video lên YouTube Shorts...' : 'Launching Playwright Chromium to publish YouTube Shorts...', 'info');
+    try {
+      const res = await fetch(`/api/reels/${reelId}/publish-youtube`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headless: true }),
+      });
+      const resData = await res.json();
+      const reelObj = reels.find((r) => r.id === reelId);
+      const reelTitle = reelObj?.caption ? reelObj.caption.slice(0, 100) : (reelObj?.video_filename || 'YouTube Shorts');
+
+      if (res.ok && resData.success) {
+        showToast(lang === 'vi' ? 'Đã xuất bản video lên YouTube Shorts thành công!' : 'Published YouTube Shorts successfully!', 'success');
+        showBrowserNotification(lang === 'vi' ? '✅ Đã xuất bản video lên YouTube Shorts thành công!' : '✅ Published YouTube Shorts successfully!', {
+          body: reelTitle,
+          url: resData.result?.youtubeUrl || undefined,
+        });
+        await fetchData(true);
+      } else {
+        const errorMsg = resData.error || resData.result?.message || (lang === 'vi' ? 'Có lỗi xảy ra' : 'An error occurred');
+        showToast(`${lang === 'vi' ? 'Xuất bản YouTube Shorts thất bại: ' : 'YouTube Shorts publish failed: '}${errorMsg}`, 'error');
+        showBrowserNotification(lang === 'vi' ? '❌ Xuất bản video YouTube Shorts thất bại' : '❌ YouTube Shorts publish failed', {
+          body: `${reelTitle}: ${errorMsg}`,
+        });
+        await fetchData(true);
+      }
+    } catch (err: any) {
+      showToast(`${lang === 'vi' ? 'Lỗi xuất bản YouTube Shorts: ' : 'YouTube Shorts publish error: '}${err.message}`, 'error');
+      showBrowserNotification(lang === 'vi' ? '❌ Lỗi xuất bản YouTube Shorts' : '❌ YouTube Shorts publish error', { body: err.message });
+      await fetchData(true);
+    } finally {
+      setPublishingYouTubeId(null);
+    }
+  };
+
   const handleCommentReel = async (reelId: string) => {
     setCommentingReelId(reelId);
     showToast(lang === 'vi' ? 'Đang mở Playwright để gửi bình luận vào Reel Facebook...' : 'Opening Playwright to post comment to Facebook Reel...', 'info');
@@ -771,6 +813,30 @@ export default function DashboardPage() {
       await fetchData(true);
     } finally {
       setCommentingTikTokId(null);
+    }
+  };
+
+  const handleCommentYouTubeReel = async (reelId: string) => {
+    setCommentingYouTubeId(reelId);
+    showToast(lang === 'vi' ? 'Đang mở Playwright để gửi bình luận vào YouTube Shorts...' : 'Opening Playwright to post comment to YouTube Shorts...', 'info');
+    try {
+      const res = await fetch(`/api/reels/${reelId}/comment-youtube`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        showToast(lang === 'vi' ? 'Đã gửi bình luận vào video YouTube Shorts thành công!' : 'Commented on YouTube Shorts video successfully!', 'success');
+        await fetchData(true);
+      } else {
+        showToast(`${lang === 'vi' ? 'Lỗi bình luận YouTube: ' : 'YouTube comment error: '}${resData.error || resData.message}`, 'error');
+        await fetchData(true);
+      }
+    } catch (err: any) {
+      showToast(`${lang === 'vi' ? 'Lỗi kết nối bình luận YouTube: ' : 'YouTube comment connection error: '}${err.message}`, 'error');
+      await fetchData(true);
+    } finally {
+      setCommentingYouTubeId(null);
     }
   };
 
@@ -1021,15 +1087,19 @@ export default function DashboardPage() {
               onRefresh={fetchData}
               onPublishReel={handlePublishReel}
               onPublishTikTok={handlePublishTikTok}
+              onPublishYouTube={handlePublishYouTube}
               onDeleteReel={handleDeleteReel}
               onUpdateReel={handleUpdateReel}
               onCreateReel={handleCreateReel}
               publishingReelId={publishingReelId}
               publishingTikTokId={publishingTikTokId}
+              publishingYouTubeId={publishingYouTubeId}
               onCommentReel={handleCommentReel}
               commentingReelId={commentingReelId}
               onCommentTikTokReel={handleCommentTikTokReel}
               commentingTikTokId={commentingTikTokId}
+              onCommentYouTubeReel={handleCommentYouTubeReel}
+              commentingYouTubeId={commentingYouTubeId}
             />
           )}
 

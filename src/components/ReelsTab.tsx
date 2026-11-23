@@ -33,6 +33,7 @@ import { formatDateTime, formatDateDDMMYYYY, replaceDateWildcards } from '@/lib/
 import Pagination from './Pagination';
 import TikTokIcon from './TikTokIcon';
 import FacebookIcon from './FacebookIcon';
+import YouTubeIcon from './YouTubeIcon';
 import { useI18n } from '@/context/I18nThemeContext';
 
 interface ReelsTabProps {
@@ -40,6 +41,7 @@ interface ReelsTabProps {
   onRefresh: () => Promise<void>;
   onPublishReel: (reelId: string) => Promise<void>;
   onPublishTikTok?: (reelId: string) => Promise<void>;
+  onPublishYouTube?: (reelId: string) => Promise<void>;
   onDeleteReel: (reelId: string) => Promise<void>;
   onUpdateReel: (
     reelId: string,
@@ -52,6 +54,9 @@ interface ReelsTabProps {
       tiktok_post_url?: string | null;
       tiktok_status?: string | null;
       tiktok_comment_status?: string | null;
+      youtube_post_url?: string | null;
+      youtube_status?: string | null;
+      youtube_comment_status?: string | null;
     }
   ) => Promise<void>;
   onCreateReel: (data: {
@@ -64,10 +69,13 @@ interface ReelsTabProps {
   }) => Promise<void>;
   publishingReelId: string | null;
   publishingTikTokId?: string | null;
+  publishingYouTubeId?: string | null;
   onCommentReel?: (reelId: string) => Promise<void>;
   commentingReelId?: string | null;
   onCommentTikTokReel?: (reelId: string) => Promise<void>;
   commentingTikTokId?: string | null;
+  onCommentYouTubeReel?: (reelId: string) => Promise<void>;
+  commentingYouTubeId?: string | null;
 }
 
 export default function ReelsTab({
@@ -75,15 +83,19 @@ export default function ReelsTab({
   onRefresh,
   onPublishReel,
   onPublishTikTok,
+  onPublishYouTube,
   onDeleteReel,
   onUpdateReel,
   onCreateReel,
   publishingReelId,
   publishingTikTokId,
+  publishingYouTubeId,
   onCommentReel,
   commentingReelId,
   onCommentTikTokReel,
   commentingTikTokId,
+  onCommentYouTubeReel,
+  commentingYouTubeId,
 }: ReelsTabProps) {
   const { t, lang, theme } = useI18n();
 
@@ -101,6 +113,7 @@ export default function ReelsTab({
   const [editCommentContent, setEditCommentContent] = useState('');
   const [editFbPostUrl, setEditFbPostUrl] = useState('');
   const [editTikTokPostUrl, setEditTikTokPostUrl] = useState('');
+  const [editYouTubePostUrl, setEditYouTubePostUrl] = useState('');
   const [editIsScheduled, setEditIsScheduled] = useState(false);
   const [editScheduledAt, setEditScheduledAt] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -109,8 +122,10 @@ export default function ReelsTab({
   const [correctingLinkReel, setCorrectingLinkReel] = useState<ReelItem | null>(null);
   const [correctFbUrl, setCorrectFbUrl] = useState('');
   const [correctTikTokUrl, setCorrectTikTokUrl] = useState('');
+  const [correctYouTubeUrl, setCorrectYouTubeUrl] = useState('');
   const [correctMarkFbPublished, setCorrectMarkFbPublished] = useState(true);
   const [correctMarkTikTokPublished, setCorrectMarkTikTokPublished] = useState(true);
+  const [correctMarkYouTubePublished, setCorrectMarkYouTubePublished] = useState(true);
   const [isSavingCorrectLink, setIsSavingCorrectLink] = useState(false);
 
   // Delete confirmation
@@ -270,6 +285,7 @@ export default function ReelsTab({
     setEditCommentContent(reel.comment_content || '');
     setEditFbPostUrl(reel.fb_post_url || '');
     setEditTikTokPostUrl(reel.tiktok_post_url || '');
+    setEditYouTubePostUrl(reel.youtube_post_url || '');
     if (reel.scheduled_at) {
       setEditIsScheduled(true);
       const d = new Date(reel.scheduled_at);
@@ -310,6 +326,7 @@ export default function ReelsTab({
         status: newStatus,
         fb_post_url: editFbPostUrl.trim() || null,
         tiktok_post_url: editTikTokPostUrl.trim() || null,
+        youtube_post_url: editYouTubePostUrl.trim() || null,
       });
 
       setEditingReel(null);
@@ -324,8 +341,10 @@ export default function ReelsTab({
     setCorrectingLinkReel(reel);
     setCorrectFbUrl(reel.fb_post_url || '');
     setCorrectTikTokUrl(reel.tiktok_post_url || '');
+    setCorrectYouTubeUrl(reel.youtube_post_url || '');
     setCorrectMarkFbPublished(reel.status !== 'published');
     setCorrectMarkTikTokPublished(reel.tiktok_status !== 'published');
+    setCorrectMarkYouTubePublished(reel.youtube_status !== 'published');
   };
 
   const handleSaveCorrectLink = async () => {
@@ -335,10 +354,12 @@ export default function ReelsTab({
     try {
       const trimmedFb = correctFbUrl.trim() || null;
       const trimmedTikTok = correctTikTokUrl.trim() || null;
+      const trimmedYouTube = correctYouTubeUrl.trim() || null;
 
       const updateData: any = {
         fb_post_url: trimmedFb,
         tiktok_post_url: trimmedTikTok,
+        youtube_post_url: trimmedYouTube,
       };
 
       if (trimmedFb && correctMarkFbPublished && correctingLinkReel.status !== 'published') {
@@ -347,6 +368,10 @@ export default function ReelsTab({
 
       if (trimmedTikTok && correctMarkTikTokPublished && correctingLinkReel.tiktok_status !== 'published') {
         updateData.tiktok_status = 'published';
+      }
+
+      if (trimmedYouTube && correctMarkYouTubePublished && correctingLinkReel.youtube_status !== 'published') {
+        updateData.youtube_status = 'published';
       }
 
       await onUpdateReel(correctingLinkReel.id, updateData);
@@ -501,6 +526,8 @@ export default function ReelsTab({
             const isPublishingThis = publishingReelId === reel.id || reel.status === 'publishing';
             const isPublishingTikTokThis =
               (publishingTikTokId && publishingTikTokId === reel.id) || reel.tiktok_status === 'publishing';
+            const isPublishingYouTubeThis =
+              (publishingYouTubeId && publishingYouTubeId === reel.id) || reel.youtube_status === 'publishing';
             const isDeletingThis = isDeletingId === reel.id;
             const isExpanded = !!expandedCaptions[reel.id];
 
@@ -574,7 +601,8 @@ export default function ReelsTab({
                 {/* Error Banner if Failed */}
                 {((reel.status === 'failed' && (reel.error_message || reel.debug_video_path || reel.screenshot_path)) ||
                   (reel.tiktok_status === 'failed' && (reel.tiktok_error_message || reel.tiktok_debug_video_path || reel.tiktok_screenshot_path)) ||
-                  (reel.tiktok_comment_status === 'failed' && (reel.tiktok_error_message || reel.tiktok_debug_video_path || reel.tiktok_screenshot_path))) && (
+                  (reel.tiktok_comment_status === 'failed' && (reel.tiktok_error_message || reel.tiktok_debug_video_path || reel.tiktok_screenshot_path)) ||
+                  (reel.youtube_status === 'failed' && (reel.youtube_error_message || reel.youtube_debug_video_path || reel.youtube_screenshot_path))) && (
                   <div className="p-2.5 rounded-lg bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-800/40 text-[11px] text-rose-800 dark:text-rose-300 space-y-1.5">
                     {reel.error_message && (
                       <div className="flex items-start gap-1.5">
@@ -588,7 +616,13 @@ export default function ReelsTab({
                         <span className="line-clamp-2">[TikTok] {reel.tiktok_error_message}</span>
                       </div>
                     )}
-                    {(reel.debug_video_path || reel.tiktok_debug_video_path || reel.screenshot_path || reel.tiktok_screenshot_path) && (
+                    {reel.youtube_error_message && (
+                      <div className="flex items-start gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500 mt-0.5" />
+                        <span className="line-clamp-2">[YouTube] {reel.youtube_error_message}</span>
+                      </div>
+                    )}
+                    {(reel.debug_video_path || reel.tiktok_debug_video_path || reel.youtube_debug_video_path || reel.screenshot_path || reel.tiktok_screenshot_path || reel.youtube_screenshot_path) && (
                       <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-rose-200/50 dark:border-rose-800/40">
                         {reel.debug_video_path && (
                           <button
@@ -612,6 +646,17 @@ export default function ReelsTab({
                             <span>{t('tiktok_video_error')}</span>
                           </button>
                         )}
+                        {reel.youtube_debug_video_path && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDebugVideo(reel.youtube_debug_video_path || null)}
+                            className="inline-flex items-center gap-1.5 font-semibold text-rose-700 hover:text-rose-900 dark:text-rose-300 dark:hover:text-rose-100 hover:underline cursor-pointer"
+                            title={lang === 'vi' ? 'Xem video quá trình lỗi YouTube' : 'Watch YouTube error video'}
+                          >
+                            <Video className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                            <span>{lang === 'vi' ? 'Video lỗi YouTube' : 'YouTube Error Video'}</span>
+                          </button>
+                        )}
                         {reel.screenshot_path && (
                           <button
                             type="button"
@@ -632,6 +677,17 @@ export default function ReelsTab({
                           >
                             <ImageIcon className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                             <span>{lang === 'vi' ? 'Ảnh TikTok' : 'TikTok Screenshot'}</span>
+                          </button>
+                        )}
+                        {reel.youtube_screenshot_path && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewScreenshot(reel.youtube_screenshot_path || null)}
+                            className="inline-flex items-center gap-1.5 font-semibold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:underline cursor-pointer"
+                            title={lang === 'vi' ? 'Xem ảnh chụp màn hình lỗi YouTube' : 'View YouTube error screenshot'}
+                          >
+                            <ImageIcon className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                            <span>{lang === 'vi' ? 'Ảnh YouTube' : 'YouTube Screenshot'}</span>
                           </button>
                         )}
                       </div>
@@ -753,6 +809,23 @@ export default function ReelsTab({
                                 : (lang === 'vi' ? '○ TT: Chờ' : '○ TT: Pending')}
                             </span>
                           )}
+                          {reel.youtube_status === 'published' && reel.youtube_comment_status && (
+                            <span
+                              className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                                reel.youtube_comment_status === 'commented'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : reel.youtube_comment_status === 'failed'
+                                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                  : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+                              }`}
+                            >
+                              {reel.youtube_comment_status === 'commented'
+                                ? (lang === 'vi' ? '✓ YT: Đã bình luận' : '✓ YT: Commented')
+                                : reel.youtube_comment_status === 'failed'
+                                ? (lang === 'vi' ? '✗ YT: Lỗi' : '✗ YT: Failed')
+                                : (lang === 'vi' ? '○ YT: Chờ' : '○ YT: Pending')}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -791,28 +864,28 @@ export default function ReelsTab({
 
                 {/* Bottom Actions - 2-tier Modern Responsive Layout */}
                 <div className="pt-2 border-t border-[var(--app-border)] space-y-2">
-                  {/* Tier 1: Platform Channels (Facebook & TikTok) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* Tier 1: Platform Channels (Facebook, TikTok & YouTube) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 items-stretch">
                     {/* Facebook Channel Box */}
-                    <div className="p-2 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 flex flex-col justify-between gap-1.5">
-                      <div className="flex items-center justify-between gap-1">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
-                          <FacebookIcon className="w-3.5 h-3.5 fill-blue-600 dark:fill-blue-400" />
-                          <span>Facebook Reel</span>
+                    <div className="p-2 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 flex flex-col justify-between gap-2 h-full">
+                      <div className="flex items-center justify-between gap-1 min-h-[20px]">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 min-w-0">
+                          <FacebookIcon className="w-3.5 h-3.5 fill-blue-600 dark:fill-blue-400 shrink-0" />
+                          <span className="truncate">Facebook Reel</span>
                         </div>
                         {reel.fb_post_url ? (
                           <a
                             href={reel.fb_post_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5 font-medium"
+                            className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5 font-medium shrink-0"
                             title={lang === 'vi' ? 'Mở xem Reel trên Facebook' : 'Open Reel on Facebook'}
                           >
                             <span>{lang === 'vi' ? 'Xem Reel' : 'View Reel'}</span>
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         ) : (
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 italic">
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 italic shrink-0">
                             {lang === 'vi' ? 'Chưa có link' : 'No link'}
                           </span>
                         )}
@@ -870,20 +943,20 @@ export default function ReelsTab({
                     </div>
 
                     {/* TikTok Channel Box */}
-                    <div className="p-2 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 flex flex-col justify-between gap-1.5">
-                      <div className="flex items-center justify-between gap-1">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300">
-                          <TikTokIcon className="w-3.5 h-3.5" />
-                          <span>TikTok</span>
+                    <div className="p-2 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 flex flex-col justify-between gap-2 h-full">
+                      <div className="flex items-center justify-between gap-1 min-h-[20px]">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300 min-w-0">
+                          <TikTokIcon className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">TikTok</span>
                           {reel.tiktok_status === 'publishing' && (
-                            <span className="text-[10px] text-amber-500 inline-flex items-center gap-0.5 font-normal">
+                            <span className="text-[10px] text-amber-500 inline-flex items-center gap-0.5 font-normal shrink-0">
                               <Loader2 className="w-2.5 h-2.5 animate-spin" />
                               <span>{lang === 'vi' ? 'Đang đăng...' : 'Posting...'}</span>
                             </span>
                           )}
                           {reel.tiktok_status === 'failed' && (
                             <span
-                              className="text-[10px] text-rose-500 inline-flex items-center gap-0.5 cursor-help font-normal"
+                              className="text-[10px] text-rose-500 inline-flex items-center gap-0.5 cursor-help font-normal shrink-0"
                               title={reel.tiktok_error_message || (lang === 'vi' ? 'Đăng TikTok lỗi' : 'TikTok post failed')}
                             >
                               <AlertCircle className="w-2.5 h-2.5" />
@@ -897,14 +970,14 @@ export default function ReelsTab({
                             href={reel.tiktok_post_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] text-rose-600 dark:text-rose-400 hover:underline inline-flex items-center gap-0.5 font-medium"
+                            className="text-[11px] text-rose-600 dark:text-rose-400 hover:underline inline-flex items-center gap-0.5 font-medium shrink-0"
                             title={lang === 'vi' ? 'Mở xem video trên TikTok' : 'Open video on TikTok'}
                           >
                             <span>TikTok</span>
                             <ExternalLink className="w-3 h-3 text-slate-400" />
                           </a>
                         ) : (
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 italic">
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 italic shrink-0">
                             {lang === 'vi' ? 'Chưa có link' : 'No link'}
                           </span>
                         )}
@@ -953,6 +1026,100 @@ export default function ReelsTab({
                                 <MessageSquare className="w-3 h-3 text-rose-600 dark:text-rose-400 shrink-0" />
                                 <span className="truncate">
                                   {reel.tiktok_comment_status === 'commented'
+                                    ? (lang === 'vi' ? 'Bình luận lại' : 'Re-comment')
+                                    : (lang === 'vi' ? 'Bình luận' : 'Comment')}
+                                </span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* YouTube Shorts Channel Box */}
+                    <div className="p-2 rounded-lg bg-red-50/50 dark:bg-red-950/20 border border-red-200/60 dark:border-red-900/40 flex flex-col justify-between gap-2 h-full">
+                      <div className="flex items-center justify-between gap-1 min-h-[20px]">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-red-700 dark:text-red-300 min-w-0">
+                          <YouTubeIcon className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                          <span className="truncate whitespace-nowrap">YouTube Shorts</span>
+                          {reel.youtube_status === 'publishing' && (
+                            <span className="text-[10px] text-amber-500 inline-flex items-center gap-0.5 font-normal shrink-0">
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                              <span>{lang === 'vi' ? 'Đang đăng...' : 'Posting...'}</span>
+                            </span>
+                          )}
+                          {reel.youtube_status === 'failed' && (
+                            <span
+                              className="text-[10px] text-red-500 inline-flex items-center gap-0.5 cursor-help font-normal shrink-0"
+                              title={reel.youtube_error_message || (lang === 'vi' ? 'Đăng YouTube lỗi' : 'YouTube post failed')}
+                            >
+                              <AlertCircle className="w-2.5 h-2.5" />
+                              <span>{lang === 'vi' ? 'Lỗi' : 'Failed'}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {reel.youtube_post_url ? (
+                          <a
+                            href={reel.youtube_post_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-red-600 dark:text-red-400 hover:underline inline-flex items-center gap-0.5 font-medium shrink-0"
+                            title={lang === 'vi' ? 'Mở xem video trên YouTube Shorts' : 'Open video on YouTube Shorts'}
+                          >
+                            <span>Shorts</span>
+                            <ExternalLink className="w-3 h-3 text-slate-400" />
+                          </a>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 italic shrink-0">
+                            {lang === 'vi' ? 'Chưa có link' : 'No link'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        {onPublishYouTube && (
+                          <button
+                            onClick={() => onPublishYouTube(reel.id)}
+                            disabled={isPublishingThis || isPublishingTikTokThis || isPublishingYouTubeThis}
+                            className="flex-1 min-w-0 btn btn-xs bg-red-600 hover:bg-red-700 text-white font-semibold text-xs py-1.5 inline-flex items-center justify-center gap-1 rounded-lg border border-red-500 shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
+                            title={lang === 'vi' ? 'Xuất bản video lên YouTube Shorts' : 'Publish video to YouTube Shorts'}
+                          >
+                            {isPublishingYouTubeThis ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                                <span className="truncate">Shorts...</span>
+                              </>
+                            ) : (
+                              <>
+                                <YouTubeIcon className="w-3 h-3 shrink-0" />
+                                <span className="truncate">
+                                  {reel.youtube_status === 'published'
+                                    ? (lang === 'vi' ? 'Đăng lại' : 'Republish')
+                                    : (lang === 'vi' ? 'Đăng Shorts' : 'Post Shorts')}
+                                </span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        {(reel.youtube_status === 'published' || reel.youtube_post_url) && onCommentYouTubeReel && (
+                          <button
+                            onClick={() => onCommentYouTubeReel(reel.id)}
+                            disabled={isPublishingThis || isPublishingTikTokThis || isPublishingYouTubeThis || commentingYouTubeId === reel.id}
+                            className="flex-1 min-w-0 btn btn-xs text-xs py-1.5 inline-flex items-center justify-center gap-1 rounded-lg font-semibold border border-red-300 dark:border-red-700/70 bg-white hover:bg-red-50 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
+                            title={lang === 'vi' ? 'Gửi bình luận vào video YouTube Shorts' : 'Comment on YouTube Shorts video'}
+                          >
+                            {commentingYouTubeId === reel.id ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin text-red-500 shrink-0" />
+                                <span className="truncate">{lang === 'vi' ? 'Gửi...' : 'Commenting...'}</span>
+                              </>
+                            ) : (
+                              <>
+                                <MessageSquare className="w-3 h-3 text-red-600 dark:text-red-400 shrink-0" />
+                                <span className="truncate">
+                                  {reel.youtube_comment_status === 'commented'
                                     ? (lang === 'vi' ? 'Bình luận lại' : 'Re-comment')
                                     : (lang === 'vi' ? 'Bình luận' : 'Comment')}
                                 </span>
@@ -1012,6 +1179,19 @@ export default function ReelsTab({
                         >
                           <Video className="w-3 h-3 text-rose-500" />
                           <span>Video TT</span>
+                        </button>
+                      )}
+
+                      {/* Debug Video YouTube */}
+                      {reel.youtube_debug_video_path && reel.youtube_status !== 'failed' && (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDebugVideo(reel.youtube_debug_video_path || null)}
+                          className="btn btn-xs btn-ghost text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 inline-flex items-center gap-1 cursor-pointer"
+                          title={lang === 'vi' ? 'Xem video quay lại quá trình đăng YouTube' : 'View YouTube post process video'}
+                        >
+                          <Video className="w-3 h-3 text-red-500" />
+                          <span>Video YT</span>
                         </button>
                       )}
                     </div>
@@ -1551,6 +1731,35 @@ export default function ReelsTab({
                   className="app-input w-full text-xs p-2 rounded-lg border border-[var(--app-border)] font-mono text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
                 />
               </div>
+
+              {/* YouTube Shorts Link */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-[var(--app-text)] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <YouTubeIcon className="w-3.5 h-3.5 text-red-500" />
+                    <span>{lang === 'vi' ? 'Link YouTube Shorts:' : 'YouTube Shorts Link:'}</span>
+                  </span>
+                  {editYouTubePostUrl && (
+                    <a
+                      href={editYouTubePostUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-red-500 hover:underline inline-flex items-center gap-1"
+                      title={lang === 'vi' ? 'Mở thử liên kết' : 'Test link in new tab'}
+                    >
+                      <span>Mở thử</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </label>
+                <input
+                  type="url"
+                  value={editYouTubePostUrl}
+                  onChange={(e) => setEditYouTubePostUrl(e.target.value)}
+                  placeholder="https://www.youtube.com/shorts/..."
+                  className="app-input w-full text-xs p-2 rounded-lg border border-[var(--app-border)] font-mono text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
+                />
+              </div>
             </div>
 
             {/* Schedule Toggle & Picker */}
@@ -1734,6 +1943,39 @@ export default function ReelsTab({
               </p>
             </div>
 
+            {/* YouTube Shorts Video Link */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--app-text)] flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <YouTubeIcon className="w-3.5 h-3.5 text-red-500" />
+                  <span>{lang === 'vi' ? 'Link YouTube Shorts:' : 'YouTube Shorts Link:'}</span>
+                </span>
+                {correctYouTubeUrl && (
+                  <a
+                    href={correctYouTubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-red-500 hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>{lang === 'vi' ? 'Mở thử' : 'Test open'}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </label>
+              <input
+                type="url"
+                value={correctYouTubeUrl}
+                onChange={(e) => setCorrectYouTubeUrl(e.target.value)}
+                placeholder="https://www.youtube.com/shorts/..."
+                className="app-input w-full text-xs p-2.5 rounded-lg border border-[var(--app-border)] font-mono text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
+              />
+              <p className="text-[10px] text-[var(--app-text-secondary)]">
+                {lang === 'vi'
+                  ? 'Dán link video YouTube Shorts để xem và thực hiện bình luận tự động.'
+                  : 'Paste the YouTube Shorts video link to view and comment.'}
+              </p>
+            </div>
+
             {/* Status updates options */}
             <div className="p-3 rounded-lg app-subcard border border-[var(--app-border)] space-y-2">
               <div className="text-[11px] font-semibold text-[var(--app-text)]">
@@ -1766,6 +2008,21 @@ export default function ReelsTab({
                     {lang === 'vi'
                       ? 'Đánh dấu video TikTok là "Đã xuất bản" (Published) nếu có link'
                       : 'Mark TikTok video as "Published" if link is provided'}
+                  </span>
+                </label>
+              )}
+              {correctingLinkReel.youtube_status !== 'published' && (
+                <label className="flex items-center gap-2 text-xs text-[var(--app-text)] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={correctMarkYouTubePublished}
+                    onChange={(e) => setCorrectMarkYouTubePublished(e.target.checked)}
+                    className="rounded border-[var(--app-border)] text-red-600 focus:ring-red-500"
+                  />
+                  <span>
+                    {lang === 'vi'
+                      ? 'Đánh dấu YouTube Shorts là "Đã xuất bản" (Published) nếu có link'
+                      : 'Mark YouTube Shorts as "Published" if link is provided'}
                   </span>
                 </label>
               )}

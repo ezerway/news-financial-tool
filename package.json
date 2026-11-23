@@ -13,6 +13,7 @@
     "lint": "eslint",
     "fb:login": "tsx scripts/fb-login.ts",
     "tiktok:login": "tsx scripts/tiktok-login.ts",
+    "youtube:login": "tsx scripts/youtube-login.ts",
     "fb:post-reel": "tsx scripts/post-reel.ts",
     "post-reel": "tsx scripts/post-reel.ts",
     "auto-cycle": "tsx scripts/auto-cycle.ts",

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import TikTokIcon from './TikTokIcon';
+import YouTubeIcon from './YouTubeIcon';
 import BackupRestoreSection from './BackupRestoreSection';
 import AdminSecuritySection from './AdminSecuritySection';
 import { useI18n } from '@/context/I18nThemeContext';
@@ -61,7 +62,7 @@ export default function SettingsTab({
   onRefreshData,
 }: SettingsTabProps) {
   const { t, lang } = useI18n();
-  const [activeSection, setActiveSection] = useState<'all' | 'facebook' | 'tiktok' | 'notifications' | 'ai' | 'storage' | 'security' | 'backup' | 'pwa'>('all');
+  const [activeSection, setActiveSection] = useState<'all' | 'facebook' | 'tiktok' | 'youtube' | 'notifications' | 'ai' | 'storage' | 'security' | 'backup' | 'pwa'>('all');
   const [form, setForm] = useState<Record<string, string>>({
     gemini_api_key: settings.gemini_api_key || '',
     fb_target_type: settings.fb_target_type || 'page',
@@ -73,6 +74,8 @@ export default function SettingsTab({
     auto_mode: settings.auto_mode || 'false',
     developer_mode: settings.developer_mode || 'false',
     tiktok_auto_post: settings.tiktok_auto_post || 'true',
+    youtube_auto_post: settings.youtube_auto_post || 'true',
+    youtube_channel_url: settings.youtube_channel_url || '',
     browser_notify_enabled: settings.browser_notify_enabled || 'true',
     telegram_notify_enabled: settings.telegram_notify_enabled || 'false',
     telegram_bot_token: settings.telegram_bot_token || '',
@@ -101,6 +104,8 @@ export default function SettingsTab({
       auto_mode: settings.auto_mode ?? prev.auto_mode,
       developer_mode: settings.developer_mode ?? prev.developer_mode,
       tiktok_auto_post: settings.tiktok_auto_post ?? prev.tiktok_auto_post,
+      youtube_auto_post: settings.youtube_auto_post ?? prev.youtube_auto_post,
+      youtube_channel_url: settings.youtube_channel_url ?? prev.youtube_channel_url,
       browser_notify_enabled: settings.browser_notify_enabled ?? prev.browser_notify_enabled,
       telegram_notify_enabled: settings.telegram_notify_enabled ?? prev.telegram_notify_enabled,
       telegram_bot_token: settings.telegram_bot_token ?? prev.telegram_bot_token,
@@ -139,7 +144,7 @@ export default function SettingsTab({
       if (data.status) {
         setTiktokStatus(data.status);
       }
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -192,6 +197,52 @@ export default function SettingsTab({
       alert((lang === 'vi' ? 'Lỗi: ' : 'Error: ') + err.message);
     } finally {
       setIsSavingTiktokCookies(false);
+    }
+  };
+
+  // YouTube session states
+  const [youtubeStatus, setYoutubeStatus] = useState<{ loggedIn: boolean; message: string; channelUrl?: string }>({
+    loggedIn: false,
+    message: 'Đang kiểm tra...',
+  });
+  const [isOpeningYouTube, setIsOpeningYouTube] = useState(false);
+  const [youtubeMsg, setYoutubeMsg] = useState<string | null>(null);
+
+  const fetchYouTubeStatus = async () => {
+    try {
+      const res = await fetch('/api/youtube-session');
+      const data = await res.json();
+      if (data.status) {
+        setYoutubeStatus(data.status);
+      }
+    } catch { }
+  };
+
+  useEffect(() => {
+    fetchYouTubeStatus();
+  }, []);
+
+  const handleOpenYouTubeBrowser = async () => {
+    setIsOpeningYouTube(true);
+    setYoutubeMsg(null);
+    try {
+      const res = await fetch('/api/youtube-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: form.youtube_channel_url || undefined }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setYoutubeMsg(lang === 'vi' ? 'Trình duyệt YouTube đang mở...' : 'YouTube browser is opening...');
+        setTimeout(() => setYoutubeMsg(null), 8000);
+        setTimeout(fetchYouTubeStatus, 10000);
+      } else {
+        setYoutubeMsg(data.error || (lang === 'vi' ? 'Không thể mở trình duyệt' : 'Could not open browser'));
+      }
+    } catch (err: any) {
+      setYoutubeMsg((lang === 'vi' ? 'Lỗi kết nối: ' : 'Connection error: ') + err.message);
+    } finally {
+      setIsOpeningYouTube(false);
     }
   };
 
@@ -316,7 +367,7 @@ export default function SettingsTab({
       if (data.success) {
         setStorageStats(data);
       }
-    } catch {}
+    } catch { }
     finally {
       setIsLoadingStorage(false);
     }
@@ -413,6 +464,7 @@ export default function SettingsTab({
     { id: 'all', label: lang === 'vi' ? 'Tất cả' : 'All', icon: Layers },
     { id: 'facebook', label: 'Facebook', icon: FacebookIcon },
     { id: 'tiktok', label: 'TikTok', icon: TikTokIcon },
+    { id: 'youtube', label: 'YouTube', icon: YouTubeIcon },
     { id: 'notifications', label: lang === 'vi' ? 'Thông báo' : 'Notifications', icon: Bell },
     { id: 'ai', label: 'Gemini AI', icon: Sparkles },
     { id: 'storage', label: lang === 'vi' ? 'Bộ nhớ' : 'Storage', icon: Trash2 },
@@ -434,11 +486,10 @@ export default function SettingsTab({
                 key={sec.id}
                 type="button"
                 onClick={() => setActiveSection(sec.id)}
-                className={`btn btn-sm ${
-                  isActive
-                    ? 'btn-primary'
-                    : 'btn-ghost text-slate-500'
-                }`}
+                className={`btn btn-sm ${isActive
+                  ? 'btn-primary'
+                  : 'btn-ghost text-slate-500'
+                  }`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span>{sec.label}</span>
@@ -692,6 +743,116 @@ export default function SettingsTab({
           </div>
         )}
 
+        {/* SECTION: YOUTUBE SHORTS INTEGRATION */}
+        {(activeSection === 'all' || activeSection === 'youtube') && (
+          <div className="p-4 sm:p-6 rounded-2xl app-card shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 sm:pb-4 border-b border-[var(--app-border)]">
+              <div className="flex items-center gap-2.5 sm:gap-3.5">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-50 dark:bg-red-600/15 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 flex items-center justify-center shadow-xs shrink-0">
+                  <YouTubeIcon className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-inherit">
+                    {lang === 'vi' ? 'Kết nối YouTube Studio & Shorts' : 'YouTube Studio & Shorts Integration'}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {lang === 'vi'
+                      ? 'Dùng chung session trình duyệt hiện tại. Tự động kiểm tra và switch account sang đúng kênh đã cài đặt.'
+                      : 'Uses current shared browser profile. Automatically verifies and switches account to configured channel handle.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="self-start sm:self-auto px-2.5 py-0.5 rounded-full text-xs font-semibold app-tag shrink-0">
+                {youtubeStatus.loggedIn ? (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                    {lang === 'vi' ? '● Đã kết nối' : '● Connected'}
+                  </span>
+                ) : (
+                  <span className="text-slate-400">
+                    {lang === 'vi' ? '○ Chưa kết nối' : '○ Disconnected'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Channel URL / Handle input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                  <span>{lang === 'vi' ? 'Link kênh YouTube (Channel URL / Handle)' : 'YouTube Channel URL / Handle'}</span>
+                  <span className="text-[11px] text-slate-400 font-normal">Ví dụ: https://www.youtube.com/@kenhtaichinh</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.youtube_channel_url || ''}
+                  onChange={(e) => setForm({ ...form, youtube_channel_url: e.target.value })}
+                  placeholder="https://www.youtube.com/@channel-handle"
+                  className="w-full h-9 px-3 app-input rounded-lg text-xs font-mono placeholder-slate-400 focus:outline-hidden focus:border-indigo-500"
+                />
+                <p className="text-[11px] text-slate-400">
+                  💡 {lang === 'vi'
+                    ? 'Khi post short video, Playwright sẽ mở link này, click [aria-label="Account menu"] để check [id="channel-handle"]. Nếu chưa khớp sẽ tự động bấm "Switch account" để chuyển sang đúng kênh của bạn.'
+                    : 'When posting shorts, Playwright opens this link, checks [id="channel-handle"] under Account menu, and clicks "Switch account" if not matched.'}
+                </p>
+              </div>
+
+              {/* Toggle Tự động đăng Reel lên YouTube Shorts */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-[var(--app-border)]">
+                <div className="space-y-0.5 pr-4">
+                  <span className="text-xs font-semibold text-slate-900 dark:text-white">
+                    {lang === 'vi' ? 'Tự động đăng lên YouTube Shorts khi xuất bản Reel' : 'Auto post to YouTube Shorts when posting Reel'}
+                  </span>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {lang === 'vi'
+                      ? 'Mỗi khi xuất bản Reel, hệ thống sẽ tự động đồng bộ đăng lên kênh YouTube Shorts kèm hashtag #Shorts.'
+                      : 'When publishing Reel, automatically post it as YouTube Shorts with #Shorts hashtag.'}
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={form.youtube_auto_post === 'true'}
+                    onChange={(e) => setForm({ ...form, youtube_auto_post: e.target.checked ? 'true' : 'false' })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-red-600"></div>
+                </label>
+              </div>
+
+              {/* Status message */}
+              {youtubeStatus.message && (
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100/60 dark:bg-slate-800/40 p-2.5 rounded-lg border border-[var(--app-border)]">
+                  💡 {youtubeStatus.message}
+                </div>
+              )}
+
+              {/* Action Button */}
+              <div className="pt-1 flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleOpenYouTubeBrowser}
+                  disabled={isOpeningYouTube}
+                  className="btn btn-md bg-red-600 hover:bg-red-700 text-white font-semibold text-xs border-red-500 shadow-xs"
+                >
+                  <YouTubeIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span>
+                    {isOpeningYouTube
+                      ? (lang === 'vi' ? 'Đang mở trình duyệt...' : 'Opening browser...')
+                      : (lang === 'vi' ? 'Mở trình duyệt quản lý kênh YouTube' : 'Open YouTube Channel Browser')}
+                  </span>
+                </button>
+
+                {youtubeMsg && (
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium animate-in fade-in">
+                    ✓ {youtubeMsg}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* SECTION: PUSH NOTIFICATIONS (Browser & Telegram) */}
         {(activeSection === 'all' || activeSection === 'notifications') && (
           <div className="p-4 sm:p-6 rounded-2xl app-card shadow-xs space-y-5">
@@ -915,11 +1076,10 @@ export default function SettingsTab({
 
                     {telegramTestMsg && (
                       <span
-                        className={`text-xs font-medium ${
-                          telegramTestMsg.type === 'success'
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-rose-600 dark:text-rose-400'
-                        }`}
+                        className={`text-xs font-medium ${telegramTestMsg.type === 'success'
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-rose-600 dark:text-rose-400'
+                          }`}
                       >
                         {telegramTestMsg.type === 'success' ? '✓ ' : '✕ '}
                         {telegramTestMsg.text}
@@ -1007,11 +1167,10 @@ export default function SettingsTab({
 
                     {slackTestMsg && (
                       <span
-                        className={`text-xs font-medium ${
-                          slackTestMsg.type === 'success'
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-rose-600 dark:text-rose-400'
-                        }`}
+                        className={`text-xs font-medium ${slackTestMsg.type === 'success'
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-rose-600 dark:text-rose-400'
+                          }`}
                       >
                         {slackTestMsg.type === 'success' ? '✓ ' : '✕ '}
                         {slackTestMsg.text}
@@ -1074,9 +1233,8 @@ export default function SettingsTab({
               <button
                 type="button"
                 onClick={() => setForm({ ...form, auto_mode: form.auto_mode === 'true' ? 'false' : 'true' })}
-                className={`w-12 h-6 sm:w-14 sm:h-7 flex items-center rounded-full p-1 transition-colors duration-200 shrink-0 ${
-                  form.auto_mode === 'true' ? 'bg-indigo-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
-                }`}
+                className={`w-12 h-6 sm:w-14 sm:h-7 flex items-center rounded-full p-1 transition-colors duration-200 shrink-0 ${form.auto_mode === 'true' ? 'bg-indigo-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+                  }`}
               >
                 <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white shadow-md"></div>
               </button>
@@ -1098,9 +1256,8 @@ export default function SettingsTab({
               <button
                 type="button"
                 onClick={() => setForm({ ...form, developer_mode: form.developer_mode === 'true' ? 'false' : 'true' })}
-                className={`w-12 h-6 sm:w-14 sm:h-7 flex items-center rounded-full p-1 transition-colors duration-200 shrink-0 ${
-                  form.developer_mode === 'true' ? 'bg-amber-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
-                }`}
+                className={`w-12 h-6 sm:w-14 sm:h-7 flex items-center rounded-full p-1 transition-colors duration-200 shrink-0 ${form.developer_mode === 'true' ? 'bg-amber-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+                  }`}
               >
                 <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white shadow-md"></div>
               </button>
@@ -1291,11 +1448,10 @@ export default function SettingsTab({
           {/* Notification Messages */}
           {storageMsg && (
             <div
-              className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                storageMsg.type === 'success'
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                  : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-              }`}
+              className={`p-3 rounded-xl text-xs flex items-center gap-2 ${storageMsg.type === 'success'
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                }`}
             >
               <span>{storageMsg.type === 'success' ? '✓' : '⚠️'}</span>
               <span>{storageMsg.text}</span>

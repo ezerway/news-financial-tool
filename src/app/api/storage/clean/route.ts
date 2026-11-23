@@ -53,7 +53,6 @@ export async function POST(req: NextRequest) {
     if (type === 'old_reels' || type === 'reels') {
       const result = await cleanOldReelsStorage(days);
       return NextResponse.json({
-        success: true,
         type: 'old_reels',
         days,
         ...result,
@@ -63,7 +62,6 @@ export async function POST(req: NextRequest) {
     // Mặc định: Dọn dẹp toàn bộ screenshots và videos
     const result = await cleanAllStorage();
     return NextResponse.json({
-      success: true,
       type: 'all',
       ...result,
     });
