@@ -21,7 +21,7 @@
    - Tự động trích xuất các xu hướng nóng theo từng quốc gia (Việt Nam `VN`, Mỹ `US`, Singapore `SG`...).
    - Bộ lọc thông minh chuyên biệt cho chủ đề **Tài chính / Kinh tế / Chứng khoán / Bất động sản / Vàng & Ngoại tệ**.
    - Tự động tìm kiếm và trích xuất liên kết các bài báo nguồn chính thống (Publisher News Sources).
-   - Cơ chế tự động sửa lỗi bất đồng bộ (`DB Auto-Repair`) và lọc bài trùng lặp (`Dedup engine`).
+   - Cơ chế tự động sửa lỗi bất đồng bộ (`DB Auto-Repair`) và lọc bài trùng lặp trong phạm vi 24 giờ (`withinDays = 1`).
 
 2. **Sáng tạo nội dung với AI (Google Gemini 2.5 / 2.0)**:
    - Tự động viết bài đăng Facebook chuẩn SEO & Engagement (Hook giật tít, tóm tắt điểm tin, bullet points, CTA, hashtag).
@@ -39,6 +39,8 @@
    - Quản lý kho video ngắn, tải lên trực tiếp từ Dashboard hoặc qua CLI `pnpm post-reel`.
    - Hỗ trợ **hẹn giờ đăng tự động (Scheduled Reels)** chạy ngầm bởi daemon.
    - Đăng đồng thời lên **Facebook Reels** và **TikTok Web**.
+   - **Tự động xử lý xác thực 2FA TikTok**: Tự động kết nối Gmail qua IMAP để đọc mã OTP xác thực đăng nhập TikTok và điền vào ô xác thực không cần can thiệp thủ công.
+   - **Hỗ trợ màn hình ảo Xvfb & VNC**: Tích hợp màn hình ảo `:99` và VNC Server trên cổng 5900 cho phép quan sát hoặc giải Captcha trực tiếp từ máy tính cá nhân.
    - **Tự động chèn nhạc nền TikTok**: Tự động tìm kiếm và áp dụng nhạc nền thịnh hành (Background Music) từ thư viện TikTok Studio giúp tăng đề xuất mà không bị bản quyền âm thanh.
    - **Auto-Comment Reel & Video**: Tự động trích xuất link công khai sau khi đăng và gửi bình luận đầu tiên (First Comment) trên cả Facebook Reels và video TikTok (qua TikTok Studio). Hỗ trợ tách nhiều bình luận liên tiếp với dấu `|`.
    - **Giao diện di động 2 tầng hiện đại**: Thẻ Reel tự động tối ưu hiển thị tách biệt 2 khung mạng xã hội Facebook & TikTok, bubble bình luận trực quan đánh số thứ tự `#1`, `#2`, và thanh công cụ tiện ích gọn gàng.
@@ -151,6 +153,7 @@ Hệ thống lưu trữ phiên làm việc trong `storage/fb-session.json`. Có 
 | `pnpm build` | Làm sạch lock cũ (`prebuild`) và build production bundle |
 | `pnpm start` | Khởi chạy Next.js production server |
 | `pnpm fb:login` | Đăng nhập tài khoản Facebook để lấy session (hỗ trợ GUI và Cookie CLI) |
+| `pnpm tiktok:login` | Đăng nhập tài khoản TikTok để lấy session (nhập cookie chuỗi hoặc JSON) |
 | `pnpm auto-cycle` | Chạy 1 chu kỳ cào Google Trends $\to$ AI viết bài $\to$ lưu bản nháp vào Database |
 | `pnpm auto-cycle --publish` | Chạy 1 chu kỳ hoàn chỉnh và **đăng ngay lập tức** lên Facebook |
 | `pnpm auto-cycle --limit 3` | Giới hạn xử lý tối đa 3 xu hướng trong chu kỳ này |
@@ -160,6 +163,9 @@ Hệ thống lưu trữ phiên làm việc trong `storage/fb-session.json`. Có 
 | `pnpm post-reel -f <video> -c "Cap"` | Đăng nhanh một video Reel qua tham số dòng lệnh |
 | `pnpm post-reel -f <video> --schedule "2026-11-15 10:00"` | Hẹn giờ đăng video Reel |
 | `pnpm cron-daemon --publish` | Khởi chạy Daemon chạy ngầm liên tục theo chu kỳ cấu hình |
+| `pnpm pm2:start` | Khởi chạy toàn bộ hệ thống bằng PM2 (`trendpulse-xvfb`, `trendpulse-web`, `trendpulse-cron`) |
+| `pnpm pm2:restart` | Khởi động lại toàn bộ các dịch vụ PM2 sau khi cập nhật code |
+| `pnpm pm2:stop` | Tạm dừng toàn bộ các tiến trình PM2 |
 | `node scripts/playwright.js <url> [sel]` | Tiện ích cào DOM/HTML chống rò rỉ bộ nhớ (zero memory leak) |
 
 ---
@@ -234,7 +240,10 @@ pnpm build
 
 ### 4. Quản lý dịch vụ bằng PM2 (`ecosystem.config.js`)
 
-File `ecosystem.config.js` đã được tối ưu sẵn chạy **Web Dashboard** và **Cron Daemon**:
+File `ecosystem.config.js` đã được tối ưu sẵn chạy đồng thời 3 dịch vụ:
+- `trendpulse-xvfb`: Màn hình ảo Xvfb `:99` kèm VNC Server (port 5900)
+- `trendpulse-web`: Ứng dụng Web Dashboard Next.js (port 3000)
+- `trendpulse-cron`: Daemon chạy ngầm tự động theo dõi xu hướng và video hẹn giờ
 
 ```bash
 # Khởi động toàn bộ hệ thống
@@ -247,11 +256,13 @@ pm2 startup
 
 **Các lệnh giám sát thông dụng:**
 ```bash
-pm2 status                  # Xem trạng thái hoạt động
+pm2 status                  # Xem trạng thái hoạt động của 3 dịch vụ
 pm2 logs                    # Xem toàn bộ logs
 pm2 logs trendpulse-cron    # Xem logs chu kỳ tự động đăng bài
 pm2 restart all             # Khởi động lại tất cả
 ```
+
+> 💡 **Mẹo**: Nếu cần giải captcha hoặc quan sát màn hình ảo trên VPS, mở SSH tunnel từ máy cá nhân `ssh -L 5900:localhost:5900 root@<IP_VPS>` và kết nối VNC bằng `open vnc://localhost:5900` (mật khẩu: `trendpulse`).
 
 ### 5. Cấu hình Nginx Reverse Proxy & SSL (HTTPS cho PWA)
 
@@ -318,6 +329,8 @@ news-financial-tool/
 │   ├── auto-cycle.ts                # CLI chạy chu kỳ tự động hóa
 │   ├── cron-daemon.ts               # Background Daemon chạy chu kỳ & quét video hẹn giờ
 │   ├── fb-login.ts                  # CLI đăng nhập và lưu session Facebook
+│   ├── tiktok-login.ts              # CLI kết nối tài khoản TikTok qua cookie/JSON
+│   ├── run-xvfb.js                  # Khởi chạy màn hình ảo Xvfb :99 và VNC Server
 │   ├── post-reel.ts                 # CLI đăng Reel lên Facebook và TikTok
 │   ├── playwright.js                # Công cụ cào DOM/HTML Playwright chống rò rỉ RAM
 │   └── clean-locks.js               # Tiện ích dọn dẹp file lock trước khi build

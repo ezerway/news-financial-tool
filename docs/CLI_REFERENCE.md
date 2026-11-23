@@ -10,11 +10,15 @@ Tài liệu hướng dẫn chi tiết toàn bộ các tập lệnh CLI (Command 
 |---|---|---|
 | `pnpm dev` | `next dev` | Chạy máy chủ Next.js phát triển tại cổng 3000 |
 | `pnpm build` | `scripts/clean-locks.js` + `next build` | Tự động làm sạch lock cũ và build production |
-| `pnpm start` | `next start` | Khởi chạy máy chủ Next.js đã build |
+| `pnpm start` | `next start` | Khởi chạy máy chủ Next.js production đã build |
 | `pnpm fb:login` | `scripts/fb-login.ts` | Đăng nhập tài khoản Facebook để lấy session cookie |
+| `pnpm tiktok:login` | `scripts/tiktok-login.ts` | Đăng nhập tài khoản TikTok Web để lưu session cookie |
 | `pnpm auto-cycle` | `scripts/auto-cycle.ts` | Chạy chu kỳ cào Google Trends và tạo bài viết |
 | `pnpm post-reel` | `scripts/post-reel.ts` | Đăng video ngắn (Reel) lên Facebook & TikTok |
 | `pnpm cron-daemon` | `scripts/cron-daemon.ts` | Daemon chạy ngầm chu kỳ và quét video hẹn giờ |
+| `pnpm pm2:start` | `pm2 start ecosystem.config.js` | Khởi chạy toàn bộ hệ thống bằng PM2 |
+| `pnpm pm2:restart`| `pm2 restart ecosystem.config.js` | Khởi động lại toàn bộ dịch vụ PM2 |
+| `pnpm pm2:stop` | `pm2 stop ecosystem.config.js` | Dừng toàn bộ dịch vụ PM2 |
 
 ---
 
@@ -34,9 +38,25 @@ pnpm fb:login
 
 ---
 
-### 2.2. Chu kỳ Tự động hóa (`scripts/auto-cycle.ts`)
+### 2.2. Đăng nhập TikTok (`scripts/tiktok-login.ts`)
 
-Cào dữ liệu từ Google Trends, phân loại tin tức, dùng Gemini viết bài và đưa vào database hoặc xuất bản ngay.
+Lưu trữ phiên làm việc TikTok vào `storage/tiktok-session.json` và thư mục user data `storage/tiktok-user-data`.
+
+```bash
+pnpm tiktok:login
+```
+
+**Hành vi:**
+- Khởi chạy Chromium (hỗ trợ hiển thị trên Desktop hoặc qua màn hình ảo Xvfb trên VPS).
+- Mở trang đăng nhập `https://www.tiktok.com/login`.
+- Bạn tiến hành đăng nhập bằng mã QR, tài khoản hoặc Google.
+- Script tự động theo dõi khi bạn đăng nhập thành công vào trang cá nhân TikTok, tự động trích xuất danh sách cookies cần thiết và lưu vào file `storage/tiktok-session.json`.
+
+---
+
+### 2.3. Chu kỳ Tự động hóa (`scripts/auto-cycle.ts`)
+
+Cào dữ liệu từ Google Trends, phân loại tin tức tài chính, kiểm tra trùng lặp trong 24 giờ, dùng Gemini viết bài và đưa vào database hoặc xuất bản ngay.
 
 ```bash
 # Cào và lưu bài nháp vào database (không đăng ngay)
@@ -66,7 +86,7 @@ pnpm auto-cycle --trend <TREND_ID> --publish
 
 ---
 
-### 2.3. Đăng Video Reel / TikTok (`scripts/post-reel.ts`)
+### 2.4. Đăng Video Reel / TikTok (`scripts/post-reel.ts`)
 
 Đăng video ngắn lên Facebook Reels và tùy chọn đồng bộ sang TikTok Web.
 
@@ -97,7 +117,7 @@ pnpm post-reel -f "./video.mp4" -c "Nội dung" --headless
 
 ---
 
-### 2.4. Daemon Chạy ngầm (`scripts/cron-daemon.ts`)
+### 2.5. Daemon Chạy ngầm (`scripts/cron-daemon.ts`)
 
 Tiến trình chạy nền 24/7 thực hiện 2 nhiệm vụ song song:
 1. Chạy chu kỳ cào tin và đăng bài định kỳ (mặc định mỗi 60 phút).
@@ -121,7 +141,18 @@ pnpm cron-daemon --publish --limit 2 --interval 60
 
 ---
 
-### 2.5. Tiện ích Cào HTML chống Memory Leak (`scripts/playwright.js`)
+### 2.6. Màn hình ảo & VNC Server cho VPS (`scripts/run-xvfb.js`)
+
+Khởi chạy màn hình ảo Xvfb trên DISPLAY `:99` (độ phân giải 1920x1080x24) và dịch vụ `x11vnc` trên cổng `5900` phục vụ giải Captcha và đối soát trực quan từ xa trên VPS Linux.
+
+```bash
+node scripts/run-xvfb.js
+```
+*Lưu ý: Script này được PM2 tự động quản lý qua service `trendpulse-xvfb` trong `ecosystem.config.js` trên môi trường Linux.*
+
+---
+
+### 2.7. Tiện ích Cào HTML chống Memory Leak (`scripts/playwright.js`)
 
 Công cụ dòng lệnh độc lập sử dụng Chromium Playwright đã được tối ưu chống rò rỉ bộ nhớ, chống tiến trình mồ côi (zombie processes) và chặn tài nguyên nặng.
 

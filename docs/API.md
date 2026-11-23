@@ -105,6 +105,28 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   }
   ```
 
+### 2.5. Xóa xu hướng theo mã ID (`DELETE /api/trends/[id]`)
+- Xóa một xu hướng cụ thể. Tự động kiểm tra các bài viết liên kết (`posts`): nếu bài viết là bản nháp hoặc lỗi thì xóa kèm dọn dẹp file screenshot/video; nếu bài viết đã xuất bản thành công trên Fanpage thì giữ lại lịch sử bài viết và chỉ gỡ liên kết `trend_id`.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Đã xóa xu hướng thành công"
+  }
+  ```
+
+### 2.6. Xóa xu hướng theo trạng thái hoặc hàng loạt (`DELETE /api/trends`)
+- **Query Parameters**:
+  - `status`: Lọc xóa theo trạng thái (`discovered`, `drafted`, `published`)
+  - `all`: `true` nếu muốn xóa toàn bộ xu hướng trong database
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Đã xóa 12 xu hướng có trạng thái discovered"
+  }
+  ```
+
 ---
 
 ## 3. Sáng tạo Nội dung AI (`/api/generate`)
@@ -178,7 +200,51 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   }
   ```
 
-### 4.4. Kích hoạt toàn bộ chu kỳ tự động (`POST /api/run-cycle`)
+### 4.4. Gửi bình luận nguồn cho bài viết đã đăng (`POST /api/comment`)
+- Kích hoạt trình tự động Playwright truy cập trực tiếp vào bài viết Facebook đã đăng (hoặc theo URL truyền vào) để gửi bình luận nguồn tin.
+- **Request Body**:
+  ```json
+  {
+    "postId": "post_1234...",
+    "postUrl": "https://www.facebook.com/permalink.php?story_fbid=...", // Tùy chọn, ưu tiên dùng link này nếu truyền
+    "headless": true
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "result": {
+      "success": true,
+      "commentId": "987654321",
+      "screenshotPath": "storage/screenshots/comment_123.png"
+    }
+  }
+  ```
+
+### 4.5. Xóa một bài viết cụ thể (`DELETE /api/posts/[id]`)
+- Xóa bài viết khỏi cơ sở dữ liệu và tự động dọn dẹp các tệp ảnh screenshot và video liên quan trong thư mục `storage/`.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Đã xóa bài viết thành công"
+  }
+  ```
+
+### 4.6. Xóa danh sách bài viết theo trạng thái (`DELETE /api/posts`)
+- **Query Parameters**:
+  - `status`: Lọc trạng thái cần xóa (`draft`, `scheduled`, `failed`, hoặc `all` - mặc định: `failed`)
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "count": 5,
+    "message": "Đã xóa 5 bài viết và dọn dẹp file thành công"
+  }
+  ```
+
+### 4.7. Kích hoạt toàn bộ chu kỳ tự động (`POST /api/run-cycle`)
 - **Request Body**:
   ```json
   {
@@ -267,7 +333,7 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   }
   ```
 
-### 5.8. Cập nhật nội dung & Sửa link Reel thủ công (`PUT /api/reels/[id]`)
+### 5.8. Cập nhật nội dung & Sửa link Reel thủ công (`PUT /api/reels/[id]`, `PATCH /api/reels/[id]`)
 - Cho phép chỉnh sửa caption, chuỗi bình luận, lịch hẹn giờ hoặc bù đắp liên kết video Facebook / TikTok thủ công khi đăng qua kênh ngoài.
 - **Request Body**:
   ```json
@@ -287,6 +353,15 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   {
     "success": true,
     "message": "Cập nhật Reel thành công!"
+  }
+  ```
+
+### 5.9. Xóa video Reel (`DELETE /api/reels/[id]`)
+- Xóa bản ghi video Reel trong database và tự động xóa file video gốc trong `storage/videos/` nếu có.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true
   }
   ```
 
@@ -336,7 +411,6 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   {
     "url": "https://www.tiktok.com/login"
   }
-  ```
   ```
 
 ---
@@ -391,3 +465,22 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
     "olderThanDays": 7
   }
   ```
+
+### 8.4. Xuất / Nhập Profile Session trình duyệt (`GET /api/backup/profile`, `POST /api/backup/profile`)
+- **Xuất (GET)**:
+  - `GET /api/backup/profile`: Tải về file `fb-session.json`.
+  - `GET /api/backup/profile?type=zip`: Tải về gói `.zip` chứa toàn bộ thư mục `browser-profile`.
+- **Nhập (POST)**:
+  - `multipart/form-data` với trường `file`: Cho phép tải lên file JSON session hoặc file ZIP để khôi phục nhanh trên môi trường VPS mới.
+
+---
+
+## 9. Tài nguyên Đa phương tiện (`/api/screenshots`, `/api/videos`)
+
+### 9.1. Lấy ảnh chụp màn hình đối soát (`GET /api/screenshots/[filename]`)
+- Trả về hình ảnh bằng chứng (image/png) chụp màn hình sau mỗi phiên đăng bài Facebook, đăng Reel hoặc đăng TikTok.
+- Hỗ trợ cache `public, max-age=3600` và kiểm tra chống Directory Traversal.
+
+### 9.2. Xem hoặc tải video kiểm soát (`GET /api/videos/[filename]`)
+- Phát trực tiếp video ghi hình quá trình Playwright tương tác (video/mp4) phục vụ kiểm tra và rà soát lỗi giao diện hoặc captcha.
+

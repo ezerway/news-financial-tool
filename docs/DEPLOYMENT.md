@@ -40,12 +40,12 @@ sudo apt install -y nodejs git build-essential
 sudo npm install -g pnpm pm2
 ```
 
-### Bước 3: Cài đặt thư viện hệ thống cho Playwright Chromium
+### Bước 3: Cài đặt thư viện hệ thống cho Playwright Chromium & Màn hình ảo Xvfb
 ```bash
 sudo apt install -y \
   libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
   libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
-  libgbm1 libasound2t64 || sudo apt install -y libasound2
+  libgbm1 libasound2t64 xvfb x11vnc || sudo apt install -y libasound2 xvfb x11vnc
 ```
 
 ---
@@ -93,32 +93,49 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 
 ## 4. Thiết lập Phiên Đăng nhập Facebook & TikTok trên VPS
 
-Vì VPS không có màn hình (headless), bạn có 2 cách thiết lập phiên làm việc:
+TrendPulse hỗ trợ cả phương thức đăng nhập qua Cookie CLI và giao diện đồ họa thông qua màn hình ảo:
 
-### Cách 1: Sử dụng CLI Đăng nhập Cookie (Khuyên dùng)
-```bash
-pnpm fb:login
-```
-- Khi chạy trên VPS, script sẽ nhận diện môi trường không có GUI và hiển thị yêu cầu:
-  - Dán cookie `c_user`
-  - Dán cookie `xs`
-*(Hai cookie này lấy dễ dàng bằng cách mở Facebook trên máy cá nhân $\to$ F12 $\to$ tab Application $\to$ Cookies).*
-- Script sẽ tự động tạo file `storage/fb-session.json`.
+### 4.1. Đăng nhập Facebook
+- **Cách 1: Sử dụng CLI Đăng nhập Cookie (Khuyên dùng trên VPS)**:
+  ```bash
+  pnpm fb:login
+  ```
+  - Khi chạy trên VPS, script sẽ nhận diện môi trường và hiển thị prompt yêu cầu:
+    - Dán cookie `c_user`
+    - Dán cookie `xs`
+  *(Hai cookie này lấy dễ dàng bằng cách mở Facebook trên máy cá nhân $\to$ F12 $\to$ tab Application $\to$ Cookies).*
+  - Script sẽ tự động tạo file `storage/fb-session.json`.
 
-### Cách 2: Tải file `fb-session.json` qua Web Dashboard
-1. Khởi chạy Dashboard.
-2. Đăng nhập vào trang quản trị.
-3. Vào tab **Cài đặt** $\to$ mục **Sao lưu & Khôi phục** $\to$ Tải file `fb-session.json` tạo từ máy cá nhân lên.
+- **Cách 2: Tải file `fb-session.json` qua Web Dashboard**:
+  1. Khởi chạy Dashboard.
+  2. Đăng nhập vào trang quản trị.
+  3. Vào tab **Cài đặt** $\to$ mục **Sao lưu & Khôi phục** $\to$ Tải file `fb-session.json` tạo từ máy cá nhân lên.
+
+### 4.2. Đăng nhập TikTok
+- **Cách 1: Sử dụng CLI Đăng nhập TikTok**:
+  ```bash
+  pnpm tiktok:login
+  ```
+  - Cho phép dán cookie chuỗi `sessionid` hoặc dán mảng JSON cookie xuất từ extension Cookie-Editor trên máy tính cá nhân.
+  - Script sẽ tự động lưu vào `storage/tiktok-session.json`.
+
+- **Cách 2: Cấu hình qua Web Dashboard**:
+  - Truy cập tab **Reels & Video** $\to$ bấm **"Kết nối TikTok"** $\to$ dán JSON cookie hoặc session id.
 
 ---
 
 ## 5. Build Ứng dụng & Quản lý bằng PM2
 
+Hệ thống cấu hình sẵn 3 tiến trình PM2 trong `ecosystem.config.js`:
+1. **`trendpulse-xvfb`**: Chạy màn hình ảo Xvfb `:99` (1440x900) kèm `x11vnc` (port 5900) trên Linux VPS, đảm bảo Playwright luôn có display context đầy đủ mà không bị lỗi crash headless.
+2. **`trendpulse-web`**: Ứng dụng Next.js Dashboard phục vụ người dùng quản trị (Port 3000).
+3. **`trendpulse-cron`**: Tiến trình daemon chạy ngầm liên tục theo chu kỳ, quét xu hướng, viết bài và đăng Reels đúng lịch hẹn.
+
 ```bash
 # 1. Build ứng dụng Next.js
 pnpm build
 
-# 2. Khởi chạy bằng file cấu hình ecosystem có sẵn
+# 2. Khởi chạy toàn bộ hệ thống bằng ecosystem
 pm2 start ecosystem.config.js
 
 # 3. Cấu hình tự khởi động cùng hệ thống khi VPS reboot
@@ -128,14 +145,16 @@ pm2 startup
 
 ### Các lệnh vận hành PM2 hàng ngày:
 ```bash
-# Kiểm tra tình trạng hoạt động
+# Kiểm tra tình trạng hoạt động (sẽ hiển thị 3 tiến trình: trendpulse-xvfb, trendpulse-web, trendpulse-cron)
 pm2 status
 
 # Theo dõi nhật ký thời gian thực
 pm2 logs
 
-# Chỉ xem log của daemon tự động cào và đăng bài
+# Xem log của từng dịch vụ cụ thể
+pm2 logs trendpulse-web
 pm2 logs trendpulse-cron
+pm2 logs trendpulse-xvfb
 
 # Khởi động lại hệ thống
 pm2 restart ecosystem.config.js
@@ -143,6 +162,18 @@ pm2 restart ecosystem.config.js
 # Dừng toàn bộ hệ thống
 pm2 stop all
 ```
+
+### 5.1. Kết nối Màn hình ảo VNC giải quyết Captcha từ xa (Tùy chọn)
+Khi Facebook hoặc TikTok yêu cầu giải Captcha dạng kéo mảnh ghép / chọn hình ảnh trên VPS:
+1. **Mở SSH Tunnel trên máy cá nhân**:
+   ```bash
+   ssh -L 5900:localhost:5900 root@<IP_VPS>
+   ```
+2. **Mở ứng dụng VNC Viewer trên máy tính cá nhân**:
+   - macOS: Mở Terminal gõ `open vnc://localhost:5900` (hoặc mở Screen Sharing).
+   - Windows: Mở phần mềm **TigerVNC** hoặc **RealVNC Viewer** kết nối tới `localhost:5900`.
+   - **Mật khẩu VNC**: `trendpulse`
+3. Bạn sẽ nhìn thấy trực tiếp màn hình ảo Xvfb `:99` của VPS để quan sát Playwright chạy hoặc tự tay kéo mảnh ghép giải Captcha tương tác trong thời gian thực!
 
 ---
 
