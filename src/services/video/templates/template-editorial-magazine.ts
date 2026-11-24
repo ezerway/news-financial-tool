@@ -114,7 +114,7 @@ export function buildEditorialMagazineHtml(script: VideoSlideScript, options: Te
       z-index: 10;
       width: 100%;
       height: 100%;
-      padding: 46px 36px 30px 36px;
+      padding: 46px 52px 30px 52px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;

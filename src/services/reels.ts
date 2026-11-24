@@ -268,19 +268,9 @@ export async function publishReelById(
     };
   }
 
-  // Atomically lock status to publishing to avoid double posting
-  const lock = db.prepare(
-    "UPDATE reels SET status = 'publishing', error_message = NULL WHERE id = ? AND status != 'publishing'"
+  db.prepare(
+    "UPDATE reels SET status = 'publishing', error_message = NULL WHERE id = ?"
   ).run(id);
-
-  if (lock.changes === 0) {
-    return {
-      success: false,
-      message: 'Reel đang trong quá trình xuất bản hoặc không thể cập nhật.',
-      filePath: reel.video_path,
-      error: 'Already publishing',
-    };
-  }
 
   logActivity('INFO', 'POST_REEL', `Bắt đầu xuất bản Reel [${id}]: ${reel.video_filename}`);
 
@@ -468,19 +458,9 @@ export async function publishTikTokReelById(
     throw new Error(`Không tìm thấy Reel với ID: ${id}`);
   }
 
-  // Atomically lock tiktok_status to publishing to avoid double posting
-  const lock = db.prepare(
-    "UPDATE reels SET tiktok_status = 'publishing', tiktok_error_message = NULL WHERE id = ? AND tiktok_status != 'publishing'"
+  db.prepare(
+    "UPDATE reels SET tiktok_status = 'publishing', tiktok_error_message = NULL WHERE id = ?"
   ).run(id);
-
-  if (lock.changes === 0) {
-    return {
-      success: false,
-      message: 'Video TikTok đang trong quá trình xuất bản hoặc không thể cập nhật.',
-      filePath: reel.video_path,
-      error: 'Already publishing',
-    };
-  }
 
   // Kiểm tra kết nối tài khoản TikTok trước khi post
   const ttStatus = await checkTikTokLoginStatus();
@@ -615,18 +595,9 @@ export async function publishYouTubeReelById(
     };
   }
 
-  // Atomically lock youtube_status to avoid double posting
-  const lock = db.prepare(
-    "UPDATE reels SET youtube_status = 'publishing', youtube_error_message = NULL WHERE id = ? AND youtube_status != 'publishing'"
+  db.prepare(
+    "UPDATE reels SET youtube_status = 'publishing', youtube_error_message = NULL WHERE id = ?"
   ).run(id);
-
-  if (lock.changes === 0) {
-    return {
-      success: false,
-      message: 'YouTube Shorts đang trong quá trình xuất bản hoặc không thể cập nhật.',
-      error: 'Already publishing',
-    };
-  }
 
   if (!fs.existsSync(reel.video_path)) {
     const altPath = path.join(process.cwd(), 'storage', 'videos', path.basename(reel.video_path));
@@ -763,18 +734,9 @@ export async function publishZaloReelById(
     throw new Error(`Không tìm thấy Reel với ID: ${id}`);
   }
 
-  // Atomically lock zalo_status to avoid double posting
-  const lock = db.prepare(
-    "UPDATE reels SET zalo_status = 'publishing', zalo_error_message = NULL WHERE id = ? AND zalo_status != 'publishing'"
+  db.prepare(
+    "UPDATE reels SET zalo_status = 'publishing', zalo_error_message = NULL WHERE id = ?"
   ).run(id);
-
-  if (lock.changes === 0) {
-    return {
-      success: false,
-      message: 'Zalo Video đang trong quá trình xuất bản hoặc không thể cập nhật.',
-      error: 'Already publishing',
-    };
-  }
 
   // Kiểm tra kết nối tài khoản Zalo Video trước khi post
   const zlStatus = await checkZaloLoginStatus();
@@ -931,10 +893,6 @@ export async function processScheduledReels(): Promise<{
     for (let i = 0; i < dueReels.length; i++) {
       const reel = dueReels[i];
       const result = await publishReelById(reel.id, { headless: true, syncOtherPlatforms: true });
-      if (!result.success && result.error === 'Already publishing') {
-        // Was picked up by another process
-        continue;
-      }
 
       processed++;
       if (result.success) {

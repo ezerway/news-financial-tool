@@ -450,7 +450,8 @@ export async function postCommentsOnTikTokStudio(
   const comments = commentRaw
     .split(/\r?\n|\|/)
     .map((c) => replaceDateWildcards(c.trim()))
-    .filter(Boolean);
+    .filter(Boolean)
+    .reverse();
 
   if (comments.length === 0) {
     return { success: true, total: 0, sent: 0 };
@@ -1370,7 +1371,8 @@ export async function commentTikTokVideoOnly(
     const commentItems = comment
       .split(/\r?\n|\|/)
       .map((c) => replaceDateWildcards(c.trim()))
-      .filter(Boolean);
+      .filter(Boolean)
+      .reverse();
 
     if (commentItems.length === 0) {
       throw new Error('Nội dung bình luận trống.');

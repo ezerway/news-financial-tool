@@ -590,7 +590,8 @@ export async function executePublishAndComment(
       const comments = convertCommentLinks(post.comment_content || '')
         .split(/\r?\n|\|/)
         .map((c) => replaceDateWildcards(c.trim()))
-        .filter(Boolean);
+        .filter(Boolean)
+        .reverse();
 
       if (comments.length === 0) {
         logActivity('INFO', 'COMMENT', 'Không có nội dung bình luận để gửi.');
@@ -886,7 +887,8 @@ export async function executeCommentOnly(
     const comments = convertCommentLinks(post.comment_content || '')
       .split(/\r?\n|\|/)
       .map((c) => replaceDateWildcards(c.trim()))
-      .filter(Boolean);
+      .filter(Boolean)
+      .reverse();
 
     if (comments.length === 0) {
       logActivity('INFO', 'COMMENT', '[Comment Only] Không có nội dung bình luận để gửi.');

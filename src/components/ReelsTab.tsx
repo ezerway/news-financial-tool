@@ -819,7 +819,8 @@ export default function ReelsTab({
                     const comments = reel.comment_content
                       .split(/\r?\n|\|/)
                       .map((c) => c.trim())
-                      .filter(Boolean);
+                      .filter(Boolean)
+                      .reverse();
 
                     return (
                       <div className="space-y-1.5 bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-lg border border-[var(--app-border)]">

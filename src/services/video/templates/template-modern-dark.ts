@@ -137,7 +137,7 @@ export function buildModernDarkHtml(script: VideoSlideScript, options: TemplateR
       z-index: 10;
       width: 100%;
       height: 100%;
-      padding: 44px 34px 28px 34px;
+      padding: 44px 50px 28px 50px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;

@@ -688,7 +688,8 @@ export async function postCommentsOnYouTubePage(
   const comments = rawComment
     .split(/\r?\n|\|/)
     .map((c) => replaceDateWildcards(c.trim()))
-    .filter(Boolean);
+    .filter(Boolean)
+    .reverse();
 
   if (comments.length === 0) {
     return { success: true, sentCount: 0, total: 0 };
@@ -802,7 +803,8 @@ export async function commentYouTubeVideoOnly(
     const comments = comment
       .split(/\r?\n|\|/)
       .map((c) => replaceDateWildcards(c.trim()))
-      .filter(Boolean);
+      .filter(Boolean)
+      .reverse();
 
     if (comments.length === 0) {
       return { success: true, message: 'Nội dung bình luận trống' };

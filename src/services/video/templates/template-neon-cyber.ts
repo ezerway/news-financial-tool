@@ -166,7 +166,7 @@ export function buildNeonCyberHtml(script: VideoSlideScript, options: TemplateRe
       left: 0;
       right: 0;
       height: 74px;
-      padding: 0 34px;
+      padding: 0 48px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -225,7 +225,7 @@ export function buildNeonCyberHtml(script: VideoSlideScript, options: TemplateRe
       left: 0;
       right: 0;
       height: 48px;
-      padding: 0 34px;
+      padding: 0 48px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -285,7 +285,7 @@ export function buildNeonCyberHtml(script: VideoSlideScript, options: TemplateRe
     .safe-area {
       width: 100%;
       height: 100%;
-      padding: 98px 34px 68px 34px;
+      padding: 98px 48px 68px 48px;
       display: flex;
       flex-direction: column;
       justify-content: center;

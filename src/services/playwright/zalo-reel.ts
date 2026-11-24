@@ -53,7 +53,8 @@ export async function postCommentsOnZaloPage(
   const comments = rawComment
     .split(/\r?\n|\|/)
     .map((c) => replaceDateWildcards(c.trim()))
-    .filter(Boolean);
+    .filter(Boolean)
+    .reverse();
 
   if (comments.length === 0) {
     return { success: true, sentCount: 0, total: 0 };

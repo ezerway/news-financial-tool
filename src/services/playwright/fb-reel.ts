@@ -788,7 +788,8 @@ export async function postCommentsOnFacebookPage(
   const commentItems = finalComment
     .split('|')
     .map((c) => c.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .reverse();
 
   if (commentItems.length === 0) {
     return { success: true, sentCount: 0, total: 0 };
