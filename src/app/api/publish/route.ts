@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
+import db, { isAutoVideoPublishAfterPostEnabled, logActivity } from '@/lib/db';
 import { executePublishAndComment } from '@/services/playwright/fb-automation';
+import { handleAutoVideoGenerationAndPublishing } from '@/services/video/auto-video-publisher';
 import { PostItem } from '@/types';
 
 export async function POST(req: NextRequest) {
@@ -32,6 +33,15 @@ export async function POST(req: NextRequest) {
       headless: headless !== undefined ? Boolean(headless) : true,
       force: Boolean(force),
     });
+
+    // Nếu bài viết xuất bản thành công và bật setting tự động tạo & đăng video
+    if (result.success && post.trend_id && isAutoVideoPublishAfterPostEnabled()) {
+      handleAutoVideoGenerationAndPublishing(post.trend_id, {
+        headless: headless !== undefined ? Boolean(headless) : true,
+      }).catch((vErr) => {
+        logActivity('WARN', 'AUTO_VIDEO', `[Background] Lỗi tự tạo/đăng video cho xu hướng [${post.trend_id}]: ${vErr.message}`);
+      });
+    }
 
     return NextResponse.json({ success: result.success, result });
   } catch (err: any) {

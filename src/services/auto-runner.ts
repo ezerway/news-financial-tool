@@ -1,9 +1,10 @@
 import { crawlGoogleTrends, getStoredTrends, findExactNewsSources } from './crawler';
 import { generateSocialPost } from './ai-generator';
 import { executePublishAndComment } from './playwright/fb-automation';
-import db, { getSetting, logActivity, repairInconsistentTrendStatuses } from '@/lib/db';
+import db, { getSetting, logActivity, repairInconsistentTrendStatuses, isAutoVideoPublishAfterPostEnabled } from '@/lib/db';
 import { TrendItem, NewsArticle } from '@/types';
 import { findDuplicatePost, getExistingPosts } from './dedup';
+import { handleAutoVideoGenerationAndPublishing } from './video/auto-video-publisher';
 
 export interface AutomationCycleOptions {
   forcePublish?: boolean;
@@ -177,6 +178,31 @@ export async function runAutomationCycle(options?: AutomationCycleOptions) {
     const successfulCount = results.filter((r) => r.success).length;
     logActivity('SUCCESS', 'AUTO', `Hoàn thành chu kỳ tự động hóa: ${successfulCount}/${candidates.length} bài thành công.`);
 
+    // Tự động tạo và đăng Video 9:16 cho các bài vừa xuất bản thành công (nếu bật cấu hình)
+    if (shouldPublish && isAutoVideoPublishAfterPostEnabled()) {
+      const publishedTrends = results.filter((r) => r.success && r.trend?.id);
+      if (publishedTrends.length > 0) {
+        logActivity(
+          'INFO',
+          'AUTO',
+          `[Tự động tạo & đăng Video] Bắt đầu xử lý video cho ${publishedTrends.length} bài viết vừa xuất bản thành công...`
+        );
+
+        for (let idx = 0; idx < publishedTrends.length; idx++) {
+          const item = publishedTrends[idx];
+          try {
+            await handleAutoVideoGenerationAndPublishing(item.trend.id);
+          } catch (vErr: any) {
+            logActivity('WARN', 'AUTO', `Lỗi tạo/đăng video cho [${item.trend.title}]: ${vErr.message}`);
+          }
+
+          if (idx < publishedTrends.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 15000));
+          }
+        }
+      }
+    }
+
     return {
       success: successfulCount > 0,
       totalRequested: targetLimit,
@@ -256,6 +282,13 @@ export async function retryTrendSourcesAndPublish(options: RetryTrendOptions): P
     if (forcePublish) {
       logActivity('INFO', 'RETRY', `[Chạy lại] Đang xuất bản bài viết ${post.id} lên Facebook Fanpage...`);
       const pubResult = await executePublishAndComment(post);
+
+      if (pubResult.success && isAutoVideoPublishAfterPostEnabled()) {
+        handleAutoVideoGenerationAndPublishing(trendItem.id).catch((vErr) => {
+          logActivity('WARN', 'RETRY', `Lỗi tạo/đăng video cho [${trendItem.title}]: ${vErr.message}`);
+        });
+      }
+
       return {
         success: pubResult.success,
         trend: trendItem,

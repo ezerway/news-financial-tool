@@ -507,6 +507,15 @@ export function getDefaultVideoTemplate(): string {
   }
 }
 
+export function isAutoVideoPublishAfterPostEnabled(): boolean {
+  try {
+    const val = getSetting('auto_video_publish_after_post', 'false');
+    return val === 'true' || val === '1';
+  } catch {
+    return false;
+  }
+}
+
 export function resolveHeadless(preferredHeadless = true): boolean {
   if (isDeveloperMode()) {
     // Trên Linux VPS không có màn hình GUI ($DISPLAY), nếu chưa cấu hình Xvfb ảo thì bắt buộc chạy headless để tránh crash

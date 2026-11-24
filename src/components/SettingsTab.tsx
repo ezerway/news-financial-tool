@@ -94,6 +94,7 @@ export default function SettingsTab({
     posts_per_cycle: settings.posts_per_cycle || '1',
     redirect_proxy_enabled: settings.redirect_proxy_enabled || 'true',
     video_default_template: settings.video_default_template || 'random',
+    auto_video_publish_after_post: settings.auto_video_publish_after_post || 'false',
   });
 
   useEffect(() => {
@@ -125,6 +126,7 @@ export default function SettingsTab({
       posts_per_cycle: settings.posts_per_cycle ?? prev.posts_per_cycle,
       redirect_proxy_enabled: settings.redirect_proxy_enabled ?? prev.redirect_proxy_enabled,
       video_default_template: settings.video_default_template ?? prev.video_default_template,
+      auto_video_publish_after_post: settings.auto_video_publish_after_post ?? prev.auto_video_publish_after_post,
     }));
   }, [settings]);
 
@@ -1373,6 +1375,30 @@ export default function SettingsTab({
                 <option value="editorial_magazine">💎 {lang === 'vi' ? 'Tạp chí Sang trọng (Editorial Luxury)' : 'Editorial Luxury'}</option>
                 <option value="neon_cyber">⚡ {lang === 'vi' ? 'Cyberpunk Neon (Crypto & Tech)' : 'Cyberpunk Neon'}</option>
               </select>
+            </div>
+
+            {/* Auto Create & Publish Video After Post */}
+            <div className="flex items-center justify-between p-3.5 rounded-xl app-tag gap-3 border border-fuchsia-500/20 bg-fuchsia-500/5">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-inherit flex items-center gap-1.5 text-fuchsia-700 dark:text-fuchsia-400">
+                  <Film className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{lang === 'vi' ? 'Tự động tạo & đăng Video 9:16 sau khi post bài' : 'Auto Create & Post 9:16 Video After Publishing'}</span>
+                </div>
+                <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                  {lang === 'vi'
+                    ? 'Sau khi bài viết xuất bản thành công lên Facebook (qua Auto-Runner hoặc đăng tay), tự động tóm tắt 3-7 ý, render video dọc và đăng lên Facebook Reels, YouTube Shorts, TikTok, Zalo Video.'
+                    : 'Automatically generate 3-7 key points video and publish to Facebook Reels, YouTube Shorts, TikTok, Zalo Video after post is published.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, auto_video_publish_after_post: form.auto_video_publish_after_post === 'true' ? 'false' : 'true' })}
+                className={`w-12 h-6 sm:w-14 sm:h-7 flex items-center rounded-full p-1 transition-colors duration-200 shrink-0 ${
+                  form.auto_video_publish_after_post === 'true' ? 'bg-fuchsia-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+                }`}
+              >
+                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white shadow-md"></div>
+              </button>
             </div>
 
             {/* Posts Per Automation Cycle */}
