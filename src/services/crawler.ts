@@ -203,7 +203,7 @@ export function saveTrendsToDatabase(trends: TrendItem[], geo: string): number {
  */
 export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[]> {
   const targetGeo = geo === 'all' ? 'VN' : geo;
-  const targetUrl = `https://trends.google.com/trending?category=3&hours=4&geo=${encodeURIComponent(targetGeo)}&hl=en-US`;
+  const targetUrl = `https://trends.google.com/trending?category=3&hours=4&geo=${encodeURIComponent(targetGeo)}`;
   logActivity('INFO', 'CRAWL', `[Google Trends Finance] Đang mở danh mục Kinh doanh & Tài chính (category=3) cho ${targetGeo}: ${targetUrl}`);
 
   const proxy = await getCrawlerProxy();
@@ -253,7 +253,7 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
 
     logActivity('INFO', 'CRAWL', `[Google Trends Finance] Tìm thấy ${count} xu hướng. Đang trích xuất bài báo nguồn từ section "In the news"...`);
 
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(10000);
     const trendList: TrendItem[] = [];
     const limit = Math.min(count, 20);
     const existingPosts = getExistingPosts();
