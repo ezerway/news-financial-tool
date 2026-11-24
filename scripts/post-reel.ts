@@ -145,7 +145,7 @@ async function main() {
     console.log('📝 Nội dung Reel: (Trống)');
   }
   if (selectedComment) {
-    const splitComments = selectedComment.split('|').map((s) => s.trim()).filter(Boolean);
+    const splitComments = selectedComment.split(/\r?\n|\|/).map((s) => s.trim()).filter(Boolean);
     if (splitComments.length > 1) {
       console.log(`💬 Bình luận tự động (${splitComments.length} bình luận):`);
       splitComments.forEach((c, idx) => console.log(`   ${idx + 1}. "${c}"`));
@@ -208,32 +208,32 @@ async function main() {
     // BƯỚC 1: XUẤT BẢN LÊN FACEBOOK REEL
     // ==========================================
     const fbStatus = await checkFacebookLoginStatus();
-  if (!fbStatus.loggedIn) {
-    const errorMsg = fbStatus.message || 'Chưa có file phiên đăng nhập Facebook (storage/fb-session.json)';
-    console.warn(`\n⚠️ [Facebook] ${errorMsg}. Bỏ qua đăng Facebook.`);
-    db.prepare(`
+    if (!fbStatus.loggedIn) {
+      const errorMsg = fbStatus.message || 'Chưa có file phiên đăng nhập Facebook (storage/fb-session.json)';
+      console.warn(`\n⚠️ [Facebook] ${errorMsg}. Bỏ qua đăng Facebook.`);
+      db.prepare(`
       UPDATE reels
       SET status = 'failed',
           error_message = ?
       WHERE id = ?
     `).run(errorMsg, reel.id);
-  } else {
-    try {
-      const result = await uploadFacebookReel({
-        reelId: reel.id,
-        filePath: selectedFilePath,
-        content: selectedContent,
-        comment: selectedComment || '',
-        headless: effectiveHeadless,
-        keepOpen: false,
-      });
+    } else {
+      try {
+        const result = await uploadFacebookReel({
+          reelId: reel.id,
+          filePath: selectedFilePath,
+          content: selectedContent,
+          comment: selectedComment || '',
+          headless: effectiveHeadless,
+          keepOpen: false,
+        });
 
-      if (result.success) {
-        const commentStatus = selectedComment
-          ? (result.commentSuccess ? 'commented' : 'failed')
-          : null;
+        if (result.success) {
+          const commentStatus = selectedComment
+            ? (result.commentSuccess ? 'commented' : 'failed')
+            : null;
 
-        db.prepare(`
+          db.prepare(`
           UPDATE reels
           SET status = 'published',
               published_at = CURRENT_TIMESTAMP,
@@ -245,27 +245,27 @@ async function main() {
           WHERE id = ?
         `).run(result.reelUrl || null, commentStatus, result.debugVideoPath || null, reel.id);
 
-        logActivity(
-          'SUCCESS',
-          'POST_REEL',
-          result.reelUrl
-            ? `Xuất bản Reel Facebook thành công qua CLI [${reel.id}]: ${reel.video_filename} (Link: ${result.reelUrl})`
-            : `Xuất bản Reel Facebook thành công qua CLI [${reel.id}]: ${reel.video_filename}`
-        );
+          logActivity(
+            'SUCCESS',
+            'POST_REEL',
+            result.reelUrl
+              ? `Xuất bản Reel Facebook thành công qua CLI [${reel.id}]: ${reel.video_filename} (Link: ${result.reelUrl})`
+              : `Xuất bản Reel Facebook thành công qua CLI [${reel.id}]: ${reel.video_filename}`
+          );
 
-        console.log('\n======================================================');
-        console.log('🎉 THÀNH CÔNG: ' + result.message);
-        if (result.reelUrl) {
-          console.log('🔗 Link Reel: ' + result.reelUrl);
-        }
-        if (result.debugVideoPath) {
-          console.log('🎥 Video ghi lại quá trình đăng (Dev Mode): ' + result.debugVideoPath);
-        }
-        console.log(`📊 Bản ghi bảng reels [${reel.id}] đã được cập nhật: status = 'published'`);
-        console.log('======================================================\n');
-      } else {
-        const errorMsg = result.error || result.message;
-        db.prepare(`
+          console.log('\n======================================================');
+          console.log('🎉 THÀNH CÔNG: ' + result.message);
+          if (result.reelUrl) {
+            console.log('🔗 Link Reel: ' + result.reelUrl);
+          }
+          if (result.debugVideoPath) {
+            console.log('🎥 Video ghi lại quá trình đăng (Dev Mode): ' + result.debugVideoPath);
+          }
+          console.log(`📊 Bản ghi bảng reels [${reel.id}] đã được cập nhật: status = 'published'`);
+          console.log('======================================================\n');
+        } else {
+          const errorMsg = result.error || result.message;
+          db.prepare(`
           UPDATE reels
           SET status = 'failed',
               error_message = ?,
@@ -274,98 +274,98 @@ async function main() {
           WHERE id = ?
         `).run(errorMsg, result.screenshotPath || null, result.debugVideoPath || null, reel.id);
 
-        logActivity('ERROR', 'POST_REEL', `Xuất bản Reel qua CLI [${reel.id}] thất bại: ${errorMsg}`);
+          logActivity('ERROR', 'POST_REEL', `Xuất bản Reel qua CLI [${reel.id}] thất bại: ${errorMsg}`);
 
-        console.error('\n❌ Facebook Thất bại:', result.message);
-        if (result.screenshotPath) {
-          console.error('📸 Ảnh chụp màn hình lỗi:', result.screenshotPath);
+          console.error('\n❌ Facebook Thất bại:', result.message);
+          if (result.screenshotPath) {
+            console.error('📸 Ảnh chụp màn hình lỗi:', result.screenshotPath);
+          }
+          if (result.debugVideoPath) {
+            console.error('🎥 Video ghi lại thao tác lỗi:', result.debugVideoPath);
+          }
+          console.error(`📊 Bản ghi bảng reels [${reel.id}] đã được cập nhật: status = 'failed'`);
         }
-        if (result.debugVideoPath) {
-          console.error('🎥 Video ghi lại thao tác lỗi:', result.debugVideoPath);
-        }
-        console.error(`📊 Bản ghi bảng reels [${reel.id}] đã được cập nhật: status = 'failed'`);
-      }
-    } catch (err: any) {
-      const errorMsg = err.message || String(err);
-      db.prepare(`
+      } catch (err: any) {
+        const errorMsg = err.message || String(err);
+        db.prepare(`
         UPDATE reels
         SET status = 'failed',
             error_message = ?
         WHERE id = ?
       `).run(errorMsg, reel.id);
 
-      logActivity('ERROR', 'POST_REEL', `Lỗi nghiêm trọng khi xuất bản Facebook Reel qua CLI [${reel.id}]: ${errorMsg}`);
-      console.error('\n❌ Lỗi Facebook:', errorMsg);
-    }
-  }
-
-  // ==========================================
-  // BƯỚC 2: XUẤT BẢN LÊN TIKTOK THEO THỨ TỰ
-  // (Độc lập, không phụ thuộc vào kết quả Facebook)
-  // ==========================================
-  if (isTikTokAutoPostEnabled()) {
-    console.log('🎬 [TikTok] Đang đồng bộ đăng video lên TikTok...');
-    try {
-      const ttResult = await publishTikTokReelById(reel.id, { headless });
-      if (ttResult.success) {
-        console.log('🎉 [TikTok] Đăng TikTok thành công!');
-        if (ttResult.tiktokUrl) {
-          console.log('🔗 Link TikTok: ' + ttResult.tiktokUrl);
-        }
-      } else {
-        console.warn('⚠️ [TikTok] Đăng TikTok thất bại:', ttResult.error || ttResult.message);
+        logActivity('ERROR', 'POST_REEL', `Lỗi nghiêm trọng khi xuất bản Facebook Reel qua CLI [${reel.id}]: ${errorMsg}`);
+        console.error('\n❌ Lỗi Facebook:', errorMsg);
       }
-    } catch (ttErr: any) {
-      console.warn('⚠️ [TikTok] Lỗi ngoại lệ TikTok:', ttErr.message);
     }
-  }
 
-  // ==========================================
-  // BƯỚC 3: XUẤT BẢN LÊN YOUTUBE SHORTS THEO THỨ TỰ
-  // (Độc lập, không phụ thuộc vào kết quả Facebook / TikTok)
-  // ==========================================
-  if (isYouTubeAutoPostEnabled()) {
-    console.log('🎬 [YouTube] Đang đồng bộ đăng video ngắn lên YouTube Shorts...');
-    try {
-      const ytResult = await publishYouTubeReelById(reel.id, { headless });
-      if (ytResult.success) {
-        console.log('🎉 [YouTube] Đăng YouTube Shorts thành công!');
-        if (ytResult.youtubeUrl) {
-          console.log('🔗 Link YouTube Shorts: ' + ytResult.youtubeUrl);
+    // ==========================================
+    // BƯỚC 2: XUẤT BẢN LÊN TIKTOK THEO THỨ TỰ
+    // (Độc lập, không phụ thuộc vào kết quả Facebook)
+    // ==========================================
+    if (isTikTokAutoPostEnabled()) {
+      console.log('🎬 [TikTok] Đang đồng bộ đăng video lên TikTok...');
+      try {
+        const ttResult = await publishTikTokReelById(reel.id, { headless });
+        if (ttResult.success) {
+          console.log('🎉 [TikTok] Đăng TikTok thành công!');
+          if (ttResult.tiktokUrl) {
+            console.log('🔗 Link TikTok: ' + ttResult.tiktokUrl);
+          }
+        } else {
+          console.warn('⚠️ [TikTok] Đăng TikTok thất bại:', ttResult.error || ttResult.message);
         }
-      } else {
-        console.warn('⚠️ [YouTube] Đăng YouTube Shorts thất bại:', ytResult.error || ytResult.message);
+      } catch (ttErr: any) {
+        console.warn('⚠️ [TikTok] Lỗi ngoại lệ TikTok:', ttErr.message);
       }
-    } catch (ytErr: any) {
-      console.warn('⚠️ [YouTube] Lỗi ngoại lệ YouTube Shorts:', ytErr.message);
     }
-  }
 
-  // ==========================================
-  // BƯỚC 4: XUẤT BẢN LÊN ZALO VIDEO THEO THỨ TỰ
-  // (Độc lập, không phụ thuộc vào kết quả Facebook / TikTok / YouTube)
-  // ==========================================
-  if (isZaloAutoPostEnabled()) {
-    console.log('🎬 [Zalo Video] Đang đồng bộ đăng video lên Zalo Video Creator...');
-    try {
-      const zlResult = await publishZaloReelById(reel.id, { headless });
-      if (zlResult.success) {
-        console.log('🎉 [Zalo Video] Đăng Zalo Video thành công!');
-        if (zlResult.zaloUrl) {
-          console.log('🔗 Link Zalo Video: ' + zlResult.zaloUrl);
+    // ==========================================
+    // BƯỚC 3: XUẤT BẢN LÊN YOUTUBE SHORTS THEO THỨ TỰ
+    // (Độc lập, không phụ thuộc vào kết quả Facebook / TikTok)
+    // ==========================================
+    if (isYouTubeAutoPostEnabled()) {
+      console.log('🎬 [YouTube] Đang đồng bộ đăng video ngắn lên YouTube Shorts...');
+      try {
+        const ytResult = await publishYouTubeReelById(reel.id, { headless });
+        if (ytResult.success) {
+          console.log('🎉 [YouTube] Đăng YouTube Shorts thành công!');
+          if (ytResult.youtubeUrl) {
+            console.log('🔗 Link YouTube Shorts: ' + ytResult.youtubeUrl);
+          }
+        } else {
+          console.warn('⚠️ [YouTube] Đăng YouTube Shorts thất bại:', ytResult.error || ytResult.message);
         }
-      } else {
-        console.warn('⚠️ [Zalo Video] Đăng Zalo Video thất bại:', zlResult.error || zlResult.message);
+      } catch (ytErr: any) {
+        console.warn('⚠️ [YouTube] Lỗi ngoại lệ YouTube Shorts:', ytErr.message);
       }
-    } catch (zlErr: any) {
-      console.warn('⚠️ [Zalo Video] Lỗi ngoại lệ Zalo Video:', zlErr.message);
     }
-  }
 
-  if (!headless) {
-    console.log('💡 Trình duyệt đang được giữ mở để bạn kiểm tra nội dung hoặc bấm Đăng (Publish).');
-    await askQuestion(rl, '👉 Nhấn Enter để đóng trình duyệt và hoàn tất...');
-  }
+    // ==========================================
+    // BƯỚC 4: XUẤT BẢN LÊN ZALO VIDEO THEO THỨ TỰ
+    // (Độc lập, không phụ thuộc vào kết quả Facebook / TikTok / YouTube)
+    // ==========================================
+    if (isZaloAutoPostEnabled()) {
+      console.log('🎬 [Zalo Video] Đang đồng bộ đăng video lên Zalo Video Creator...');
+      try {
+        const zlResult = await publishZaloReelById(reel.id, { headless });
+        if (zlResult.success) {
+          console.log('🎉 [Zalo Video] Đăng Zalo Video thành công!');
+          if (zlResult.zaloUrl) {
+            console.log('🔗 Link Zalo Video: ' + zlResult.zaloUrl);
+          }
+        } else {
+          console.warn('⚠️ [Zalo Video] Đăng Zalo Video thất bại:', zlResult.error || zlResult.message);
+        }
+      } catch (zlErr: any) {
+        console.warn('⚠️ [Zalo Video] Lỗi ngoại lệ Zalo Video:', zlErr.message);
+      }
+    }
+
+    if (!headless) {
+      console.log('💡 Trình duyệt đang được giữ mở để bạn kiểm tra nội dung hoặc bấm Đăng (Publish).');
+      await askQuestion(rl, '👉 Nhấn Enter để đóng trình duyệt và hoàn tất...');
+    }
   } finally {
     rl.close();
     process.exit(0);

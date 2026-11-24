@@ -51,7 +51,7 @@ export async function postCommentsOnZaloPage(
   notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void = () => { }
 ): Promise<{ success: boolean; sentCount: number; total: number; error?: string }> {
   const comments = rawComment
-    .split('|')
+    .split(/\r?\n|\|/)
     .map((c) => replaceDateWildcards(c.trim()))
     .filter(Boolean);
 

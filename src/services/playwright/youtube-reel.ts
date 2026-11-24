@@ -566,7 +566,7 @@ export async function postCommentsOnYouTubePage(
   notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void = () => { }
 ): Promise<{ success: boolean; sentCount: number; total: number; error?: string }> {
   const comments = rawComment
-    .split('|')
+    .split(/\r?\n|\|/)
     .map((c) => replaceDateWildcards(c.trim()))
     .filter(Boolean);
 
@@ -680,7 +680,7 @@ export async function commentYouTubeVideoOnly(
 
   try {
     const comments = comment
-      .split('|')
+      .split(/\r?\n|\|/)
       .map((c) => replaceDateWildcards(c.trim()))
       .filter(Boolean);
 

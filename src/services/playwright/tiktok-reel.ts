@@ -448,7 +448,7 @@ export async function postCommentsOnTikTokStudio(
   isDirectAfterPost: boolean = false
 ): Promise<{ success: boolean; total: number; sent: number; error?: string }> {
   const comments = commentRaw
-    .split('|')
+    .split(/\r?\n|\|/)
     .map((c) => replaceDateWildcards(c.trim()))
     .filter(Boolean);
 
@@ -1368,7 +1368,7 @@ export async function commentTikTokVideoOnly(
 
     // Tách các bình luận theo dấu |
     const commentItems = comment
-      .split('|')
+      .split(/\r?\n|\|/)
       .map((c) => replaceDateWildcards(c.trim()))
       .filter(Boolean);
 

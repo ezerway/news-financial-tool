@@ -439,12 +439,12 @@ export async function executePublishAndComment(
         const suggestionCount = await mentionsSuggestions.first().locator('ul li').count();
 
         if (suggestionCount > 1) {
-          await mentionsSuggestions.first().locator('ul li div').nth(1).click().catch(() => {});
+          await mentionsSuggestions.first().locator('ul li div').nth(1).click().catch(() => { });
         } else {
-          await mentionsSuggestions.first().locator('ul li div').first().click().catch(() => {});
+          await mentionsSuggestions.first().locator('ul li div').first().click().catch(() => { });
         }
         await page.waitForTimeout(500);
-        await mentionsSuggestions.first().waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+        await mentionsSuggestions.first().waitFor({ state: 'hidden', timeout: 5000 }).catch(() => { });
         logActivity('INFO', 'PUBLISH', 'Đã đóng popup Mentions suggestions thành công.');
       }
     } catch {
@@ -588,7 +588,7 @@ export async function executePublishAndComment(
 
     try {
       const comments = convertCommentLinks(post.comment_content || '')
-        .split('|')
+        .split(/\r?\n|\|/)
         .map((c) => replaceDateWildcards(c.trim()))
         .filter(Boolean);
 
@@ -599,7 +599,7 @@ export async function executePublishAndComment(
 
         // Đảm bảo đang ở trang có thể bình luận (ưu tiên postInsightsUrl)
         if (!page.url().includes('content/insights') && postInsightsUrl) {
-          await page.goto(postInsightsUrl, { waitUntil: 'domcontentloaded', timeout: 35000 }).catch(() => {});
+          await page.goto(postInsightsUrl, { waitUntil: 'domcontentloaded', timeout: 35000 }).catch(() => { });
           await page.waitForTimeout(2500);
         }
 
@@ -643,7 +643,7 @@ export async function executePublishAndComment(
           }
 
           if (commentBox && (await commentBox.isVisible({ timeout: 4000 }).catch(() => false))) {
-            await commentBox.scrollIntoViewIfNeeded().catch(() => {});
+            await commentBox.scrollIntoViewIfNeeded().catch(() => { });
             await commentBox.click();
             await page.waitForTimeout(600);
             await page.keyboard.insertText(cmt);
@@ -884,7 +884,7 @@ export async function executeCommentOnly(
     await handleProfileSwitcherModal(page, pageName);
 
     const comments = convertCommentLinks(post.comment_content || '')
-      .split('|')
+      .split(/\r?\n|\|/)
       .map((c) => replaceDateWildcards(c.trim()))
       .filter(Boolean);
 
@@ -909,7 +909,7 @@ export async function executeCommentOnly(
         }
 
         if (await commentBox.isVisible({ timeout: 5000 }).catch(() => false)) {
-          await commentBox.scrollIntoViewIfNeeded().catch(() => {});
+          await commentBox.scrollIntoViewIfNeeded().catch(() => { });
           await commentBox.click();
           await page.waitForTimeout(600);
           await page.keyboard.insertText(cmt);
