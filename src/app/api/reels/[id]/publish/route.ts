@@ -18,7 +18,7 @@ export async function POST(
       // Body is optional
     }
 
-    const result = await publishReelById(id, { headless });
+    const result = await publishReelById(id, { headless, syncOtherPlatforms: false });
     return NextResponse.json({ success: result.success, result });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

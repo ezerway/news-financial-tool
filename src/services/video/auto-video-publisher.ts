@@ -59,7 +59,7 @@ export async function handleAutoVideoGenerationAndPublishing(
     );
 
     const headless = options.headless !== undefined ? options.headless : true;
-    const reel = getReelById(reelId);
+    let reel = getReelById(reelId);
     if (!reel) {
       return { success: false, error: 'Reel record missing' };
     }
@@ -68,7 +68,7 @@ export async function handleAutoVideoGenerationAndPublishing(
     if (reel.status !== 'published') {
       try {
         logActivity('INFO', 'AUTO_VIDEO', `[Facebook Reel] Đang tự động đăng video [${reelId}]...`);
-        const fbRes = await publishReelById(reelId, { headless });
+        const fbRes = await publishReelById(reelId, { headless, syncOtherPlatforms: false });
         if (fbRes.success) {
           logActivity('SUCCESS', 'AUTO_VIDEO', `[Facebook Reel] Đăng thành công! Link: ${fbRes.reelUrl || 'N/A'}`);
         } else {
@@ -80,6 +80,7 @@ export async function handleAutoVideoGenerationAndPublishing(
     }
 
     // 3. Xuất bản lên TikTok (nếu bật cấu hình)
+    reel = getReelById(reelId) || reel;
     if (isTikTokAutoPostEnabled() && reel.tiktok_status !== 'published') {
       try {
         logActivity('INFO', 'AUTO_VIDEO', `[TikTok] Đang tự động đăng video ngắn [${reelId}]...`);
@@ -95,6 +96,7 @@ export async function handleAutoVideoGenerationAndPublishing(
     }
 
     // 4. Xuất bản lên YouTube Shorts (nếu bật cấu hình - kèm tự chèn nhạc YouTube Studio)
+    reel = getReelById(reelId) || reel;
     if (isYouTubeAutoPostEnabled() && reel.youtube_status !== 'published') {
       try {
         logActivity('INFO', 'AUTO_VIDEO', `[YouTube Shorts] Đang tự động đăng video ngắn [${reelId}]...`);
@@ -110,6 +112,7 @@ export async function handleAutoVideoGenerationAndPublishing(
     }
 
     // 5. Xuất bản lên Zalo Video (nếu bật cấu hình)
+    reel = getReelById(reelId) || reel;
     if (isZaloAutoPostEnabled() && reel.zalo_status !== 'published') {
       try {
         logActivity('INFO', 'AUTO_VIDEO', `[Zalo Video] Đang tự động đăng video [${reelId}]...`);

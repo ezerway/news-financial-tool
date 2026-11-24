@@ -555,6 +555,8 @@ export default function ReelsTab({
                 (publishingYouTubeId && publishingYouTubeId === reel.id) || reel.youtube_status === 'publishing';
               const isPublishingZaloThis =
                 (publishingZaloId && publishingZaloId === reel.id) || reel.zalo_status === 'publishing';
+              const isPublishingAny =
+                isPublishingThis || isPublishingTikTokThis || isPublishingYouTubeThis || isPublishingZaloThis;
               const isDeletingThis = isDeletingId === reel.id;
               const isExpanded = !!expandedCaptions[reel.id];
 
@@ -966,7 +968,7 @@ export default function ReelsTab({
                         <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => onPublishReel(reel.id)}
-                            disabled={isPublishingThis || isPublishingTikTokThis}
+                            disabled={isPublishingAny}
                             className="flex-1 min-w-0 btn btn-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs py-1.5 inline-flex items-center justify-center gap-1 rounded-lg border border-blue-500 shadow-2xs active:scale-[0.98] transition-all"
                             title={t('publish_reel_tooltip')}
                           >
@@ -1062,7 +1064,7 @@ export default function ReelsTab({
                           {onPublishTikTok && (
                             <button
                               onClick={() => onPublishTikTok(reel.id)}
-                              disabled={isPublishingThis || isPublishingTikTokThis}
+                              disabled={isPublishingAny}
                               className="flex-1 min-w-0 btn btn-xs bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs py-1.5 inline-flex items-center justify-center gap-1 rounded-lg border border-rose-500 shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
                               title={lang === 'vi' ? 'Xuất bản video lên TikTok' : 'Publish video to TikTok'}
                             >
@@ -1159,7 +1161,7 @@ export default function ReelsTab({
                           {onPublishYouTube && (
                             <button
                               onClick={() => onPublishYouTube(reel.id)}
-                              disabled={isPublishingThis || isPublishingTikTokThis || isPublishingYouTubeThis}
+                              disabled={isPublishingAny}
                               className="flex-1 min-w-0 btn btn-xs bg-red-600 hover:bg-red-700 text-white font-semibold text-xs py-1.5 inline-flex items-center justify-center gap-1 rounded-lg border border-red-500 shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
                               title={lang === 'vi' ? 'Xuất bản video lên YouTube Shorts' : 'Publish video to YouTube Shorts'}
                             >
@@ -1256,7 +1258,7 @@ export default function ReelsTab({
                           {onPublishZalo && (
                             <button
                               onClick={() => onPublishZalo(reel.id)}
-                              disabled={isPublishingThis || isPublishingTikTokThis || isPublishingYouTubeThis || isPublishingZaloThis}
+                              disabled={isPublishingAny}
                               className="flex-1 min-w-0 btn btn-xs bg-[#0068FF] hover:bg-[#0054d1] text-white font-semibold text-xs py-1.5 inline-flex items-center justify-center gap-1 rounded-lg border border-[#0068FF] shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
                               title={lang === 'vi' ? 'Xuất bản video lên Zalo Video' : 'Publish video to Zalo Video'}
                             >

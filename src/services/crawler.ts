@@ -253,6 +253,7 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
 
     logActivity('INFO', 'CRAWL', `[Google Trends Finance] Tìm thấy ${count} xu hướng. Đang trích xuất bài báo nguồn từ section "In the news"...`);
 
+    await page.waitForTimeout(3000);
     const trendList: TrendItem[] = [];
     const limit = Math.min(count, 20);
     const existingPosts = getExistingPosts();

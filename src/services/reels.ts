@@ -256,7 +256,7 @@ export function deleteReel(id: string): boolean {
 
 export async function publishReelById(
   id: string,
-  options?: { headless?: boolean }
+  options?: { headless?: boolean; syncOtherPlatforms?: boolean }
 ): Promise<PostReelResult> {
   const reel = getReelById(id);
   if (!reel) {
@@ -273,10 +273,10 @@ export async function publishReelById(
     "UPDATE reels SET status = 'publishing', error_message = NULL WHERE id = ? AND status != 'publishing'"
   ).run(id);
 
-  if (lock.changes === 0 && reel.status === 'publishing') {
+  if (lock.changes === 0) {
     return {
       success: false,
-      message: 'Reel đang trong quá trình xuất bản.',
+      message: 'Reel đang trong quá trình xuất bản hoặc không thể cập nhật.',
       filePath: reel.video_path,
       error: 'Already publishing',
     };
@@ -415,9 +415,9 @@ export async function publishReelById(
 
   // ==========================================
   // BƯỚC 2: XUẤT BẢN LÊN TIKTOK THEO THỨ TỰ
-  // (Độc lập, không phụ thuộc vào kết quả Facebook)
+  // (Chỉ đồng bộ khi có cờ syncOtherPlatforms: true, ví dụ Scheduled Reels)
   // ==========================================
-  if (isTikTokAutoPostEnabled()) {
+  if (options?.syncOtherPlatforms && isTikTokAutoPostEnabled()) {
     try {
       logActivity('INFO', 'POST_TIKTOK', `[TikTok] Bắt đầu đồng bộ đăng video lên TikTok cho Reel ${id}...`);
       await publishTikTokReelById(id, { headless });
@@ -429,9 +429,8 @@ export async function publishReelById(
 
   // ==========================================
   // BƯỚC 3: XUẤT BẢN LÊN YOUTUBE SHORTS THEO THỨ TỰ
-  // (Độc lập, không phụ thuộc vào kết quả Facebook hay TikTok)
   // ==========================================
-  if (isYouTubeAutoPostEnabled()) {
+  if (options?.syncOtherPlatforms && isYouTubeAutoPostEnabled()) {
     try {
       logActivity('INFO', 'POST_YOUTUBE_SHORTS', `[YouTube] Bắt đầu đồng bộ đăng video Shorts cho Reel ${id}...`);
       await publishYouTubeReelById(id, { headless });
@@ -443,9 +442,8 @@ export async function publishReelById(
 
   // ==========================================
   // BƯỚC 4: XUẤT BẢN LÊN ZALO VIDEO THEO THỨ TỰ
-  // (Độc lập, không phụ thuộc vào kết quả Facebook, TikTok hay YouTube)
   // ==========================================
-  if (isZaloAutoPostEnabled()) {
+  if (options?.syncOtherPlatforms && isZaloAutoPostEnabled()) {
     try {
       logActivity('INFO', 'POST_ZALO_VIDEO', `[Zalo Video] Bắt đầu đồng bộ đăng video lên Zalo cho Reel ${id}...`);
       await publishZaloReelById(id, { headless });
@@ -468,6 +466,20 @@ export async function publishTikTokReelById(
   const reel = getReelById(id);
   if (!reel) {
     throw new Error(`Không tìm thấy Reel với ID: ${id}`);
+  }
+
+  // Atomically lock tiktok_status to publishing to avoid double posting
+  const lock = db.prepare(
+    "UPDATE reels SET tiktok_status = 'publishing', tiktok_error_message = NULL WHERE id = ? AND tiktok_status != 'publishing'"
+  ).run(id);
+
+  if (lock.changes === 0) {
+    return {
+      success: false,
+      message: 'Video TikTok đang trong quá trình xuất bản hoặc không thể cập nhật.',
+      filePath: reel.video_path,
+      error: 'Already publishing',
+    };
   }
 
   // Kiểm tra kết nối tài khoản TikTok trước khi post
@@ -498,7 +510,6 @@ export async function publishTikTokReelById(
   }
 
   logActivity('INFO', 'POST_TIKTOK', `Bắt đầu xuất bản video lên TikTok [${id}]: ${reel.video_filename}`);
-  db.prepare(`UPDATE reels SET tiktok_status = 'publishing' WHERE id = ?`).run(id);
 
   const headless = resolveHeadless(options?.headless !== undefined ? options.headless : true);
 
@@ -604,6 +615,19 @@ export async function publishYouTubeReelById(
     };
   }
 
+  // Atomically lock youtube_status to avoid double posting
+  const lock = db.prepare(
+    "UPDATE reels SET youtube_status = 'publishing', youtube_error_message = NULL WHERE id = ? AND youtube_status != 'publishing'"
+  ).run(id);
+
+  if (lock.changes === 0) {
+    return {
+      success: false,
+      message: 'YouTube Shorts đang trong quá trình xuất bản hoặc không thể cập nhật.',
+      error: 'Already publishing',
+    };
+  }
+
   if (!fs.existsSync(reel.video_path)) {
     const altPath = path.join(process.cwd(), 'storage', 'videos', path.basename(reel.video_path));
     if (!fs.existsSync(altPath)) {
@@ -641,7 +665,6 @@ export async function publishYouTubeReelById(
   }
 
   logActivity('INFO', 'POST_YOUTUBE_SHORTS', `Bắt đầu xuất bản thủ công YouTube Shorts cho Reel: ${id} (${reel.video_filename || 'video'})...`);
-  db.prepare(`UPDATE reels SET youtube_status = 'publishing' WHERE id = ?`).run(id);
 
   const headless = resolveHeadless(options?.headless !== undefined ? options.headless : true);
 
@@ -740,6 +763,19 @@ export async function publishZaloReelById(
     throw new Error(`Không tìm thấy Reel với ID: ${id}`);
   }
 
+  // Atomically lock zalo_status to avoid double posting
+  const lock = db.prepare(
+    "UPDATE reels SET zalo_status = 'publishing', zalo_error_message = NULL WHERE id = ? AND zalo_status != 'publishing'"
+  ).run(id);
+
+  if (lock.changes === 0) {
+    return {
+      success: false,
+      message: 'Zalo Video đang trong quá trình xuất bản hoặc không thể cập nhật.',
+      error: 'Already publishing',
+    };
+  }
+
   // Kiểm tra kết nối tài khoản Zalo Video trước khi post
   const zlStatus = await checkZaloLoginStatus();
   if (!zlStatus.loggedIn) {
@@ -767,7 +803,6 @@ export async function publishZaloReelById(
   }
 
   logActivity('INFO', 'POST_ZALO_VIDEO', `Bắt đầu xuất bản thủ công Zalo Video cho Reel: ${id} (${reel.video_filename || 'video'})...`);
-  db.prepare(`UPDATE reels SET zalo_status = 'publishing' WHERE id = ?`).run(id);
 
   const headless = resolveHeadless(options?.headless !== undefined ? options.headless : true);
 
@@ -895,18 +930,13 @@ export async function processScheduledReels(): Promise<{
 
     for (let i = 0; i < dueReels.length; i++) {
       const reel = dueReels[i];
-      // Atomic check & lock
-      const lockRes = db.prepare(
-        "UPDATE reels SET status = 'publishing' WHERE id = ? AND status = 'scheduled'"
-      ).run(reel.id);
-
-      if (lockRes.changes === 0) {
+      const result = await publishReelById(reel.id, { headless: true, syncOtherPlatforms: true });
+      if (!result.success && result.error === 'Already publishing') {
         // Was picked up by another process
         continue;
       }
 
       processed++;
-      const result = await publishReelById(reel.id, { headless: true });
       if (result.success) {
         successful++;
       } else {
