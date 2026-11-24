@@ -205,14 +205,14 @@ export async function addMusicToYouTubeShort(
     // 5. Xử lý dialog selector 'tp-yt-paper-dialog' xác nhận thay đổi
     try {
       const paperDialog = page.locator('tp-yt-paper-dialog').filter({
-        has: page.locator('[aria-label="Confirm changes"], #checkbox, [id="checkbox"]'),
+        has: page.locator('input[type="checkbox"], #checkbox, [id="checkbox"]'),
       }).first();
       const isDialogVisible = await paperDialog.isVisible({ timeout: 6000 }).catch(() => false);
 
       if (isDialogVisible) {
         notify('Phát hiện dialog xác nhận (tp-yt-paper-dialog), đang click checkbox và xác nhận...');
         // Click vào checkbox id="checkbox"
-        const checkbox = paperDialog.locator('#checkbox, [id="checkbox"]').first();
+        const checkbox = paperDialog.locator('input[type="checkbox"], #checkbox, [id="checkbox"]').first();
         await checkbox.waitFor({ state: 'visible', timeout: 4000 });
         await checkbox.click();
         await page.waitForTimeout(800);
@@ -536,6 +536,7 @@ export async function uploadYouTubeShortVideo(options: {
 
     // 11. Bấm nút Hoàn tất / Xuất bản (Save / Publish / Schedule / Done)
     notify('Đang bấm Xuất bản video...');
+    await page.waitForTimeout(15000);
     const doneBtn = page.locator('#done-button, button#done-button, ytcp-button#done-button, #publish-button').first();
     await doneBtn.waitFor({ state: 'visible', timeout: 20000 });
     await doneBtn.click();
