@@ -18,6 +18,10 @@ import {
   Eye,
   FileText,
   Trash2,
+  Film,
+  Play,
+  RotateCcw,
+  X,
 } from 'lucide-react';
 import Pagination from './Pagination';
 import TrendPostModal from './TrendPostModal';
@@ -33,6 +37,10 @@ interface TrendsTabProps {
   onPublishPost?: (postId: string, force?: boolean) => Promise<void>;
   onNavigateToPostsTab?: (postId?: string) => void;
   onDeleteTrend?: (trendId: string) => Promise<void>;
+  onGenerateVideo?: (trendId: string, force?: boolean, templateId?: string) => Promise<void>;
+  generatingVideoId?: string | null;
+  onBatchGenerateVideos?: (templateId?: string, limit?: number) => Promise<void>;
+  isBatchGeneratingVideos?: boolean;
   isCrawling: boolean;
   generatingId: string | null;
   retryingId?: string | null;
@@ -50,6 +58,10 @@ export default function TrendsTab({
   onPublishPost,
   onNavigateToPostsTab,
   onDeleteTrend,
+  onGenerateVideo,
+  generatingVideoId,
+  onBatchGenerateVideos,
+  isBatchGeneratingVideos,
   isCrawling,
   generatingId,
   retryingId,
@@ -67,6 +79,20 @@ export default function TrendsTab({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
   const [viewingTrend, setViewingTrend] = useState<TrendItem | null>(null);
+  const [playingVideoPath, setPlayingVideoPath] = useState<string | null>(null);
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [batchLimit, setBatchLimit] = useState(5);
+  const [batchTemplate, setBatchTemplate] = useState('random');
+  const [templateDropdownTrendId, setTemplateDropdownTrendId] = useState<string | null>(null);
+  const [templateDropdownForce, setTemplateDropdownForce] = useState(false);
+
+  const VIDEO_TEMPLATE_CHOICES = [
+    { id: 'random', name: '🎲 Ngẫu nhiên thông minh', desc: 'Luân phiên tự động các mẫu' },
+    { id: 'modern_dark', name: '🌌 Hiện đại & Tối giản', desc: 'Navy Blue & Kính mờ sang trọng' },
+    { id: 'bloomberg_terminal', name: '📈 Wall Street Terminal', desc: 'Tone đen sâu & Vàng tài chính' },
+    { id: 'editorial_magazine', name: '💎 Tạp chí Sang trọng', desc: 'Obsidian & Vàng Champagne' },
+    { id: 'neon_cyber', name: '⚡ Cyberpunk Neon', desc: 'Cyan & Magenta FinTech tương lai' },
+  ];
 
   const toggleExpand = (id: string) => {
     setExpandedTrendIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -177,17 +203,18 @@ export default function TrendsTab({
             </button>
           </div>
 
-          {onRetryAndPublish && (
+          {onBatchGenerateVideos && (
             <button
-              onClick={() => onRetryAndPublish(undefined, true)}
-              disabled={isRetryingAll || isCrawling}
-              className="w-full sm:w-auto btn btn-md btn-primary justify-center h-9.5 sm:h-9 shadow-xs active:scale-[0.98] px-3"
-              title={lang === 'vi' ? 'Tự động tìm kiếm nguồn báo chí và đăng bài cho các trend chưa có nguồn hoặc chưa đăng thành công' : 'Find sources and publish posts for trends missing sources'}
+              onClick={() => setShowBatchModal(true)}
+              disabled={isBatchGeneratingVideos || isCrawling}
+              className="w-full sm:w-auto btn btn-md btn-secondary justify-center h-9.5 sm:h-9 shadow-xs active:scale-[0.98] px-3 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/40"
+              title={lang === 'vi' ? 'Tự động tạo video dọc 9:16 cho các xu hướng chưa có video' : 'Batch create 9:16 short videos'}
             >
-              <Zap className={`w-3.5 h-3.5 shrink-0 ${isRetryingAll ? 'animate-spin' : ''}`} />
+              <Film className={`w-3.5 h-3.5 shrink-0 ${isBatchGeneratingVideos ? 'animate-spin' : ''}`} />
               <span className="truncate">
-                {isRetryingAll ? t('batch_retrying') : t('batch_retry_btn')}
-                {missingSourcesCount > 0 ? ` (${missingSourcesCount})` : ''}
+                {isBatchGeneratingVideos
+                  ? (lang === 'vi' ? 'Đang tạo video...' : 'Creating...')
+                  : (lang === 'vi' ? 'Tạo Video hàng loạt' : 'Batch Create Videos')}
               </span>
             </button>
           )}
@@ -355,6 +382,19 @@ export default function TrendsTab({
                             <span>{lang === 'vi' ? 'Xem bài viết' : 'View Post'}</span>
                           </button>
                         )}
+
+                        {/* Video status badge */}
+                        {trend.video_generated === 1 && trend.video_path && (
+                          <button
+                            type="button"
+                            onClick={() => setPlayingVideoPath(trend.video_path || null)}
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition cursor-pointer shadow-2xs"
+                            title={lang === 'vi' ? 'Bấm để xem video 9:16' : 'Click to watch 9:16 video'}
+                          >
+                            <Film className="w-2.5 h-2.5 text-purple-500" />
+                            <span>{lang === 'vi' ? 'Đã có video' : 'Video Ready'}</span>
+                          </button>
+                        )}
                       </div>
 
                       {/* Source Domain Pills */}
@@ -463,6 +503,139 @@ export default function TrendsTab({
                             </button>
                           )}
                         </div>
+                      )}
+
+                      {/* 9:16 Video Action Button with Template Selector */}
+                      {onGenerateVideo && (
+                        trend.video_generated === 1 && trend.video_path ? (
+                          <div className="flex items-center gap-1 relative">
+                            <button
+                              type="button"
+                              onClick={() => setPlayingVideoPath(trend.video_path || null)}
+                              className="btn btn-md sm:btn-sm btn-secondary justify-center font-semibold text-xs shadow-xs text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/40"
+                              title={lang === 'vi' ? 'Xem video dọc 9:16' : 'Watch 9:16 video'}
+                            >
+                              <Play className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">{lang === 'vi' ? 'Xem Video' : 'Watch'}</span>
+                            </button>
+                            
+                            <div className="inline-flex rounded-lg shadow-xs">
+                              <button
+                                type="button"
+                                onClick={() => onGenerateVideo(trend.id, true)}
+                                disabled={generatingVideoId === trend.id}
+                                className="btn btn-md sm:btn-sm btn-secondary rounded-r-none justify-center font-semibold text-xs text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                                title={lang === 'vi' ? 'Tạo lại video mới cho xu hướng này (dùng mẫu mặc định)' : 'Re-create video'}
+                              >
+                                <RotateCcw className={`w-3.5 h-3.5 ${generatingVideoId === trend.id ? 'animate-spin' : ''}`} />
+                                <span className="hidden sm:inline">
+                                  {generatingVideoId === trend.id
+                                    ? (lang === 'vi' ? 'Đang tạo...' : 'Creating...')
+                                    : (lang === 'vi' ? 'Tạo lại' : 'Re-create')}
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (templateDropdownTrendId === trend.id && templateDropdownForce) {
+                                    setTemplateDropdownTrendId(null);
+                                  } else {
+                                    setTemplateDropdownTrendId(trend.id);
+                                    setTemplateDropdownForce(true);
+                                  }
+                                }}
+                                disabled={generatingVideoId === trend.id}
+                                className="px-1.5 py-1 text-xs border border-l-0 border-amber-200 dark:border-amber-800 rounded-r-lg bg-amber-50/50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 hover:bg-amber-100 transition cursor-pointer"
+                                title={lang === 'vi' ? 'Chọn mẫu giao diện cụ thể để tạo lại' : 'Select specific template'}
+                              >
+                                <ChevronDown className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            {/* Dropdown Menu Template */}
+                            {templateDropdownTrendId === trend.id && templateDropdownForce && (
+                              <div className="absolute right-0 top-full mt-1.5 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-30 p-1.5 animate-in fade-in duration-150">
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
+                                  {lang === 'vi' ? 'Chọn mẫu tạo lại' : 'Select Template'}
+                                </div>
+                                {VIDEO_TEMPLATE_CHOICES.map((choice) => (
+                                  <button
+                                    key={choice.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setTemplateDropdownTrendId(null);
+                                      onGenerateVideo(trend.id, true, choice.id);
+                                    }}
+                                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition group flex flex-col"
+                                  >
+                                    <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                                      {choice.name}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">{choice.desc}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="inline-flex rounded-lg shadow-xs relative">
+                            <button
+                              type="button"
+                              onClick={() => onGenerateVideo(trend.id)}
+                              disabled={generatingVideoId === trend.id}
+                              className="btn btn-md sm:btn-sm btn-secondary rounded-r-none justify-center font-semibold text-xs text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/30 hover:bg-purple-100/60"
+                              title={lang === 'vi' ? 'Tạo video ngắn 9:16 (15-30s) từ xu hướng này' : 'Create 9:16 short video'}
+                            >
+                              <Film className={`w-3.5 h-3.5 ${generatingVideoId === trend.id ? 'animate-spin' : ''}`} />
+                              <span className="hidden sm:inline">
+                                {generatingVideoId === trend.id
+                                  ? (lang === 'vi' ? 'Đang tạo...' : 'Creating...')
+                                  : (lang === 'vi' ? 'Tạo Video' : 'Create Video')}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (templateDropdownTrendId === trend.id && !templateDropdownForce) {
+                                  setTemplateDropdownTrendId(null);
+                                } else {
+                                  setTemplateDropdownTrendId(trend.id);
+                                  setTemplateDropdownForce(false);
+                                }
+                              }}
+                              disabled={generatingVideoId === trend.id}
+                              className="px-1.5 py-1 text-xs border border-l-0 border-purple-300 dark:border-purple-800 rounded-r-lg bg-purple-50/70 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 transition cursor-pointer"
+                              title={lang === 'vi' ? 'Chọn mẫu video cụ thể' : 'Select template'}
+                            >
+                              <ChevronDown className="w-3 h-3" />
+                            </button>
+
+                            {/* Dropdown Menu Template */}
+                            {templateDropdownTrendId === trend.id && !templateDropdownForce && (
+                              <div className="absolute right-0 top-full mt-1.5 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-30 p-1.5 animate-in fade-in duration-150">
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
+                                  {lang === 'vi' ? 'Chọn mẫu giao diện' : 'Select Template'}
+                                </div>
+                                {VIDEO_TEMPLATE_CHOICES.map((choice) => (
+                                  <button
+                                    key={choice.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setTemplateDropdownTrendId(null);
+                                      onGenerateVideo(trend.id, false, choice.id);
+                                    }}
+                                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition group flex flex-col"
+                                  >
+                                    <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                                      {choice.name}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">{choice.desc}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
                       )}
 
                       {/* Delete Trend Button */}
@@ -582,6 +755,192 @@ export default function TrendsTab({
         isGenerating={!!generatingId && viewingTrend?.id === generatingId}
         isPublishing={!!publishingId && (findPostForTrend(viewingTrend!)?.id === publishingId)}
       />
+
+      {/* Modal Xem Video Dọc 9:16 */}
+      {playingVideoPath && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setPlayingVideoPath(null)}
+        >
+          <div
+            className="relative max-w-sm w-full bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl p-4 flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between w-full pb-3 border-b border-slate-800 text-sm font-bold text-white">
+              <div className="flex items-center gap-2">
+                <Film className="w-4 h-4 text-purple-400" />
+                <span>Bản tin video 9:16</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPlayingVideoPath(null)}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-3 w-full aspect-[9/16] max-h-[68vh] rounded-2xl overflow-hidden bg-black flex items-center justify-center border border-slate-800">
+              <video
+                controls
+                autoPlay
+                src={`/api/videos/${encodeURIComponent(playingVideoPath.split('/').pop() || '')}`}
+                className="w-full h-full object-contain"
+              />
+            </div>
+
+            <div className="mt-3 flex items-center justify-between w-full text-xs text-slate-400 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const currentTrend = trends.find((t) => t.video_path === playingVideoPath);
+                  if (currentTrend && onGenerateVideo) {
+                    setPlayingVideoPath(null);
+                    onGenerateVideo(currentTrend.id, true);
+                  }
+                }}
+                className="text-amber-400 hover:text-amber-300 hover:underline font-semibold cursor-pointer inline-flex items-center gap-1"
+                title="Tạo lại video mới cho xu hướng này"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{lang === 'vi' ? 'Tạo lại video này' : 'Re-create video'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlayingVideoPath(null);
+                  if (onNavigateToPostsTab) onNavigateToPostsTab();
+                }}
+                className="text-purple-400 hover:text-purple-300 hover:underline font-semibold cursor-pointer"
+              >
+                {lang === 'vi' ? 'Xem trong tab Reels ↗' : 'View in Reels tab ↗'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Cấu hình Tạo Video Hàng Loạt */}
+      {showBatchModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setShowBatchModal(false)}
+        >
+          <div
+            className="relative max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 flex flex-col gap-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                  <Film className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    {lang === 'vi' ? 'Tạo Video Hàng Loạt' : 'Batch Create Videos'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {lang === 'vi'
+                      ? `Hiện có ${trends.filter((t) => !t.video_generated || !t.video_path).length} xu hướng chưa có video`
+                      : `${trends.filter((t) => !t.video_generated || !t.video_path).length} trends without video`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBatchModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Chọn số lượng */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                {lang === 'vi' ? 'Số lượng video cần tạo:' : 'Number of videos:'}
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[3, 5, 10].map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => setBatchLimit(num)}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition ${
+                      batchLimit === num
+                        ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 shadow-xs'
+                        : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    {num} {lang === 'vi' ? 'video' : 'videos'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Chọn Mẫu Video */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                {lang === 'vi' ? 'Mẫu giao diện video:' : 'Template style:'}
+              </label>
+              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                {VIDEO_TEMPLATE_CHOICES.map((choice) => (
+                  <div
+                    key={choice.id}
+                    onClick={() => setBatchTemplate(choice.id)}
+                    className={`p-2.5 rounded-xl border cursor-pointer transition flex items-center justify-between ${
+                      batchTemplate === choice.id
+                        ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40 text-slate-900 dark:text-white'
+                        : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div>
+                      <div className="text-xs font-bold flex items-center gap-1.5">
+                        <span>{choice.name}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">{choice.desc}</div>
+                    </div>
+                    <div
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                        batchTemplate === choice.id
+                          ? 'border-purple-600 bg-purple-600 text-white'
+                          : 'border-slate-300 dark:border-slate-700'
+                      }`}
+                    >
+                      {batchTemplate === choice.id && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowBatchModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                {lang === 'vi' ? 'Hủy' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBatchModal(false);
+                  if (onBatchGenerateVideos) {
+                    onBatchGenerateVideos(batchTemplate, batchLimit);
+                  }
+                }}
+                disabled={isBatchGeneratingVideos}
+                className="btn btn-primary px-5 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 border-purple-500 text-white flex items-center gap-1.5"
+              >
+                <Film className="w-3.5 h-3.5" />
+                <span>{lang === 'vi' ? 'Bắt đầu tạo ngay' : 'Start Batch'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

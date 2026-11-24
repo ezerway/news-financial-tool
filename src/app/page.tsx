@@ -3,11 +3,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Header from '@/components/Header';
 import StatsCards from '@/components/StatsCards';
+import OverviewReelsSection from '@/components/OverviewReelsSection';
 import TrendsTab from '@/components/TrendsTab';
 import PostsTab from '@/components/PostsTab';
 import ReelsTab from '@/components/ReelsTab';
 import LogsTab from '@/components/LogsTab';
 import SettingsTab from '@/components/SettingsTab';
+import TemplatesTab from '@/components/TemplatesTab';
 import FacebookConnectModal from '@/components/FacebookConnectModal';
 import { TrendItem, PostItem, ReelItem, ActivityLog } from '@/types';
 import { formatTime } from '@/lib/date';
@@ -18,6 +20,7 @@ import {
   TrendingUp,
   FileText,
   Film,
+  Palette,
   Activity,
   Settings,
   Sparkles,
@@ -31,7 +34,7 @@ import {
 
 export default function DashboardPage() {
   const { t, lang } = useI18n();
-  const [activeTab, setActiveTab] = useState<'overview' | 'trends' | 'posts' | 'reels' | 'logs' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'trends' | 'posts' | 'reels' | 'templates' | 'logs' | 'settings'>('overview');
   const [trends, setTrends] = useState<TrendItem[]>([]);
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [reels, setReels] = useState<ReelItem[]>([]);
@@ -62,6 +65,8 @@ export default function DashboardPage() {
   const [commentingYouTubeId, setCommentingYouTubeId] = useState<string | null>(null);
   const [commentingZaloId, setCommentingZaloId] = useState<string | null>(null);
   const [commentingId, setCommentingId] = useState<string | null>(null);
+  const [generatingVideoId, setGeneratingVideoId] = useState<string | null>(null);
+  const [isBatchGeneratingVideos, setIsBatchGeneratingVideos] = useState<boolean>(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isFbModalOpen, setIsFbModalOpen] = useState(false);
   const [fbTargetUrlForModal, setFbTargetUrlForModal] = useState<string | undefined>(undefined);
@@ -241,6 +246,54 @@ export default function DashboardPage() {
       showToast(`Lỗi mạng: ${err.message}`, 'error');
     } finally {
       setGeneratingId(null);
+    }
+  };
+
+  // Generate 9:16 Video handler
+  const handleGenerateVideo = async (trendId: string, force = false, templateId?: string) => {
+    setGeneratingVideoId(trendId);
+    showToast('Đang tạo video dọc 9:16 bản tin...', 'info');
+    try {
+      const res = await fetch(`/api/trends/${trendId}/generate-video`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force, templateId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message || 'Đã tạo xong video 9:16!', 'success');
+        await fetchData(true);
+      } else {
+        showToast(`Lỗi tạo video: ${data.error}`, 'error');
+      }
+    } catch (err: any) {
+      showToast(`Lỗi mạng: ${err.message}`, 'error');
+    } finally {
+      setGeneratingVideoId(null);
+    }
+  };
+
+  // Batch Generate 9:16 Videos handler
+  const handleBatchGenerateVideos = async (templateId?: string, limit = 5) => {
+    setIsBatchGeneratingVideos(true);
+    showToast('Đang tạo video hàng loạt cho các xu hướng chưa có video...', 'info');
+    try {
+      const res = await fetch('/api/trends/generate-videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit, templateId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        await fetchData(true);
+      } else {
+        showToast(`Lỗi tạo video hàng loạt: ${data.error}`, 'error');
+      }
+    } catch (err: any) {
+      showToast(`Lỗi mạng: ${err.message}`, 'error');
+    } finally {
+      setIsBatchGeneratingVideos(false);
     }
   };
 
@@ -912,7 +965,7 @@ export default function DashboardPage() {
   };
 
   const tabItems: Array<{
-    id: 'overview' | 'trends' | 'posts' | 'reels' | 'logs' | 'settings';
+    id: 'overview' | 'trends' | 'posts' | 'reels' | 'templates' | 'logs' | 'settings';
     label: string;
     icon: any;
     count?: number;
@@ -921,6 +974,7 @@ export default function DashboardPage() {
     { id: 'trends', label: t('tab_trends'), icon: TrendingUp, count: trends.length },
     { id: 'posts', label: t('tab_posts'), icon: FileText, count: posts.length },
     { id: 'reels', label: t('tab_reels') || 'Reels', icon: Film, count: reels.length },
+    { id: 'templates', label: t('tab_templates') || 'Mẫu Video', icon: Palette },
     { id: 'logs', label: t('tab_logs'), icon: Activity, count: logs.length },
     { id: 'settings', label: t('tab_settings'), icon: Settings },
   ];
@@ -956,8 +1010,8 @@ export default function DashboardPage() {
         <div>
           {activeTab === 'overview' && (
             <div className="space-y-5">
-              {/* KPI Stat Cards */}
-              <StatsCards trends={trends} posts={posts} logs={logs} />
+              {/* KPI Stat Cards (Bao gồm Trends, Bản thảo, Reels 9:16, Xuất bản, Logs) */}
+              <StatsCards trends={trends} posts={posts} logs={logs} reels={reels} />
 
               {/* Quick Actions & System Info Banner */}
               <div className="p-4 rounded-xl app-card shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -972,7 +1026,7 @@ export default function DashboardPage() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Tự động cào xu hướng nóng, tạo bài viết tài chính và xuất bản Fanpage kèm bình luận link báo nguồn.
+                    Tự động cào xu hướng nóng, sinh bài viết & tạo video Reels 9:16 đa nền tảng (Facebook, TikTok, Shorts, Zalo).
                   </p>
                 </div>
 
@@ -985,17 +1039,15 @@ export default function DashboardPage() {
                     <TrendingUp className={`w-3.5 h-3.5 text-blue-500 ${isCrawling ? 'animate-spin' : ''}`} />
                     <span>{isCrawling ? t('crawling') : 'Cào Trends VN'}</span>
                   </button>
-
-                  <button
-                    onClick={() => handleRunCycle()}
-                    disabled={isRunningCycle}
-                    className="btn btn-md btn-primary flex-1 md:flex-initial"
-                  >
-                    <Play className={`w-3.5 h-3.5 fill-current ${isRunningCycle ? 'animate-spin' : ''}`} />
-                    <span>{isRunningCycle ? 'Đang chạy...' : 'Chạy toàn chu kỳ'}</span>
-                  </button>
                 </div>
               </div>
+
+              {/* Showcase Video Reels 9:16 Mới Nhất */}
+              <OverviewReelsSection
+                reels={reels}
+                onNavigateToReels={() => setActiveTab('reels')}
+                onNavigateToTrends={() => setActiveTab('trends')}
+              />
 
               {/* Two Column Layout: Recent Published Posts & Recent Activity */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
@@ -1125,6 +1177,10 @@ export default function DashboardPage() {
               onPublishPost={handlePublish}
               onNavigateToPostsTab={() => setActiveTab('posts')}
               onDeleteTrend={handleDeleteTrend}
+              onGenerateVideo={handleGenerateVideo}
+              generatingVideoId={generatingVideoId}
+              onBatchGenerateVideos={handleBatchGenerateVideos}
+              isBatchGeneratingVideos={isBatchGeneratingVideos}
               isCrawling={isCrawling}
               generatingId={generatingId}
               retryingId={retryingId}
@@ -1182,6 +1238,10 @@ export default function DashboardPage() {
               onRefresh={handleRefreshLogs}
               isLoading={isLoading}
             />
+          )}
+
+          {activeTab === 'templates' && (
+            <TemplatesTab onNotify={showToast} />
           )}
 
           {activeTab === 'settings' && (

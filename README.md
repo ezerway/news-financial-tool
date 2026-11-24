@@ -37,7 +37,24 @@
    - **Sửa liên kết thủ công (Manual Link Correction)**: Hỗ trợ chỉnh sửa hoặc bù đắp liên kết bài viết Facebook trực tiếp trên Dashboard nếu cần lưu vết thủ công.
    - Cơ chế đóng pop-up thông minh (`Not now`, `Chuyển sang trang...`) và mô phỏng thao tác người dùng tự nhiên (Anti-detection).
 
-4. **Studio Đăng Đa Nền Tảng (Facebook Reels, TikTok, YouTube Shorts, Zalo Video)**:
+4. **Tạo Video Dọc 9:16 Tự Động từ Xu Hướng (HyperFrames & Headless Chromium Engine)**:
+   - **Tạo video tự động từ từ khóa (1-click hoặc Hàng loạt)**: Biến mỗi từ khóa xu hướng thành video bản tin dọc 9:16 chuyên nghiệp (thời lượng 15 - 30 giây) chuẩn phong cách tài chính hiện đại.
+   - **Cấu trúc Slide 3 phần chuẩn truyền hình**:
+     - **Intro**: Xuất hiện mượt mà với tiêu đề thương hiệu `Financial News` và chuyên mục `BẢN TIN THỊ TRƯỜNG`.
+     - **Slide nội dung (Headline & Diễn biến)**: Slide 1 hiển thị Headline giật tít sắc bén; các slide sau trình bày các block thông tin chắt lọc số liệu. Tự động chia thêm slide khi nội dung dài (tối đa 2 ý/slide, font chữ tối thiểu 40px), không đánh số thứ tự rườm rà, bọc class chống ngắt dòng số liệu (`.metric-nowrap`).
+     - **Outro tinh gọn**: Lời cảm ơn `CẢM ƠN BẠN ĐÃ THEO DÕI`, nút CTA nổi bật `⚪ Đăng ký để nhận tin mỗi ngày ➔` và hàng icon nhận diện 4 kênh video ngắn (*Facebook Reels*, *TikTok*, *Shorts*, *Zalo Video*).
+   - **Cơ chế 3 tầng phòng thủ kịch bản (Fault-Tolerant)**:
+     - Tầng 1: Google Gemini API (`@google/genai`).
+     - Tầng 2: Alternate AI Models.
+     - Tầng 3: `Smart Extractor Fallback` 100% offline, tự động trích lọc câu chứa số liệu thực tế từ bài báo khi API AI không khả dụng hoặc hết quota.
+   - **Tự động liên kết kho Reels**: Video render xong được tự động lưu vào `storage/videos/`, cập nhật cờ `video_generated = 1` trên bảng `trends`, đồng thời tạo bản ghi nháp tương ứng trong bảng `reels` sẵn sàng lên lịch đăng đa kênh.
+
+5. **Hệ thống Chuyển đổi Link Redirect Proxy (`/go/?to=[target_url]`)**:
+   - **Tự động chuẩn hóa liên kết nguồn**: Mọi URL bài báo trong phần bình luận (cả bài viết và Reels) đều được tự động chuyển đổi sang dạng `https://financial-news.ezerway.com/go/?to=[target_url]`.
+   - **Cơ chế loại trừ thông minh (Domain Exemption)**: Tự động giữ nguyên các liên kết thuộc cùng domain `financial-news.ezerway.com` hoặc `ezerway.com` để tránh bọc link lặp lại.
+   - **Endpoint `/go` an toàn**: Cung cấp route Next.js tiếp nhận và redirect 302 trực tiếp đến bài báo đích.
+
+6. **Studio Đăng Đa Nền Tảng (Facebook Reels, TikTok, YouTube Shorts, Zalo Video)**:
    - Quản lý kho video ngắn, tải lên trực tiếp từ Dashboard hoặc qua CLI `pnpm post-reel`.
    - Hỗ trợ **hẹn giờ đăng tự động (Scheduled Reels)** chạy ngầm bởi daemon.
    - **Đăng đồng thời hoặc độc lập lên 4 nền tảng**:
@@ -50,14 +67,17 @@
    - **Sửa link thủ công cả 4 kênh**: Cho phép nhập link trực tiếp cho Facebook Reel, TikTok, YouTube Shorts và Zalo Video kèm tùy chọn đánh dấu "Đã xuất bản".
    - **Xem video debug riêng biệt**: Nút `Video FB`, `Video TT`, `Video YT`, `Video Zalo` để đối soát toàn bộ quá trình tự động hóa của từng kênh.
 
-5. **Ghi hình & Chụp ảnh đối soát (Audit Trail)**:
+7. **Ghi hình & Chụp ảnh đối soát (Audit Trail)**:
    - Tùy chọn bật/tắt ghi video (MP4) và chụp ảnh màn hình (Screenshot) toàn bộ phiên tự động hóa để kiểm tra, xem lại trực tiếp trên Dashboard.
    - **Tự động bảo toàn video debug khi gặp lỗi**: Khi bình luận TikTok gặp lỗi hoặc dính xác thực Captcha, video quá trình luôn được lưu lại để phục vụ đối soát và khắc phục sự cố.
 
-6. **Hệ thống thông báo tức thời (Multi-Channel Notifications)**:
+8. **Hệ thống thông báo tức thời (Multi-Channel Notifications)**:
    - Gửi thông báo kết quả đăng bài (kèm link bài viết, ảnh, thời gian hoặc chi tiết lỗi) qua **Telegram Bot**, **Slack Incoming Webhook**, và **Browser Web Push Notifications**.
 
-7. **Dashboard quản trị PWA & Đa ngôn ngữ (i18n)**:
+9. **Dashboard quản trị PWA, Trang Tổng Quan & Đa ngôn ngữ (i18n)**:
+   - **Trang Tổng quan (Overview) toàn diện**:
+     - Thẻ KPI 5 chỉ số: Xu hướng, Bản thảo bài viết AI, **Video Reels 9:16**, Đã xuất bản Fanpage, và Nhật ký thời gian thực.
+     - **Mục Video Reels 9:16 Mới Nhất**: Hiển thị lưới video 9:16 gần nhất kèm trình xem trước tương tác (video player preview popup), thanh trạng thái đa kênh (Facebook, TikTok, Shorts, Zalo) và nút tạo video nhanh từ Trend.
    - Hỗ trợ đầy đủ **Đa ngôn ngữ (Tiếng Việt & English)** với nút chuyển đổi tức thì trên Header và Form đăng nhập.
    - Giao diện Dark Mode chuẩn hiện đại, responsive hoàn hảo cho cả Mobile & Desktop.
    - **Thanh điều hướng Mobile tối ưu**: Hiển thị đầy đủ số lượng bài viết, xu hướng, reels mà không bị rút gọn `99+`.

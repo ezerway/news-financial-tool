@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db, { logActivity } from '@/lib/db';
+import { convertCommentLinks } from '@/lib/link-redirect';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -15,7 +16,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     if (body.comment_content !== undefined) {
       updates.push('comment_content = ?');
-      values.push(body.comment_content);
+      values.push(body.comment_content ? convertCommentLinks(body.comment_content) : body.comment_content);
     }
     if (body.fb_post_url !== undefined) {
       updates.push('fb_post_url = ?');

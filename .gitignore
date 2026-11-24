@@ -41,12 +41,23 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local storage & sessions
+# local storage, temp & sessions
 storage/*.db*
+storage/*.sqlite*
 storage/*.json
 storage/browser-profile/
-storage/tiktok-browser-profile/
-storage/tiktok-user-data/
+storage/*-browser-profile/
+storage/*-user-data/
 storage/screenshots/
 storage/videos/
+storage/temp/
+storage/**/*.mp4
+storage/**/*.png
+storage/**/*.jpg
+storage/**/*.jpeg
+storage/**/*.webm
+
+# playwright & test artifacts
+test-results/
+playwright-report/
 

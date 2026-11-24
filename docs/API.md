@@ -127,6 +127,45 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   }
   ```
 
+### 2.7. Tạo video ngắn 9:16 từ từ khóa xu hướng (`POST /api/trends/[id]/generate-video`)
+- Tự động sinh kịch bản Slide (Gemini AI hoặc Smart Fallback) và render MP4 dọc 9:16 (720x1280) bằng HyperFrames/Playwright engine.
+- Tự động cập nhật `trends` (`video_generated = 1`, `video_path`) và tạo bản nháp trong `reels`.
+- **Request Body**:
+  ```json
+  {
+    "force": false // true nếu muốn ghi đè tạo lại dù đã có video
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "videoPath": "storage/videos/trend_test_1795484749653.mp4",
+    "reelId": "reel_8ca8eebf",
+    "alreadyExisted": false
+  }
+  ```
+
+### 2.8. Tạo video hàng loạt cho các xu hướng chưa có video (`POST /api/trends/generate-videos`)
+- Quét danh sách xu hướng và tạo video tự động cho các xu hướng chưa được tạo video.
+- **Request Body**:
+  ```json
+  {
+    "limit": 5, // Tối đa số lượng video tạo trong lần gọi này (mặc định: 5)
+    "force": false
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "count": 3,
+    "results": [
+      { "trendId": "trend_1", "videoPath": "storage/videos/trend_1_xxx.mp4", "reelId": "reel_1", "alreadyExisted": false }
+    ]
+  }
+  ```
+
 ---
 
 ## 3. Sáng tạo Nội dung AI (`/api/generate`)
@@ -497,4 +536,73 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
 
 ### 9.2. Xem hoặc tải video kiểm soát (`GET /api/videos/[filename]`)
 - Phát trực tiếp video ghi hình quá trình Playwright tương tác (video/mp4) phục vụ kiểm tra và rà soát lỗi giao diện hoặc captcha.
+
+---
+
+## 10. Điều hướng Liên kết Trung gian (`/go`)
+
+### 10.1. Proxy chuyển hướng bài báo nguồn (`GET /go/?to=[target_url]`)
+- Tiếp nhận tham số `to` chứa link bài báo gốc và chuyển hướng 302 an toàn.
+- Dùng cho toàn bộ liên kết nguồn trong bình luận tự động của Facebook Post, Facebook Reels, TikTok, YouTube Shorts, và Zalo Video.
+- Tôn trọng cấu hình `redirect_proxy_enabled`: nếu tắt trong Cài đặt, link gốc sẽ được giữ nguyên không chuyển đổi.
+- Nếu tham số `to` không hợp lệ hoặc thiếu giao thức `http/https`, tự động chuyển hướng về trang chủ `/`.
+
+---
+
+## 11. Mẫu Video HyperFrames 9:16 (`/api/video-templates`, `/api/trends/[id]/generate-video`)
+
+### 11.1. Lấy danh sách Mẫu Video (`GET /api/video-templates`)
+- Trả về danh sách metadata của tất cả mẫu giao diện và mẫu đang được đặt làm mặc định trong hệ thống.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "templates": [
+      {
+        "id": "modern_dark",
+        "name": "Hiện đại & Tối giản",
+        "nameEn": "Modern Dark",
+        "badge": "Phổ biến",
+        "category": "Tin tức tổng hợp",
+        "previewColor": "radial-gradient(...)",
+        "accentColor": "#38BDF8",
+        "features": ["..."]
+      },
+      { "id": "bloomberg_terminal", "name": "Wall Street Terminal" },
+      { "id": "editorial_magazine", "name": "Tạp chí Sang trọng" },
+      { "id": "neon_cyber", "name": "Cyberpunk Neon" }
+    ],
+    "defaultTemplate": "random"
+  }
+  ```
+
+### 11.2. Tạo bản xem trước HTML thời gian thực (`POST /api/video-templates`)
+- Trả về mã nguồn HTML5 độc lập kèm thanh trượt thời gian `window.seekTo(t)` để nhúng vào iframe xem trước.
+- **Request Body**:
+  ```json
+  {
+    "templateId": "neon_cyber"
+  }
+  ```
+
+### 11.3. Tạo Video với lựa chọn Mẫu (`POST /api/trends/[id]/generate-video`)
+- **Request Body**:
+  ```json
+  {
+    "force": true,
+    "templateId": "bloomberg_terminal"
+  }
+  ```
+  *(Nếu `templateId` bỏ trống hoặc là `"random"`, hệ thống tự động hoán đổi luân phiên các mẫu)*.
+
+### 11.4. Tạo Video Hàng Loạt với cấu hình (`POST /api/trends/generate-videos`)
+- **Request Body**:
+  ```json
+  {
+    "limit": 5,
+    "templateId": "random"
+  }
+  ```
+
+
 

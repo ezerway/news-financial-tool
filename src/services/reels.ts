@@ -11,6 +11,7 @@ import { checkYouTubeLoginStatus } from '@/services/playwright/youtube-session';
 import { checkZaloLoginStatus } from '@/services/playwright/zalo-session';
 import { isTikTokAutoPostEnabled, isYouTubeAutoPostEnabled, isZaloAutoPostEnabled } from '@/lib/db';
 import { sendServerPushNotification } from './notifications';
+import { convertCommentLinks } from '@/lib/link-redirect';
 import { ReelItem } from '@/types';
 
 export function getReels(status?: string): ReelItem[] {
@@ -45,7 +46,7 @@ export function createReel(data: {
   const status = data.status || (data.scheduled_at ? 'scheduled' : 'draft');
   const videoFilename = data.video_filename || path.basename(data.video_path);
   const caption = data.caption || '';
-  const commentContent = data.comment_content || null;
+  const commentContent = data.comment_content ? convertCommentLinks(data.comment_content) : null;
   const commentStatus = commentContent ? 'idle' : null;
   const scheduledAt = data.scheduled_at || null;
 
@@ -79,7 +80,7 @@ export function updateReel(
   }
   if (data.comment_content !== undefined) {
     updates.push('comment_content = ?');
-    values.push(data.comment_content);
+    values.push(data.comment_content ? convertCommentLinks(data.comment_content) : null);
   }
   if (data.comment_status !== undefined) {
     updates.push('comment_status = ?');
@@ -1068,10 +1069,11 @@ export async function postCommentToPlatform(
     return { success: false, message: 'Reel không tồn tại' };
   }
 
-  const commentToPost = customComment || reel.comment_content;
-  if (!commentToPost) {
+  const rawComment = customComment || reel.comment_content;
+  if (!rawComment) {
     return { success: false, message: 'Reel chưa có nội dung bình luận' };
   }
+  const commentToPost = convertCommentLinks(rawComment);
 
   const targetUrl = config.getUrl(reel);
   if (!targetUrl) {

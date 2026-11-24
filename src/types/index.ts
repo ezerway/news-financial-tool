@@ -17,6 +17,9 @@ export interface TrendItem {
   articles_json?: string;
   category: string;
   status: 'discovered' | 'drafted' | 'published' | 'ignored';
+  video_generated?: number;
+  video_path?: string | null;
+  video_created_at?: string | null;
   created_at?: string;
 }
 
@@ -42,6 +45,7 @@ export interface PostItem {
 
 export interface ReelItem {
   id: string;
+  trend_id?: string | null;
   video_path: string;
   video_filename?: string | null;
   caption: string;

@@ -51,6 +51,9 @@ export function initSchema(database: Database.Database) {
         articles_json TEXT,
         category TEXT DEFAULT 'general',
         status TEXT DEFAULT 'discovered',
+        video_generated INTEGER DEFAULT 0,
+        video_path TEXT,
+        video_created_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -196,6 +199,18 @@ export function initSchema(database: Database.Database) {
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN zalo_screenshot_path TEXT`);
   } catch {}
+  try {
+    database.exec(`ALTER TABLE reels ADD COLUMN trend_id TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE trends ADD COLUMN video_generated INTEGER DEFAULT 0`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE trends ADD COLUMN video_path TEXT`);
+  } catch {}
+  try {
+    database.exec(`ALTER TABLE trends ADD COLUMN video_created_at DATETIME`);
+  } catch {}
 
   // Insert default settings if not exists
   try {
@@ -221,6 +236,8 @@ export function initSchema(database: Database.Database) {
       crawler_interval_minutes: '60',
       filter_keywords: 'tài chính, chứng khoán, ngân hàng, bất động sản, kinh tế, crypto, usd, vàng, lạm phát',
       posts_per_cycle: '1',
+      redirect_proxy_enabled: 'true',
+      video_default_template: 'random',
     };
 
     const insertSettingStmt = database.prepare(`
@@ -470,6 +487,23 @@ export function isDeveloperMode(): boolean {
     return getSetting('developer_mode', 'false') === 'true';
   } catch {
     return false;
+  }
+}
+
+export function isRedirectProxyEnabled(): boolean {
+  try {
+    const val = getSetting('redirect_proxy_enabled', 'true');
+    return val !== 'false' && val !== '0';
+  } catch {
+    return true;
+  }
+}
+
+export function getDefaultVideoTemplate(): string {
+  try {
+    return getSetting('video_default_template', 'random') || 'random';
+  } catch {
+    return 'random';
   }
 }
 

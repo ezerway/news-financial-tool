@@ -4,6 +4,7 @@ import db, { getSetting, logActivity } from '@/lib/db';
 import { findExactNewsSources } from './crawler';
 import { findDuplicatePost } from './dedup';
 import { extractArticlesContent } from './article-extractor';
+import { convertCommentLinks } from '@/lib/link-redirect';
 import crypto from 'crypto';
 
 export function resolveGeminiApiKey(): string {
@@ -239,6 +240,11 @@ ${articleSummaries}
       : sourceUrls.map((url, i) => `${i + 1}. Nguồn bài viết: ${url}`).join('\n');
 
     commentContent = `🔗 Nguồn tin và bài viết chi tiết để bạn đọc tham khảo:\n${linksList}\n\n#NguonTin #BaoChi #ThongTinChinhXac`;
+  }
+
+  // Tự động chuyển đổi các link nguồn sang dạng https://financial-news.ezerway.com/go/?to=[target_url]
+  if (commentContent) {
+    commentContent = convertCommentLinks(commentContent);
   }
 
   const postId = 'post_' + crypto.randomUUID().substring(0, 8);

@@ -1,20 +1,22 @@
 'use client';
 
 import React from 'react';
-import { TrendingUp, FileText, CheckCircle2, Activity } from 'lucide-react';
-import { TrendItem, PostItem, ActivityLog } from '@/types';
+import { TrendingUp, FileText, CheckCircle2, Activity, Film } from 'lucide-react';
+import { TrendItem, PostItem, ActivityLog, ReelItem } from '@/types';
 import { useI18n } from '@/context/I18nThemeContext';
 
 interface StatsCardsProps {
   trends: TrendItem[];
   posts: PostItem[];
   logs: ActivityLog[];
+  reels?: ReelItem[];
 }
 
-export default function StatsCards({ trends, posts, logs }: StatsCardsProps) {
+export default function StatsCards({ trends, posts, logs, reels = [] }: StatsCardsProps) {
   const { t, lang } = useI18n();
   const publishedCount = posts.filter((p) => p.status === 'published').length;
   const draftCount = posts.filter((p) => p.status === 'draft').length;
+  const reelsCount = reels.length;
 
   const cards = [
     {
@@ -29,9 +31,17 @@ export default function StatsCards({ trends, posts, logs }: StatsCardsProps) {
       title: t('stat_drafts'),
       value: draftCount.toString(),
       icon: FileText,
-      subtitle: lang === 'vi' ? 'Bản thảo AI sẵn sàng' : 'AI Drafts Ready',
+      subtitle: lang === 'vi' ? 'Bản thảo bài viết AI' : 'AI Drafts Ready',
       accentColor: 'text-amber-600 dark:text-amber-400',
       iconBg: 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
+    },
+    {
+      title: lang === 'vi' ? 'Video Reels 9:16' : '9:16 Video Reels',
+      value: reelsCount.toString(),
+      icon: Film,
+      subtitle: lang === 'vi' ? 'Bản tin Short Video' : 'Auto News Videos',
+      accentColor: 'text-fuchsia-600 dark:text-fuchsia-400',
+      iconBg: 'bg-fuchsia-50 dark:bg-fuchsia-950/40 text-fuchsia-600 dark:text-fuchsia-400',
     },
     {
       title: t('stat_published'),
@@ -52,7 +62,7 @@ export default function StatsCards({ trends, posts, logs }: StatsCardsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
       {cards.map((c, i) => {
         const Icon = c.icon;
         return (

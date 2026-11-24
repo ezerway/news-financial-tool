@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import db, { logActivity, getSetting, resolveHeadless, isDeveloperMode } from '@/lib/db';
 import { replaceDateWildcards } from '@/lib/date';
+import { convertCommentLinks } from '@/lib/link-redirect';
 import { PostItem } from '@/types';
 import { isSessionAvailable, getUserDataDir, injectSessionCookies, getSessionPath, getChromiumLaunchArgs, cleanStaleChromeLocks } from './session';
 import { checkDuplicatePublish, markTrendAsPublished } from '../dedup';
@@ -586,7 +587,7 @@ export async function executePublishAndComment(
     let commentSuccess = false;
 
     try {
-      const comments = (post.comment_content || '')
+      const comments = convertCommentLinks(post.comment_content || '')
         .split('|')
         .map((c) => replaceDateWildcards(c.trim()))
         .filter(Boolean);
@@ -882,7 +883,7 @@ export async function executeCommentOnly(
     await page.waitForTimeout(3000);
     await handleProfileSwitcherModal(page, pageName);
 
-    const comments = (post.comment_content || '')
+    const comments = convertCommentLinks(post.comment_content || '')
       .split('|')
       .map((c) => replaceDateWildcards(c.trim()))
       .filter(Boolean);

@@ -25,6 +25,7 @@ import {
   EyeOff,
   AlertCircle,
   Film,
+  Link2,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import TikTokIcon from './TikTokIcon';
@@ -91,6 +92,8 @@ export default function SettingsTab({
       'tài chính, chứng khoán, ngân hàng, bất động sản, kinh tế, crypto, usd, vàng, lạm phát',
     crawler_interval_minutes: settings.crawler_interval_minutes || '60',
     posts_per_cycle: settings.posts_per_cycle || '1',
+    redirect_proxy_enabled: settings.redirect_proxy_enabled || 'true',
+    video_default_template: settings.video_default_template || 'random',
   });
 
   useEffect(() => {
@@ -120,6 +123,8 @@ export default function SettingsTab({
       filter_keywords: settings.filter_keywords ?? prev.filter_keywords,
       crawler_interval_minutes: settings.crawler_interval_minutes ?? prev.crawler_interval_minutes,
       posts_per_cycle: settings.posts_per_cycle ?? prev.posts_per_cycle,
+      redirect_proxy_enabled: settings.redirect_proxy_enabled ?? prev.redirect_proxy_enabled,
+      video_default_template: settings.video_default_template ?? prev.video_default_template,
     }));
   }, [settings]);
 
@@ -1320,6 +1325,54 @@ export default function SettingsTab({
               >
                 <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white shadow-md"></div>
               </button>
+            </div>
+
+            {/* Link Redirect Proxy System Toggle */}
+            <div className="flex items-center justify-between p-3.5 rounded-xl app-tag gap-3 border border-indigo-500/20 bg-indigo-500/5">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-inherit flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400">
+                  <Link2 className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{lang === 'vi' ? 'Hệ thống Chuyển đổi Link Redirect Proxy' : 'Link Redirect Proxy System'}</span>
+                </div>
+                <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                  {lang === 'vi'
+                    ? 'Tự động convert link nguồn trong bình luận về dạng https://financial-news.ezerway.com/go/?to=[target_url] (trừ các link trùng domain).'
+                    : 'Automatically converts comment links to https://financial-news.ezerway.com/go/?to=[target_url] (except same-domain links).'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, redirect_proxy_enabled: form.redirect_proxy_enabled === 'false' ? 'true' : 'false' })}
+                className={`w-12 h-6 sm:w-14 sm:h-7 flex items-center rounded-full p-1 transition-colors duration-200 shrink-0 ${
+                  form.redirect_proxy_enabled !== 'false' ? 'bg-indigo-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+                }`}
+              >
+                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white shadow-md"></div>
+              </button>
+            </div>
+
+            {/* Default Video Template */}
+            <div className="p-3.5 rounded-xl app-tag flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div>
+                <div className="text-xs font-bold text-inherit flex items-center gap-1.5">
+                  <Film className="w-3.5 h-3.5 text-fuchsia-500 shrink-0" />
+                  <span>{lang === 'vi' ? 'Mẫu Video HyperFrames Mặc định' : 'Default HyperFrames Template'}</span>
+                </div>
+                <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  {lang === 'vi' ? 'Chọn phong cách hiển thị khi tạo video tự động hoặc chọn ngẫu nhiên.' : 'Style used for auto video generation, or random rotation.'}
+                </p>
+              </div>
+              <select
+                value={form.video_default_template}
+                onChange={(e) => setForm({ ...form, video_default_template: e.target.value })}
+                className="app-input h-9 px-3 text-xs font-semibold rounded-lg focus:outline-hidden focus:border-indigo-500 cursor-pointer"
+              >
+                <option value="random">🎲 {lang === 'vi' ? 'Ngẫu nhiên (Khuyên dùng)' : 'Random Rotation'}</option>
+                <option value="modern_dark">🌌 {lang === 'vi' ? 'Hiện đại Tối giản (Modern Dark)' : 'Modern Dark'}</option>
+                <option value="bloomberg_terminal">📈 {lang === 'vi' ? 'Wall Street Terminal (Bloomberg Style)' : 'Wall Street Terminal'}</option>
+                <option value="editorial_magazine">💎 {lang === 'vi' ? 'Tạp chí Sang trọng (Editorial Luxury)' : 'Editorial Luxury'}</option>
+                <option value="neon_cyber">⚡ {lang === 'vi' ? 'Cyberpunk Neon (Crypto & Tech)' : 'Cyberpunk Neon'}</option>
+              </select>
             </div>
 
             {/* Posts Per Automation Cycle */}

@@ -39,6 +39,7 @@ export const translations = {
     tab_trends: 'Xu hướng',
     tab_posts: 'Bài viết',
     tab_reels: 'Reels',
+    tab_templates: 'Mẫu Video',
     tab_logs: 'Nhật ký',
     tab_settings: 'Cài đặt',
 
@@ -309,6 +310,7 @@ export const translations = {
     tab_trends: 'Trends',
     tab_posts: 'Posts',
     tab_reels: 'Reels',
+    tab_templates: 'Templates',
     tab_logs: 'Logs',
     tab_settings: 'Settings',
 

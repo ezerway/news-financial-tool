@@ -103,7 +103,39 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
 
 ---
 
-### B. Chu kỳ Đăng Video Ngắn Đa Kênh (4-Platform Video Pipeline)
+### B. Chu kỳ Tạo Video Dọc 9:16 Tự Động (HyperFrames & Playwright Video Pipeline)
+
+```
+[ Trend Hot từ Google Trends ] 
+       │
+       ▼
+[ video-script-generator.ts ]
+       ├──> Tầng 1: Google Gemini API (@google/genai)
+       ├──> Tầng 2: Alternate AI Models
+       └──> Tầng 3: Smart Extractor Fallback (100% Offline, lọc câu có số liệu thực tế)
+       │
+       ▼
+[ Kịch bản Video JSON 3 phần ]
+ (Intro 'Financial News' -> Content Slides 40px+ -> Outro Kêu gọi hành động & 4 Icon)
+       │
+       ▼
+[ hyperframes-template.ts ] ──> Sinh mã HTML5 / CSS / Deterministic Timeline (seekTo)
+       │
+       ▼
+[ video-renderer.ts ]
+       ├──> Ưu tiên HyperFrames CLI nếu có sẵn trên hệ điều hành
+       └──> Fallback: Playwright Headless Chromium (recordVideo) + FFmpeg H.264 MP4
+       │
+       ▼
+[ storage/videos/ + DB Update ]
+       ├──> trends: video_generated = 1, video_path = storage/videos/trend_xxx.mp4
+       └──> reels: Tự động tạo bản nháp draft kèm caption & bình luận link nguồn
+
+```
+
+---
+
+### C. Chu kỳ Đăng Video Ngắn Đa Kênh (4-Platform Video Pipeline)
 
 ```
 [ Video File ] 
@@ -155,6 +187,17 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
 
 ---
 
+### D. Hệ thống Chuyển đổi Liên kết Proxy (`/go/?to=[target_url]`)
+
+Để tối ưu quản lý lưu lượng, theo dõi truy cập và tránh rò rỉ phân phối trực tiếp từ bài viết, hệ thống tích hợp module chuẩn hóa link bình luận ([link-redirect.ts](file:///Users/ezerway/PhpstormProjects/ezerway/news-financial-tool/src/lib/link-redirect.ts)):
+1. **Quy tắc chuyển đổi**:
+   - Mọi URL bài báo nguồn bên ngoài trong bình luận đều được bọc tự động thành `https://financial-news.ezerway.com/go/?to=[target_url]`.
+   - **Loại trừ cùng Domain**: Tự động bỏ qua các liên kết đã thuộc `financial-news.ezerway.com` hoặc `ezerway.com`.
+2. **Endpoint xử lý redirect (`src/app/go/route.ts`)**:
+   - Tiếp nhận tham số `to`, xác thực URL hợp lệ và trả về phản hồi HTTP `302 Found` chuyển hướng trực tiếp đến trang nguồn bài báo.
+
+---
+
 ## 3. Cấu trúc Cơ sở dữ liệu (SQLite WAL Mode)
 
 Ứng dụng sử dụng SQLite thông qua thư viện `better-sqlite3` với cơ chế **Write-Ahead Logging (WAL)**:
@@ -165,14 +208,14 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
   - Tự động giải phóng các xu hướng đã xuất bản hoặc tạo bản thảo hơn 24 giờ về `discovered` nếu không có bài đăng nào trong vòng 1 ngày qua.
 
 ### Các bảng dữ liệu chính:
-- `trends`: Lưu danh sách từ khóa xu hướng, vùng địa lý, lượng tìm kiếm ước tính, bài báo nguồn JSON, trạng thái (`discovered`, `drafted`, `published`).
+- `trends`: Lưu danh sách từ khóa xu hướng, vùng địa lý, lượng tìm kiếm ước tính, bài báo nguồn JSON, trạng thái (`discovered`, `drafted`, `published`), và cờ quản lý video 9:16 (`video_generated`, `video_path`, `video_created_at`).
 - `posts`: Lưu nội dung bài viết Facebook, nội dung bình luận nguồn, URL bài đăng, trạng thái (`draft`, `publishing`, `published`, `failed`), đường dẫn ảnh screenshot và video debug.
-- `reels`: Quản lý video ngắn, chú thích, lịch hẹn giờ đăng, trạng thái xuất bản và bình luận trên cả 4 nền tảng:
+- `reels`: Quản lý video ngắn, chú thích, lịch hẹn giờ đăng, liên kết xu hướng (`trend_id`), trạng thái xuất bản và bình luận trên cả 4 nền tảng:
   - Facebook: `status`, `comment_status`, `fb_post_url`, `debug_video_path`
   - TikTok: `tiktok_status`, `tiktok_comment_status`, `tiktok_post_url`, `tiktok_debug_video_path`
   - YouTube Shorts: `youtube_status`, `youtube_comment_status`, `youtube_post_url`, `youtube_debug_video_path`
   - Zalo Video: `zalo_status`, `zalo_comment_status`, `zalo_post_url`, `zalo_debug_video_path`
-- `activity_logs`: Nhật ký hành động phân cấp theo cấp độ (`INFO`, `WARN`, `ERROR`, `SUCCESS`) và module (`CRAWL`, `AI`, `PUBLISH`, `COMMENT`, `POST_REEL`, `POST_TIKTOK`, `POST_YOUTUBE`, `POST_ZALO`, `CLEANUP`).
+- `activity_logs`: Nhật ký hành động phân cấp theo cấp độ (`INFO`, `WARN`, `ERROR`, `SUCCESS`) và module (`CRAWL`, `AI`, `PUBLISH`, `COMMENT`, `POST_REEL`, `POST_TIKTOK`, `POST_YOUTUBE`, `POST_ZALO`, `VIDEO_RENDER`, `CLEANUP`).
 - `settings`: Cấu hình hệ thống động dạng Key-Value (API Keys, cờ bật/tắt, interval, bộ lọc từ khóa, tài khoản Admin).
 
 ---
