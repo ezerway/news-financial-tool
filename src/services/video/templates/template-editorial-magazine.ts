@@ -1,5 +1,6 @@
 import { VideoSlideScript } from '../../video-script-generator';
 import { TemplateRenderOptions, VideoTemplateDefinition } from './types';
+import { paginateContentFragments } from './index';
 
 export const editorialMagazineTemplate: VideoTemplateDefinition = {
   id: 'editorial_magazine',
@@ -34,15 +35,7 @@ export function buildEditorialMagazineHtml(script: VideoSlideScript, options: Te
     }
   }
 
-  const maxBlocksPerSlide = 2;
-  const slidePages: string[][] = [];
-  for (let i = 0; i < allFragments.length; i += maxBlocksPerSlide) {
-    slidePages.push(allFragments.slice(i, i + maxBlocksPerSlide));
-  }
-  if (slidePages.length === 0) {
-    slidePages.push(['Bản tin chuyên sâu đang được tổng hợp từ các chuyên gia và nguồn tin uy tín.']);
-  }
-
+  const slidePages = paginateContentFragments(allFragments);
   const numPages = slidePages.length;
 
   const contentScenesHtml = slidePages
@@ -351,12 +344,14 @@ export function buildEditorialMagazineHtml(script: VideoSlideScript, options: Te
 
     .editorial-text {
       padding: 24px 28px;
-      font-size: 40px;
+      font-size: 38px;
       font-weight: 600;
-      line-height: 1.4;
+      line-height: 1.42;
       color: #F8FAFC;
       letter-spacing: -0.01em;
       flex: 1;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
 
     .metric-nowrap {

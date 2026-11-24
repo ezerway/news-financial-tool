@@ -36,6 +36,8 @@ export function cleanForbiddenWords(text: string): string {
     .replace(/\bgoogle\b/gi, '')
     .replace(/\bslide\s*\d*\b/gi, 'Bản tin')
     .replace(/\btrang\s*trình\s*bày\b/gi, 'Bản tin')
+    .replace(/\.{2,}|…/g, '.') // Loại bỏ hoàn toàn dấu ba chấm (...) và dấu lửng (…)
+    .replace(/\s*\.\s*\./g, '.')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
@@ -101,7 +103,8 @@ ${articlesContext || trend.title}
 
 🚨 QUY TẮC BẮT BUỘC:
 1. TUYỆT ĐỐI KHÔNG DÙNG TỪ "Google", "Slide", "Trang trình bày" trong bất kỳ đâu của phản hồi.
-2. Cấu trúc gồm 3 phần:
+2. TUYỆT ĐỐI KHÔNG DÙNG DẤU BA CHẤM (...) hoặc viết lửng câu. Mọi ý trong fragments PHẢI LÀ CÂU VĂN HOÀN CHỈNH, ngắn gọn, súc tích và kết thúc bằng dấu chấm.
+3. Cấu trúc gồm 3 phần:
    - intro: Tiêu đề cố định "Financial News", categoryLabel chuyên nghiệp ("BẢN TIN THỊ TRƯỜNG"), tagline súc tích.
    - slide1: Headline chính liên quan trực tiếp đến từ khóa, giật tít sắc bén, ngắn gọn dưới 16 từ.
    - contentSlides: Đúng 1 đến 2 slide tiếp theo. Mỗi slide có 2-3 gạch đầu dòng (fragments). PHẢI CHẮT LỌC SỐ LIỆU THỰC TẾ từ bài báo (tỷ lệ %, tiền tệ, số lượng).

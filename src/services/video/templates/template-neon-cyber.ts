@@ -1,5 +1,6 @@
 import { VideoSlideScript } from '../../video-script-generator';
 import { TemplateRenderOptions, VideoTemplateDefinition } from './types';
+import { paginateContentFragments } from './index';
 
 export const neonCyberTemplate: VideoTemplateDefinition = {
   id: 'neon_cyber',
@@ -34,15 +35,7 @@ export function buildNeonCyberHtml(script: VideoSlideScript, options: TemplateRe
     }
   }
 
-  const maxBlocksPerSlide = 2;
-  const slidePages: string[][] = [];
-  for (let i = 0; i < allFragments.length; i += maxBlocksPerSlide) {
-    slidePages.push(allFragments.slice(i, i + maxBlocksPerSlide));
-  }
-  if (slidePages.length === 0) {
-    slidePages.push(['Dữ liệu công nghệ tài chính đang được cập nhật liên tục từ các nguồn chính thống.']);
-  }
-
+  const slidePages = paginateContentFragments(allFragments);
   const numPages = slidePages.length;
 
   const contentScenesHtml = slidePages
@@ -468,10 +461,12 @@ export function buildNeonCyberHtml(script: VideoSlideScript, options: TemplateRe
     }
 
     .block-text {
-      font-size: 20px;
+      font-size: 22px;
       line-height: 1.5;
       font-weight: 500;
       color: #F1F5F9;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
 
     /* SCENE OUTRO */

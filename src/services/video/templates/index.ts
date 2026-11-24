@@ -26,6 +26,86 @@ export const TEMPLATE_LIST: VideoTemplateDefinition[] = [
 ];
 
 /**
+ * Loại bỏ triệt để các dấu ba chấm (... hoặc …) và làm sạch text
+ */
+export function removeEllipsisAndCleanText(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/\.{2,}|…/g, '.') // Thay ... hoặc … bằng dấu chấm
+    .replace(/\s*\.\s*\./g, '.')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Phân trang thông minh cho slide nội dung:
+ * - Hiển thị hết 100% nội dung, tuyệt đối không cắt lửng, không ba chấm (...).
+ * - Nếu 1 block quá dài (> 125 ký tự): tự động tách thành 2 câu/ý riêng biệt.
+ * - Nếu slide không đủ chỗ chứa (vượt quá 120 ký tự tổng hoặc đã có 2 block): TỰ ĐỘNG THÊM SLIDE MỚI!
+ *   (Mỗi slide tối đa 2 block ngắn, hoặc 1 block dài để chữ luôn to rõ ràng, không bao giờ bị chật chội).
+ */
+export function paginateContentFragments(fragments: string[]): string[][] {
+  const cleanedList: string[] = [];
+
+  for (const raw of fragments) {
+    if (!raw || !raw.trim()) continue;
+    const clean = removeEllipsisAndCleanText(raw);
+
+    // Nếu một đoạn văn quá dài (trên 130 ký tự), tách thành 2 câu theo dấu chấm câu hoặc liên từ
+    if (clean.length > 130) {
+      const splitByDot = clean.split(/(?<=[.!?])\s+/).filter((s) => s.trim().length > 0);
+      if (splitByDot.length > 1) {
+        for (const sub of splitByDot) {
+          cleanedList.push(sub.trim());
+        }
+        continue;
+      }
+
+      const commaIdx = clean.indexOf(',', 60);
+      if (commaIdx !== -1 && commaIdx < 110) {
+        cleanedList.push(clean.substring(0, commaIdx + 1).trim());
+        cleanedList.push(clean.substring(commaIdx + 1).trim());
+        continue;
+      }
+    }
+
+    cleanedList.push(clean);
+  }
+
+  if (cleanedList.length === 0) {
+    return [['Nội dung đang được cập nhật liên tục từ các cơ quan báo chí chính thống.']];
+  }
+
+  const pages: string[][] = [];
+  let currentSlide: string[] = [];
+  let currentLength = 0;
+
+  for (const item of cleanedList) {
+    const itemLen = item.length;
+
+    // Nếu slide hiện tại đã có 2 block, hoặc thêm block này làm tổng ký tự vượt quá 120, hoặc item là block dài (> 70 ký tự)
+    if (
+      currentSlide.length >= 2 ||
+      (currentSlide.length > 0 && currentLength + itemLen > 120) ||
+      (currentSlide.length > 0 && itemLen > 70)
+    ) {
+      pages.push(currentSlide);
+      currentSlide = [item];
+      currentLength = itemLen;
+    } else {
+      currentSlide.push(item);
+      currentLength += itemLen;
+    }
+  }
+
+  if (currentSlide.length > 0) {
+    pages.push(currentSlide);
+  }
+
+  return pages;
+}
+
+/**
  * Lấy danh sách metadata của tất cả templates có sẵn
  */
 export function getAllVideoTemplates(): VideoTemplateMeta[] {

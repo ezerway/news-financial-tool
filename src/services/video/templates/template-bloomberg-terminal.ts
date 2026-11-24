@@ -1,5 +1,6 @@
 import { VideoSlideScript } from '../../video-script-generator';
 import { TemplateRenderOptions, VideoTemplateDefinition } from './types';
+import { paginateContentFragments } from './index';
 
 export const bloombergTerminalTemplate: VideoTemplateDefinition = {
   id: 'bloomberg_terminal',
@@ -34,15 +35,7 @@ export function buildBloombergTerminalHtml(script: VideoSlideScript, options: Te
     }
   }
 
-  const maxBlocksPerSlide = 2;
-  const slidePages: string[][] = [];
-  for (let i = 0; i < allFragments.length; i += maxBlocksPerSlide) {
-    slidePages.push(allFragments.slice(i, i + maxBlocksPerSlide));
-  }
-  if (slidePages.length === 0) {
-    slidePages.push(['Dữ liệu thị trường đang được cập nhật từ các nguồn chính thống.']);
-  }
-
+  const slidePages = paginateContentFragments(allFragments);
   const numPages = slidePages.length;
 
   const contentScenesHtml = slidePages
@@ -53,7 +46,7 @@ export function buildBloombergTerminalHtml(script: VideoSlideScript, options: Te
           <div class="terminal-block page-${pageIdx + 1}-block-${blockIdx + 1}">
             <div class="terminal-accent-line accent-${(pageIdx * 2 + blockIdx) % 2 === 0 ? 'amber' : 'emerald'}"></div>
             <div class="terminal-block-body">
-              <div class="terminal-tag-bracket">DATA // 0${blockIdx + 1}</div>
+              <div class="terminal-tag-bracket">DATA // INTEL</div>
               <div class="terminal-text">${frag}</div>
             </div>
           </div>
@@ -380,11 +373,13 @@ export function buildBloombergTerminalHtml(script: VideoSlideScript, options: Te
     }
 
     .terminal-text {
-      font-size: 40px;
+      font-size: 38px;
       font-weight: 600;
-      line-height: 1.38;
+      line-height: 1.42;
       color: #F8FAFC;
       letter-spacing: -0.01em;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
 
     .metric-nowrap {

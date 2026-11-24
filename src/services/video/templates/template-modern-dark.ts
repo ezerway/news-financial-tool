@@ -1,5 +1,6 @@
 import { VideoSlideScript } from '../../video-script-generator';
 import { TemplateRenderOptions, VideoTemplateDefinition } from './types';
+import { paginateContentFragments } from './index';
 
 export const modernDarkTemplate: VideoTemplateDefinition = {
   id: 'modern_dark',
@@ -34,15 +35,7 @@ export function buildModernDarkHtml(script: VideoSlideScript, options: TemplateR
     }
   }
 
-  const maxBlocksPerSlide = 2;
-  const slidePages: string[][] = [];
-  for (let i = 0; i < allFragments.length; i += maxBlocksPerSlide) {
-    slidePages.push(allFragments.slice(i, i + maxBlocksPerSlide));
-  }
-  if (slidePages.length === 0) {
-    slidePages.push(['Nội dung đang được cập nhật từ các nguồn chính thống.']);
-  }
-
+  const slidePages = paginateContentFragments(allFragments);
   const numPages = slidePages.length;
 
   const contentScenesHtml = slidePages
@@ -381,12 +374,14 @@ export function buildModernDarkHtml(script: VideoSlideScript, options: TemplateR
 
     .block-text {
       padding: 24px 28px;
-      font-size: 40px;
+      font-size: 38px;
       font-weight: 600;
-      line-height: 1.38;
+      line-height: 1.42;
       color: #F8FAFC;
       letter-spacing: -0.01em;
       flex: 1;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
 
     .metric-nowrap {
