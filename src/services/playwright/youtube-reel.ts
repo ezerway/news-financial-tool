@@ -537,10 +537,16 @@ export async function uploadYouTubeShortVideo(options: {
     // 11. Bấm nút Hoàn tất / Xuất bản (Save / Publish / Schedule / Done)
     notify('Đang bấm Xuất bản video...');
     await page.waitForTimeout(15000);
+    const publishAnywayBtn = page.locator('button:has-text("Publish anyway")').first();
+    await publishAnywayBtn.waitFor({ state: 'visible', timeout: 20000 });
+    if (await publishAnywayBtn.isVisible()) {
+      await publishAnywayBtn.click();
+      await page.waitForTimeout(4000);
+    }
+
     const doneBtn = page.locator('#done-button, button#done-button, ytcp-button#done-button, #publish-button').first();
     await doneBtn.waitFor({ state: 'visible', timeout: 20000 });
     await doneBtn.click();
-    await page.waitForTimeout(4000);
 
     // Kiểm tra link video trong popup xác nhận nếu chưa lấy được ở bước trước
     if (!shortsUrl) {
