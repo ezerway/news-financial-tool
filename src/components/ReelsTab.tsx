@@ -837,10 +837,10 @@ export default function ReelsTab({
                             {reel.comment_status && (
                               <span
                                 className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${reel.comment_status === 'commented'
-                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                    : reel.comment_status === 'failed'
-                                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                                      : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : reel.comment_status === 'failed'
+                                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                    : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
                                   }`}
                               >
                                 {reel.comment_status === 'commented'
@@ -853,10 +853,10 @@ export default function ReelsTab({
                             {reel.tiktok_status === 'published' && reel.tiktok_comment_status && (
                               <span
                                 className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${reel.tiktok_comment_status === 'commented'
-                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                    : reel.tiktok_comment_status === 'failed'
-                                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                                      : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : reel.tiktok_comment_status === 'failed'
+                                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                    : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
                                   }`}
                               >
                                 {reel.tiktok_comment_status === 'commented'
@@ -869,10 +869,10 @@ export default function ReelsTab({
                             {reel.youtube_status === 'published' && reel.youtube_comment_status && (
                               <span
                                 className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${reel.youtube_comment_status === 'commented'
-                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                    : reel.youtube_comment_status === 'failed'
-                                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                                      : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : reel.youtube_comment_status === 'failed'
+                                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                    : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
                                   }`}
                               >
                                 {reel.youtube_comment_status === 'commented'
@@ -885,10 +885,10 @@ export default function ReelsTab({
                             {reel.zalo_status === 'published' && reel.zalo_comment_status && (
                               <span
                                 className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${reel.zalo_comment_status === 'commented'
-                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                    : reel.zalo_comment_status === 'failed'
-                                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                                      : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : reel.zalo_comment_status === 'failed'
+                                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                    : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
                                   }`}
                               >
                                 {reel.zalo_comment_status === 'commented'

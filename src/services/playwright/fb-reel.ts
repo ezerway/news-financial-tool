@@ -262,7 +262,7 @@ export async function uploadFacebookReel(
       const fileInput = activePage.locator('input[type="file"]').first();
       if ((await fileInput.count()) > 0) {
         notify('Nạp file bổ sung vào input[type="file"] của form...');
-        await fileInput.setInputFiles(resolvedPath).catch(() => {});
+        await fileInput.setInputFiles(resolvedPath).catch(() => { });
         await activePage.waitForTimeout(2000);
       }
 
@@ -525,7 +525,7 @@ export async function uploadFacebookReel(
         await page.goto(
           'https://www.facebook.com/professional_dashboard/content/content_library/?date_range=TODAY&placement_type=ALL&post_type=ALL_CONTENT&post_types[0]=REELS&sort_by=DATE&sorting_method=METRICS_DESCENDING',
           { waitUntil: 'domcontentloaded', timeout: 35000 }
-        ).catch(() => {});
+        ).catch(() => { });
         await page.waitForTimeout(3000);
 
         const contentLinks = page.locator('a[href*="/content/insights/?content_id="]');
@@ -557,7 +557,7 @@ export async function uploadFacebookReel(
         await page.goto('https://www.facebook.com/notifications/', {
           waitUntil: 'domcontentloaded',
           timeout: 30000,
-        }).catch(() => {});
+        }).catch(() => { });
         await page.waitForTimeout(2500);
 
         const notifLinks = page.locator('a[href*="/content/insights/?content_id="]');
@@ -586,7 +586,7 @@ export async function uploadFacebookReel(
         await page.goto(insightsUrl, {
           waitUntil: 'domcontentloaded',
           timeout: 35000,
-        }).catch(() => {});
+        }).catch(() => { });
         await page.waitForTimeout(3000);
 
         // Click nút 3 chấm Actions for this post để Copy link chia sẻ công khai
@@ -663,7 +663,7 @@ export async function uploadFacebookReel(
           if (!notAvailable) break;
           notify(`Reel đang được Facebook xử lý nền, đợi thêm 10s (lần ${attempt + 1}/4)...`);
           await page.waitForTimeout(10000);
-          await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+          await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => { });
         }
 
         // Gửi các bình luận qua hàm dùng chung
@@ -782,7 +782,7 @@ export async function uploadFacebookReel(
 export async function postCommentsOnFacebookPage(
   page: Page,
   rawComment: string,
-  notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void = () => {}
+  notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void = () => { }
 ): Promise<{ success: boolean; sentCount: number; total: number; error?: string }> {
   const finalComment = replaceDateWildcards(rawComment).trim();
   const commentItems = finalComment
@@ -835,7 +835,7 @@ export async function postCommentsOnFacebookPage(
     }
 
     if (await commentBox.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await commentBox.scrollIntoViewIfNeeded().catch(() => {});
+      await commentBox.scrollIntoViewIfNeeded().catch(() => { });
       await commentBox.click();
       await page.waitForTimeout(600);
       await page.keyboard.insertText(itemComment);
@@ -887,7 +887,7 @@ export async function commentFacebookReelOnly(options: {
     console.log(`[Reel Comment] ${msg}`);
     try {
       logActivity(level, 'COMMENT', msg);
-    } catch {}
+    } catch { }
     if (onProgress) onProgress(msg);
   };
 
@@ -1003,7 +1003,7 @@ export async function commentFacebookReelOnly(options: {
               publicReelUrl = copied.trim();
               notify(`Lấy được link Reel công khai từ Insights: ${publicReelUrl}`, 'INFO');
               // Điều hướng sang link Reel công khai
-              await page.goto(publicReelUrl, { waitUntil: 'domcontentloaded', timeout: 35000 }).catch(() => {});
+              await page.goto(publicReelUrl, { waitUntil: 'domcontentloaded', timeout: 35000 }).catch(() => { });
               await page.waitForTimeout(3000);
               if (page.url() && page.url().includes('/reel/')) {
                 publicReelUrl = page.url();
@@ -1011,7 +1011,7 @@ export async function commentFacebookReelOnly(options: {
             }
           }
         }
-      } catch {}
+      } catch { }
     } else if (page.url() && page.url().includes('/reel/')) {
       publicReelUrl = page.url();
     }
@@ -1022,7 +1022,7 @@ export async function commentFacebookReelOnly(options: {
       if (!notAvailable) break;
       notify(`Reel đang được Facebook xử lý nền, đợi thêm 10s (lần ${attempt + 1}/4)...`);
       await page.waitForTimeout(10000);
-      await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+      await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => { });
     }
 
     const commentResult = await postCommentsOnFacebookPage(page, finalComment, notify);
@@ -1036,8 +1036,8 @@ export async function commentFacebookReelOnly(options: {
     notify(`Lỗi khi bình luận lên Reel: ${errorMsg}`, 'ERROR');
     return { success: false, error: errorMsg };
   } finally {
-    if (page && !page.isClosed()) await page.close().catch(() => {});
-    if (context) await context.close().catch(() => {});
-    if (isStandaloneBrowser && browser) await browser.close().catch(() => {});
+    if (page && !page.isClosed()) await page.close().catch(() => { });
+    if (context) await context.close().catch(() => { });
+    if (isStandaloneBrowser && browser) await browser.close().catch(() => { });
   }
 }
