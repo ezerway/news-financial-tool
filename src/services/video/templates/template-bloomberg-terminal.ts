@@ -553,7 +553,7 @@ export function buildBloombergTerminalHtml(script: VideoSlideScript, options: Te
           </div>
           <h2 class="headline-title">${script.slide1.headline}</h2>
           <div class="headline-footer">
-            <span>REAL-TIME BRIEF</span>
+            <span>REAL-TIME</span>
             <span>${script.slide1.timestamp || 'Hôm nay'}</span>
           </div>
         </div>

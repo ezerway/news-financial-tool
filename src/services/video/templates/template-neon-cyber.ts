@@ -692,6 +692,19 @@ export function buildNeonCyberHtml(script: VideoSlideScript, options: TemplateRe
     };
 
     window.seekTo(0);
+
+    if (window.__AUTO_PLAY__) {
+      let startTime = null;
+      function step(timestamp) {
+        if (!startTime) startTime = timestamp;
+        const elapsed = (timestamp - startTime) / 1000;
+        window.seekTo(elapsed);
+        if (elapsed < totalDuration) {
+          requestAnimationFrame(step);
+        }
+      }
+      requestAnimationFrame(step);
+    }
   </script>
 </body>
 </html>`;
