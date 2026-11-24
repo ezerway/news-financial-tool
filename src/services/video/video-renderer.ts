@@ -9,7 +9,7 @@ import db, { logActivity, getDefaultVideoTemplate } from '@/lib/db';
 import { TrendItem } from '@/types';
 import { convertToRedirectUrl } from '@/lib/link-redirect';
 import { generateVideoSlideScript, VideoSlideScript, cleanForbiddenWords } from '../video-script-generator';
-import { renderVideoTemplate, VideoTemplateId } from './templates';
+import { renderVideoTemplate, VideoTemplateId, calculateVideoDuration } from './templates';
 
 const execAsync = promisify(exec);
 
@@ -137,11 +137,10 @@ export function getHyperframesPath(): string | null {
  */
 export async function renderTrendVideo(
   trend: TrendItem,
-  options: { force?: boolean; width?: number; height?: number; templateId?: string } = {}
+  options: { force?: boolean; width?: number; height?: number; templateId?: string; duration?: number } = {}
 ): Promise<RenderResult> {
   const width = options.width || 720; // 720x1280 (chuẩn HD 9:16 tối ưu tốc độ render)
   const height = options.height || 1280;
-  const duration = 20; // 20 giây bản tin
 
   const storageDir = path.join(process.cwd(), 'storage');
   const videosDir = path.join(storageDir, 'videos');
@@ -187,7 +186,16 @@ export async function renderTrendVideo(
   // 2. Sinh kịch bản Slide (Gemini -> Alternate -> Smart Extractor Fallback)
   const script = await generateVideoSlideScript(trend);
 
-  // 3. Tạo mã HTML5 HyperFrames composition dựa trên template đã chọn hoặc cấu hình
+  // 3. Tính toán thời lượng video tự động theo số slide (từ 20s đến 60s)
+  const duration = options.duration || calculateVideoDuration(script);
+
+  logActivity(
+    'INFO',
+    'VIDEO_RENDER',
+    `Thời lượng video: ${duration}s (tự động điều chỉnh theo ${script.contentSlides?.length || 0} nhóm nội dung, từ 20s - 60s)`
+  );
+
+  // 4. Tạo mã HTML5 HyperFrames composition dựa trên template đã chọn hoặc cấu hình
   const selectedTemplate = options.templateId || getDefaultVideoTemplate();
   const { html: htmlContent, usedTemplateId } = renderVideoTemplate(selectedTemplate, script, { width, height, duration });
 
@@ -211,7 +219,7 @@ export async function renderTrendVideo(
   if (hyperframesBin) {
     try {
       logActivity('INFO', 'VIDEO_RENDER', `Phát hiện HyperFrames CLI (${hyperframesBin}), tiến hành render video...`);
-      await execAsync(`"${hyperframesBin}" render --composition "${tempHtmlPath}" --output "${finalMp4Path}" --fps 25`);
+      await execAsync(`"${hyperframesBin}" render --composition "${tempHtmlPath}" --output "${finalMp4Path}" --fps 25 --duration ${duration}`);
       if (fs.existsSync(finalMp4Path)) {
         renderedSuccessfully = true;
       }

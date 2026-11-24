@@ -106,6 +106,32 @@ export function paginateContentFragments(fragments: string[]): string[][] {
 }
 
 /**
+ * Tính toán thời lượng video chuẩn xác linh hoạt dựa theo số lượng slide nội dung
+ * Công thức: 12 giây cơ bản (Intro ~3.5s + Headline ~3.5s + Outro ~5.0s)
+ *            + mỗi slide nội dung ~5.5 giây để người xem kịp đọc.
+ * Giới hạn chặt chẽ trong khoảng từ 20 giây đến 60 giây.
+ */
+export function calculateVideoDuration(script: VideoSlideScript): number {
+  const allFragments: string[] = [];
+  for (const cs of script.contentSlides || []) {
+    for (const f of cs.fragments || []) {
+      if (f && f.trim()) {
+        allFragments.push(f.trim());
+      }
+    }
+  }
+
+  const pages = paginateContentFragments(allFragments);
+  const numPages = pages.length;
+
+  // 12s cho phần khung (Intro + Headline + Outro), cộng thêm 5.5s cho mỗi slide nội dung
+  const estimated = 12 + numPages * 5.5;
+
+  // Giới hạn trong khoảng từ 20s đến 60s
+  return Math.max(20, Math.min(60, Math.round(estimated)));
+}
+
+/**
  * Lấy danh sách metadata của tất cả templates có sẵn
  */
 export function getAllVideoTemplates(): VideoTemplateMeta[] {
@@ -140,8 +166,13 @@ export function renderVideoTemplate(
   templateId: string | undefined,
   script: VideoSlideScript,
   options?: TemplateRenderOptions
-): { html: string; usedTemplateId: VideoTemplateId } {
+): { html: string; usedTemplateId: VideoTemplateId; duration: number } {
+  const duration = options?.duration || calculateVideoDuration(script);
+  const resolvedOptions: TemplateRenderOptions = {
+    ...options,
+    duration,
+  };
   const { template, resolvedId } = resolveTemplate(templateId);
-  const html = template.render(script, options);
-  return { html, usedTemplateId: resolvedId };
+  const html = template.render(script, resolvedOptions);
+  return { html, usedTemplateId: resolvedId, duration };
 }

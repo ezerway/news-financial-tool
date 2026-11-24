@@ -1,6 +1,6 @@
 import { VideoSlideScript } from '../../video-script-generator';
 import { TemplateRenderOptions, VideoTemplateDefinition } from './types';
-import { paginateContentFragments } from './index';
+import { calculateVideoDuration, paginateContentFragments } from './index';
 
 export const bloombergTerminalTemplate: VideoTemplateDefinition = {
   id: 'bloomberg_terminal',
@@ -24,7 +24,7 @@ export const bloombergTerminalTemplate: VideoTemplateDefinition = {
 export function buildBloombergTerminalHtml(script: VideoSlideScript, options: TemplateRenderOptions = {}): string {
   const width = options.width || 720;
   const height = options.height || 1280;
-  const duration = options.duration || 20;
+  const duration = options.duration || calculateVideoDuration(script);
 
   const allFragments: string[] = [];
   for (const cs of script.contentSlides || []) {
@@ -46,7 +46,6 @@ export function buildBloombergTerminalHtml(script: VideoSlideScript, options: Te
           <div class="terminal-block page-${pageIdx + 1}-block-${blockIdx + 1}">
             <div class="terminal-accent-line accent-${(pageIdx * 2 + blockIdx) % 2 === 0 ? 'amber' : 'emerald'}"></div>
             <div class="terminal-block-body">
-              <div class="terminal-tag-bracket">DATA // INTEL</div>
               <div class="terminal-text">${frag}</div>
             </div>
           </div>
@@ -650,7 +649,8 @@ export function buildBloombergTerminalHtml(script: VideoSlideScript, options: Te
       hideAllScenes();
 
       const contentStartTime = numPages > 1 ? 6.8 : 7.2;
-      const outroStartTime = 16.0;
+      const outroDuration = 4.5;
+      const outroStartTime = DURATION - outroDuration;
       const contentTotalTime = outroStartTime - contentStartTime;
       const timePerPage = contentTotalTime / numPages;
 

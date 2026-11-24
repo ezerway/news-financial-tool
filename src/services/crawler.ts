@@ -229,7 +229,7 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
     await context.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
       Object.defineProperty(navigator, 'languages', { get: () => ['vi-VN', 'vi', 'en-US', 'en'] });
-      (window as any).chrome = { runtime: {}, loadTimes: () => {}, csi: () => {}, app: {} };
+      (window as any).chrome = { runtime: {}, loadTimes: () => { }, csi: () => { }, app: {} };
     });
 
     const page = await context.newPage();
@@ -273,7 +273,7 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
       // Click row to open detail drawer / panel
       await row.scrollIntoViewIfNeeded();
       await row.click();
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(3000);
 
       // Extract real news publisher links under section "In the news"
       let articles: NewsArticle[] = await page.evaluate(() => {

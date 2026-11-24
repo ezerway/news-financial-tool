@@ -139,6 +139,110 @@ async function ensureTargetChannel(
 }
 
 /**
+ * Tự động thêm nhạc nền ngẫu nhiên vào YouTube Shorts qua YouTube Studio Editor
+ * 1. Vào https://studio.youtube.com/video/[video-id]/editor
+ * 2. Click vào [id="entrypoint-audio-row"] a
+ * 3. Chờ '[id="tracks-table-wrapper"] [role="grid"]' có ytve-audioswap-track-row
+ * 4. Random click id="add-track-button"
+ * 5. Xong click '[aria-label="Save"]'
+ */
+export async function addMusicToYouTubeShort(
+  page: Page,
+  videoId: string,
+  notify: (msg: string, level?: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS') => void
+): Promise<boolean> {
+  notify(`Đang chuyển đến YouTube Studio Editor để thêm nhạc cho video [${videoId}]...`);
+  try {
+    const editorUrl = `https://studio.youtube.com/video/${videoId}/editor`;
+    await page.goto(editorUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    await page.waitForTimeout(3000);
+
+    // 1. Click vào [id="entrypoint-audio-row"] a
+    const audioEntry = page.locator('[id="entrypoint-audio-row"] a, #entrypoint-audio-row a').first();
+    const isAudioEntryVisible = await audioEntry.isVisible({ timeout: 15000 }).catch(() => false);
+    if (!isAudioEntryVisible) {
+      notify(`Không tìm thấy nút entrypoint-audio-row trong Studio Editor. Bỏ qua bước thêm nhạc.`, 'WARN');
+      return false;
+    }
+
+    notify('Đang mở danh sách âm thanh Audio Library...');
+    await audioEntry.click();
+    await page.waitForTimeout(2000);
+
+    // 2. Chờ '[id="tracks-table-wrapper"] [role="grid"]' có ytve-audioswap-track-row
+    const tracksGrid = page.locator('[id="tracks-table-wrapper"] [role="grid"], #tracks-table-wrapper [role="grid"]');
+    const firstRow = tracksGrid.locator('ytve-audioswap-track-row').first();
+    await firstRow.waitFor({ state: 'visible', timeout: 25000 });
+
+    // 3. Random click id="add-track-button"
+    const allRows = tracksGrid.locator('ytve-audioswap-track-row');
+    const count = await allRows.count();
+    if (count === 0) {
+      notify(`Không tìm thấy bài hát nào trong bảng âm thanh.`, 'WARN');
+      return false;
+    }
+
+    const randomIdx = Math.floor(Math.random() * count);
+    const selectedRow = allRows.nth(randomIdx);
+    notify(`Đã chọn ngẫu nhiên track #${randomIdx + 1}/${count}, đang thêm vào video...`);
+
+    // Hover hàng để hiển thị nút add-track-button
+    await selectedRow.hover().catch(() => { });
+    await page.waitForTimeout(500);
+
+    const addBtn = selectedRow.locator('[id="add-track-button"], #add-track-button').first();
+    await addBtn.waitFor({ state: 'visible', timeout: 6000 });
+    await addBtn.click();
+    await page.waitForTimeout(2500);
+
+    // 4. Xong click '[aria-label="Save"]'
+    notify('Đang lưu thay đổi âm thanh...');
+    const saveBtn = page.locator('[aria-label="Save"], [aria-label="Lưu"], ytcp-button#save-button button').first();
+    await saveBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await saveBtn.click();
+    await page.waitForTimeout(1500);
+
+    // 5. Xử lý dialog selector 'tp-yt-paper-dialog' xác nhận thay đổi
+    try {
+      const paperDialog = page.locator('tp-yt-paper-dialog').filter({
+        has: page.locator('[aria-label="Confirm changes"], #checkbox, [id="checkbox"]'),
+      }).first();
+      const isDialogVisible = await paperDialog.isVisible({ timeout: 6000 }).catch(() => false);
+
+      if (isDialogVisible) {
+        notify('Phát hiện dialog xác nhận (tp-yt-paper-dialog), đang click checkbox và xác nhận...');
+        // Click vào checkbox id="checkbox"
+        const checkbox = paperDialog.locator('#checkbox, [id="checkbox"]').first();
+        await checkbox.waitFor({ state: 'visible', timeout: 4000 });
+        await checkbox.click();
+        await page.waitForTimeout(800);
+
+        // Click button có [aria-label="Confirm changes"]
+        const confirmBtn = paperDialog.locator('[aria-label="Confirm changes"]').first();
+        await confirmBtn.waitFor({ state: 'visible', timeout: 4000 });
+        await confirmBtn.click();
+        await page.waitForTimeout(2500);
+      } else {
+        // Fallback kiểm tra nút xác nhận nếu dialog không dùng tp-yt-paper-dialog
+        const fallbackConfirmBtn = page.locator('[aria-label="Confirm changes"]').first();
+        if (await fallbackConfirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await fallbackConfirmBtn.click();
+          await page.waitForTimeout(2000);
+        }
+      }
+    } catch (dErr: any) {
+      notify(`Cảnh báo khi xử lý dialog xác nhận: ${dErr.message}`, 'WARN');
+    }
+
+    notify(`Thêm nhạc nền YouTube thành công cho video Shorts [${videoId}]!`, 'SUCCESS');
+    return true;
+  } catch (err: any) {
+    notify(`Không thể thêm nhạc vào YouTube Shorts: ${err.message}`, 'WARN');
+    return false;
+  }
+}
+
+/**
  * Tự động tải lên video ngắn YouTube Shorts qua YouTube Studio
  */
 export async function uploadYouTubeShortVideo(options: {
@@ -457,7 +561,16 @@ export async function uploadYouTubeShortVideo(options: {
 
     notify(`Xuất bản YouTube Shorts thành công! (Link: ${shortsUrl || 'Chưa lấy được link chi tiết'})`, 'SUCCESS');
 
-    // 12. Gửi bình luận đầu tiên (First Comment) nếu có và không phải hẹn giờ
+    // 12. Tự động thêm nhạc nền ngẫu nhiên qua YouTube Studio Editor
+    if (shortsUrl && !isScheduled) {
+      const videoIdMatch = shortsUrl.match(/(?:shorts\/|youtu\.be\/|watch\?v=)([a-zA-Z0-9_\-]+)/);
+      const videoId = videoIdMatch ? videoIdMatch[1] : null;
+      if (videoId) {
+        await addMusicToYouTubeShort(page, videoId, notify);
+      }
+    }
+
+    // 13. Gửi bình luận đầu tiên (First Comment) nếu có và không phải hẹn giờ
     let commentSuccess = false;
     if (comment && comment.trim() && shortsUrl && !isScheduled) {
       try {

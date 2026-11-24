@@ -49,6 +49,7 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
   const [previewHtml, setPreviewHtml] = useState<string>('');
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [previewCurrentTime, setPreviewCurrentTime] = useState<number>(0);
+  const [previewDuration, setPreviewDuration] = useState<number>(20);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [iframeScale, setIframeScale] = useState(0.44);
@@ -59,7 +60,12 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
     const updateScale = () => {
       if (containerRef.current) {
         const w = containerRef.current.clientWidth;
-        if (w > 0) {
+        const h = containerRef.current.clientHeight;
+        if (w > 0 && h > 0) {
+          // Luôn co giãn vừa vặn toàn bộ khung hình 720x1280 theo cả 2 chiều, không bị cắt
+          const scale = Math.min(w / 720, h / 1280);
+          setIframeScale(scale);
+        } else if (w > 0) {
           setIframeScale(w / 720);
         }
       }
@@ -76,9 +82,9 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
     const interval = setInterval(() => {
       setPreviewCurrentTime((prev) => {
         const next = Math.round((prev + 0.1) * 10) / 10;
-        if (next >= 20) {
+        if (next >= previewDuration) {
           setIsPlayingPreview(false);
-          return 20;
+          return previewDuration;
         }
         const iframe = document.getElementById('previewIframe') as HTMLIFrameElement;
         if (iframe && iframe.contentWindow && (iframe.contentWindow as any).seekTo) {
@@ -88,7 +94,7 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
       });
     }, 100);
     return () => clearInterval(interval);
-  }, [isPlayingPreview]);
+  }, [isPlayingPreview, previewDuration]);
 
   const fetchTemplates = async () => {
     setIsLoading(true);
@@ -157,6 +163,9 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
       const data = await res.json();
       if (data.success) {
         setPreviewHtml(data.html);
+        if (data.duration) {
+          setPreviewDuration(data.duration);
+        }
       } else {
         onNotify?.(data.error || 'Không thể tạo bản xem trước', 'error');
       }
@@ -418,10 +427,8 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
                       width: '720px',
                       height: '1280px',
                       transform: `scale(${iframeScale})`,
-                      transformOrigin: 'top left',
+                      transformOrigin: 'center center',
                       position: 'absolute',
-                      top: 0,
-                      left: 0,
                       pointerEvents: 'none',
                     }}
                   >
@@ -439,13 +446,13 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
               {/* Timeline Slider & Playback for Preview */}
               <div className="w-full mt-3 bg-slate-800/80 p-2.5 rounded-xl border border-slate-700 flex flex-col gap-2">
                 <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                  <span className="font-bold text-slate-300">{previewCurrentTime.toFixed(1)}s / 20.0s</span>
+                  <span className="font-bold text-slate-300">{previewCurrentTime.toFixed(1)}s / {previewDuration.toFixed(1)}s</span>
                   <span className="text-indigo-400 font-bold">
-                    {previewCurrentTime < 4
+                    {previewCurrentTime < 3.0
                       ? 'Scene 1: Intro'
-                      : previewCurrentTime < 8
+                      : previewCurrentTime < 7.0
                       ? 'Scene 2: Headline'
-                      : previewCurrentTime < 15
+                      : previewCurrentTime < previewDuration - 4.5
                       ? 'Scene 3: Content'
                       : 'Scene 4: Outro'}
                   </span>
@@ -455,7 +462,7 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
                   <button
                     type="button"
                     onClick={() => {
-                      if (previewCurrentTime >= 20) {
+                      if (previewCurrentTime >= previewDuration) {
                         setPreviewCurrentTime(0);
                         const iframe = document.getElementById('previewIframe') as HTMLIFrameElement;
                         if (iframe && iframe.contentWindow && (iframe.contentWindow as any).seekTo) {
@@ -488,7 +495,7 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
                   <input
                     type="range"
                     min="0"
-                    max="20"
+                    max={previewDuration}
                     step="0.1"
                     value={previewCurrentTime}
                     onChange={(e) => {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllVideoTemplates, renderVideoTemplate, VideoTemplateId } from '@/services/video/templates';
+import { getAllVideoTemplates, renderVideoTemplate, calculateVideoDuration, VideoTemplateId } from '@/services/video/templates';
 import { getDefaultVideoTemplate } from '@/lib/db';
 import { VideoSlideScript } from '@/services/video-script-generator';
 
@@ -65,17 +65,19 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const templateId = (body.templateId as VideoTemplateId) || 'modern_dark';
     const script: VideoSlideScript = body.script || DEMO_SCRIPT;
+    const duration = body.duration || calculateVideoDuration(script);
 
     const { html, usedTemplateId } = renderVideoTemplate(templateId, script, {
       width: 720,
       height: 1280,
-      duration: 20,
+      duration,
     });
 
     return NextResponse.json({
       success: true,
       templateId: usedTemplateId,
       html,
+      duration,
     });
   } catch (err: any) {
     return NextResponse.json(

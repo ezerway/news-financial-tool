@@ -89,26 +89,32 @@ export async function generateVideoSlideScript(trend: TrendItem): Promise<VideoS
       const ai = new GoogleGenAI({ apiKey: geminiApiKey });
 
       const articlesContext = exactArticles
-        .map((a, i) => `Bài báo ${i + 1} (${a.source || 'Báo chí'} - "${a.title}"):\n${a.content?.slice(0, 800) || a.snippet || ''}`)
+        .map((a, i) => `Bài báo ${i + 1} (${a.source || 'Báo chí'} - "${a.title}"):\n${a.content?.slice(0, 3500) || a.snippet || ''}`)
         .join('\n\n');
 
       const prompt = `
-Bạn là đạo diễn nội dung bản tin tài chính ngắn (15 - 30s) phong cách hiện đại, tối giản.
-Hãy tạo kịch bản trình chiếu slide dọc 9:16 từ chủ đề xu hướng và bài báo sau:
+Bạn là biên tập viên tin tức kinh tế & tài chính chuyên nghiệp.
+Nhiệm vụ của bạn: ĐỌC KỸ TOÀN BỘ BÀI BÁO dưới đây và TÓM TẮT THÀNH ĐÚNG TỪ 3 ĐẾN 7 Ý CHÍNH quan trọng nhất (để làm slide video ngắn 9:16).
 
 Chủ đề: "${trend.title}"
 Khu vực: ${trend.geo || 'VN'}
-Thông tin bài báo:
+Thông tin bài báo nguồn:
 ${articlesContext || trend.title}
 
-🚨 QUY TẮC BẮT BUỘC:
-1. TUYỆT ĐỐI KHÔNG DÙNG TỪ "Google", "Slide", "Trang trình bày" trong bất kỳ đâu của phản hồi.
-2. TUYỆT ĐỐI KHÔNG DÙNG DẤU BA CHẤM (...) hoặc viết lửng câu. Mọi ý trong fragments PHẢI LÀ CÂU VĂN HOÀN CHỈNH, ngắn gọn, súc tích và kết thúc bằng dấu chấm.
-3. Cấu trúc gồm 3 phần:
+🚨 QUY TẮC TÓM TẮT BẮT BUỘC:
+1. Đọc hiểu toàn diện bài viết, sau đó cô đọng thành ĐÚNG TỪ 3 ĐẾN 7 Ý CHÍNH (tổng số fragments trong contentSlides phải từ 3 đến 7 ý):
+   - Ý 1: Diễn biến/Sự kiện cốt lõi quan trọng nhất kèm số liệu chủ đạo.
+   - Ý 2: Nguyên nhân, bối cảnh hoặc động thái từ cơ quan/doanh nghiệp liên quan.
+   - Ý 3: Tác động trực tiếp đến thị trường, nhà đầu tư hoặc nền kinh tế.
+   - Ý 4 - 7 (nếu có thêm thông tin): Số liệu chi tiết bổ sung, dự báo hoặc khuyến nghị chuyên gia.
+2. Mỗi ý chính (fragment) PHẢI LÀ MỘT CÂU VĂN HOÀN CHỈNH, ngắn gọn, súc tích (15 - 30 từ), ngữ pháp chuẩn và kết thúc bằng dấu chấm.
+3. TUYỆT ĐỐI KHÔNG DÙNG DẤU BA CHẤM (... hoặc …), không viết câu lửng, không cắt ngang ý.
+4. TUYỆT ĐỐI KHÔNG DÙNG TỪ CẤM: "Google", "Slide", "Trang trình bày".
+5. Cấu trúc kịch bản JSON chuẩn:
    - intro: Tiêu đề cố định "Financial News", categoryLabel chuyên nghiệp ("BẢN TIN THỊ TRƯỜNG"), tagline súc tích.
-   - slide1: Headline chính liên quan trực tiếp đến từ khóa, giật tít sắc bén, ngắn gọn dưới 16 từ.
-   - contentSlides: Đúng 1 đến 2 slide tiếp theo. Mỗi slide có 2-3 gạch đầu dòng (fragments). PHẢI CHẮT LỌC SỐ LIỆU THỰC TẾ từ bài báo (tỷ lệ %, tiền tệ, số lượng).
-   - outro: ctaText cố định "Đăng ký kênh để nhận tin mỗi ngày", subText "Cập nhật chuyển động kinh tế mỗi ngày".
+   - slide1: Headline sắc bén giật tít tóm tắt sự kiện chính (dưới 16 từ), timestamp ("Mới nhất" hoặc ngày giờ thực tế).
+   - contentSlides: Chứa danh sách 3 đến 7 ý chính (fragments) đã tóm tắt ở trên.
+   - outro: ctaText "Đăng ký kênh để nhận tin mỗi ngày", subText "Cập nhật chuyển động kinh tế mỗi ngày".
 
 Trả về DUY NHẤT một JSON hợp lệ dạng:
 {
@@ -119,22 +125,23 @@ Trả về DUY NHẤT một JSON hợp lệ dạng:
   },
   "slide1": {
     "category": "TIN NÓNG",
-    "headline": "Tiêu đề hấp dẫn ngắn gọn",
+    "headline": "Tiêu đề giật tít tóm tắt sự kiện",
     "timestamp": "Cập nhật mới nhất"
   },
   "contentSlides": [
     {
-      "title": "Diễn biến trọng điểm",
+      "title": "Diễn biến trọng điểm & Số liệu",
       "fragments": [
-        "Ý thứ nhất chứa số liệu cụ thể",
-        "Ý thứ hai chứa diễn biến thị trường",
-        "Ý thứ ba chứa nhận định chuyên gia"
+        "Ý chính 1: Diễn biến sự kiện quan trọng nhất kèm số liệu cốt lõi.",
+        "Ý chính 2: Nguyên nhân hoặc động thái từ các bên liên quan.",
+        "Ý chính 3: Tác động đến thị trường và nhà đầu tư.",
+        "Ý chính 4: Diễn biến mới nhất hoặc khuyến nghị phân tích."
       ]
     }
   ],
   "outro": {
     "ctaText": "Đăng ký kênh để nhận tin mỗi ngày",
-    "subText": "Cập nhật xu hướng tài chính hàng ngày"
+    "subText": "Cảm ơn bạn đã theo dõi bản tin"
   }
 }
 `;
@@ -175,90 +182,186 @@ Trả về DUY NHẤT một JSON hợp lệ dạng:
 }
 
 /**
- * Hậu kiểm và làm sạch kịch bản (Xóa từ cấm + Bọc metric chống ngắt dòng)
+ * Hậu kiểm và làm sạch kịch bản (Xóa từ cấm + Bọc metric chống ngắt dòng + Chuẩn hóa 3-7 ý chính)
  */
 function sanitizeAndFormatScript(script: VideoSlideScript): VideoSlideScript {
+  // Gom và làm sạch tất cả fragments để đảm bảo đúng từ 3 đến 7 ý chính chất lượng
+  const allFragments: string[] = [];
+  for (const cs of script.contentSlides || []) {
+    for (const f of cs.fragments || []) {
+      if (!f) continue;
+      let clean = cleanForbiddenWords(f.trim())
+        .replace(/\.{2,}|…/g, '.')
+        .replace(/\s*\.\s*\./g, '.')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (clean.length >= 15) {
+        if (!/[.!?]$/.test(clean)) {
+          clean += '.';
+        }
+        if (!allFragments.includes(clean)) {
+          allFragments.push(clean);
+        }
+      }
+    }
+  }
+
+  // Chuẩn hóa: Giữ tối đa 7 ý chính quan trọng nhất
+  const targetFragments = allFragments.slice(0, 7);
+
+  // Đảm bảo tối thiểu 3 ý chính
+  if (targetFragments.length < 3) {
+    if (targetFragments.length === 1) {
+      targetFragments.push('Các số liệu và dữ liệu liên quan đang tiếp tục được giới phân tích theo dõi sát sao.');
+      targetFragments.push('Khuyến nghị theo dõi diễn biến tiếp theo để nắm bắt kịp thời các cơ hội thị trường.');
+    } else if (targetFragments.length === 2) {
+      targetFragments.push('Khuyến nghị theo dõi diễn biến tiếp theo để nắm bắt kịp thời các cơ hội thị trường.');
+    } else if (targetFragments.length === 0) {
+      targetFragments.push(`Chủ đề "${cleanForbiddenWords(script.slide1?.headline || '')}" đang thu hút sự chú ý đặc biệt.`);
+      targetFragments.push('Các chỉ số kinh tế liên quan tiếp tục ghi nhận biến động đáng kể.');
+      targetFragments.push('Nhà đầu tư được khuyến nghị thận trọng và theo sát các tín hiệu mới nhất.');
+    }
+  }
+
   return {
     intro: {
-      categoryLabel: cleanForbiddenWords(script.intro.categoryLabel || 'BẢN TIN TÀI CHÍNH'),
+      categoryLabel: cleanForbiddenWords(script.intro?.categoryLabel || 'BẢN TIN TÀI CHÍNH'),
       mainTitle: 'Financial News',
-      tagline: cleanForbiddenWords(script.intro.tagline || 'Cập nhật tin tức thị trường mới nhất'),
+      tagline: cleanForbiddenWords(script.intro?.tagline || 'Cập nhật tin tức thị trường mới nhất'),
     },
     slide1: {
-      category: cleanForbiddenWords(script.slide1.category || 'TIN NÓNG THỊ TRƯỜNG'),
-      headline: cleanForbiddenWords(script.slide1.headline),
-      timestamp: cleanForbiddenWords(script.slide1.timestamp || 'Mới nhất'),
+      category: cleanForbiddenWords(script.slide1?.category || 'TIN NÓNG THỊ TRƯỜNG'),
+      headline: cleanForbiddenWords(script.slide1?.headline || 'Tiêu điểm tài chính'),
+      timestamp: cleanForbiddenWords(script.slide1?.timestamp || 'Mới nhất'),
     },
-    contentSlides: (script.contentSlides || []).map((slide) => ({
-      title: cleanForbiddenWords(slide.title || 'Thông tin chi tiết'),
-      fragments: (slide.fragments || []).map((frag) => wrapMetricsInHtml(cleanForbiddenWords(frag))),
-    })),
+    contentSlides: [
+      {
+        title: cleanForbiddenWords(script.contentSlides?.[0]?.title || 'Diễn biến trọng điểm & Số liệu'),
+        fragments: targetFragments.map((frag) => wrapMetricsInHtml(frag)),
+      },
+    ],
     outro: {
       ctaText: 'Đăng ký kênh để nhận tin mỗi ngày',
-      subText: cleanForbiddenWords(script.outro.subText || 'Theo dõi để cập nhật tin tài chính sớm nhất'),
+      subText: cleanForbiddenWords(script.outro?.subText || 'Theo dõi để cập nhật tin tài chính sớm nhất'),
     },
   };
 }
 
 /**
- * Thuật toán Smart Extractor tự động chắt lọc số liệu từ bài báo khi không có AI
+ * Thuật toán Extractive Summarization: Tự động đọc bài viết và tóm tắt thành đúng 3-7 ý chính
+ * có trọng số cao nhất (dùng khi chạy Offline hoặc không có Gemini AI).
  */
 function createSmartFallbackScript(trend: TrendItem, articles: NewsArticle[]): VideoSlideScript {
   const cleanTitle = cleanForbiddenWords(trend.title);
+  const titleKeywords = cleanTitle
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 2);
 
-  // Tìm các câu có chứa số liệu hoặc từ khóa kinh tế trong bài báo
-  const sentencesWithMetrics: string[] = [];
+  interface ScoredSentence {
+    text: string;
+    score: number;
+    originalOrder: number;
+  }
 
+  const scoredList: ScoredSentence[] = [];
+  const seen = new Set<string>();
+  let globalOrder = 0;
+
+  // 1. Quét toàn bộ nội dung các bài báo nguồn
   for (const art of articles) {
     const rawText = (art.content || art.snippet || '').replace(/\r?\n+/g, ' ');
     const sentences = rawText.split(/(?<=[.!?])\s+/);
 
-    for (const sentence of sentences) {
-      const clean = cleanForbiddenWords(sentence.trim());
-      // Lọc các câu có độ dài vừa phải và có chứa số liệu hoặc từ khóa quan trọng
-      if (clean.length >= 25 && clean.length <= 130) {
-        if (/(\d+(?:[.,]\d+)?\s*(?:%|tỷ|triệu|nghìn|USD|VND|đồng|điểm|cổ phiếu|tăng|giảm|đạt|vượt))/i.test(clean)) {
-          if (!sentencesWithMetrics.includes(clean)) {
-            sentencesWithMetrics.push(clean);
-          }
+    for (let sIdx = 0; sIdx < sentences.length; sIdx++) {
+      let clean = cleanForbiddenWords(sentences[sIdx].trim())
+        .replace(/\.{2,}|…/g, '.')
+        .replace(/\s*\.\s*\./g, '.')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      // Lọc câu có độ dài chuẩn (từ 25 đến 160 ký tự) và không phải câu điều hướng
+      if (clean.length < 25 || clean.length > 160) continue;
+      if (/^(quảng cáo|chia sẻ|theo dõi|đọc thêm|xem thêm|bình luận|nguồn:|ảnh:|video:|liên quan:|bài viết)/i.test(clean)) continue;
+
+      if (!/[.!?]$/.test(clean)) clean += '.';
+
+      const norm = clean.toLowerCase();
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+
+      let score = 0;
+
+      // Điểm vị trí: Đoạn đầu (Sapo) của bài báo là tóm tắt quan trọng nhất
+      if (sIdx === 0) score += 6;
+      else if (sIdx <= 2) score += 4;
+      else if (sIdx <= 5) score += 2;
+
+      // Điểm số liệu tài chính (% / tỷ / triệu / USD / điểm / tăng / giảm...)
+      if (/(\d+(?:[.,]\d+)?\s*(?:%|tỷ|triệu|nghìn|USD|VND|đồng|đô|điểm|cổ phiếu|tấn|thùng))/i.test(clean)) {
+        score += 5;
+      }
+      if (/(tăng|giảm|đạt|vượt|lãi|lỗ|kỷ lục|phục hồi|doanh thu|lợi nhuận|dự báo|khuyến nghị)/i.test(clean)) {
+        score += 3;
+      }
+
+      // Điểm khớp từ khóa xu hướng
+      for (const kw of titleKeywords) {
+        if (norm.includes(kw)) {
+          score += 2;
         }
       }
-      if (sentencesWithMetrics.length >= 4) break;
+
+      scoredList.push({
+        text: clean,
+        score,
+        originalOrder: globalOrder++,
+      });
     }
-    if (sentencesWithMetrics.length >= 4) break;
   }
 
-  // Nếu chưa đủ 4 câu, bổ sung các câu thông tin quan trọng khác từ bài báo
-  if (sentencesWithMetrics.length < 4) {
+  // 2. Bổ sung từ snippet hoặc tiêu đề bài báo nếu bài viết chưa đủ câu
+  if (scoredList.length < 3 && articles.length > 0) {
     for (const art of articles) {
-      const rawText = (art.content || art.snippet || '').replace(/\r?\n+/g, ' ');
-      const sentences = rawText.split(/(?<=[.!?])\s+/);
-      for (const sentence of sentences) {
-        const clean = cleanForbiddenWords(sentence.trim());
-        if (clean.length >= 25 && clean.length <= 130 && !sentencesWithMetrics.includes(clean)) {
-          sentencesWithMetrics.push(clean);
-          if (sentencesWithMetrics.length >= 4) break;
-        }
+      let text = cleanForbiddenWords(art.snippet || art.title);
+      if (text && text.length >= 25 && !seen.has(text.toLowerCase())) {
+        if (!/[.!?]$/.test(text)) text += '.';
+        seen.add(text.toLowerCase());
+        scoredList.push({ text, score: 5, originalOrder: globalOrder++ });
       }
-      if (sentencesWithMetrics.length >= 4) break;
     }
   }
 
-  // Nếu vẫn không đủ câu, lấy các câu đầu của bài báo
-  if (sentencesWithMetrics.length < 2 && articles.length > 0) {
-    const fallbackSentence = cleanForbiddenWords(articles[0].snippet || articles[0].title);
-    if (fallbackSentence && !sentencesWithMetrics.includes(fallbackSentence)) {
-      sentencesWithMetrics.push(fallbackSentence);
-    }
+  // 3. Fallback tối thiểu nếu hoàn toàn không có bài báo
+  if (scoredList.length === 0) {
+    scoredList.push({
+      text: `Chủ đề "${cleanTitle}" đang thu hút sự quan tâm lớn từ giới đầu tư và thị trường tài chính.`,
+      score: 10,
+      originalOrder: 0,
+    });
+    scoredList.push({
+      text: `Các chỉ số và dữ liệu diễn biến liên tục được cập nhật theo sát các động thái mới nhất.`,
+      score: 8,
+      originalOrder: 1,
+    });
+    scoredList.push({
+      text: `Giới chuyên gia khuyến nghị nhà đầu tư theo dõi sát các mốc biến động quan trọng.`,
+      score: 6,
+      originalOrder: 2,
+    });
   }
 
-  if (sentencesWithMetrics.length === 0) {
-    sentencesWithMetrics.push(`Chủ đề "${cleanTitle}" đang thu hút sự quan tâm lớn từ giới đầu tư và thị trường.`);
-    sentencesWithMetrics.push(`Các chỉ số và dữ liệu liên quan tiếp tục được các phương tiện truyền thông theo dõi sát sao.`);
-  }
+  // Lấy top câu có điểm cao nhất: từ 3 đến tối đa 7 ý chính
+  const targetCount = Math.max(3, Math.min(7, scoredList.length));
+  const topScored = scoredList
+    .sort((a, b) => b.score - a.score)
+    .slice(0, targetCount);
 
-  // Lấy tối đa 4 fragments (sẽ tự động phân trang thành 2 slide, mỗi slide 2 block)
-  const fragments = sentencesWithMetrics.slice(0, 4).map((s) => wrapMetricsInHtml(s));
+  // Sắp xếp lại theo thứ tự ban đầu để đảm bảo mạch tin tức tự nhiên
+  topScored.sort((a, b) => a.originalOrder - b.originalOrder);
+
+  const fragments = topScored.map((item) => wrapMetricsInHtml(item.text));
 
   return {
     intro: {
@@ -273,13 +376,13 @@ function createSmartFallbackScript(trend: TrendItem, articles: NewsArticle[]): V
     },
     contentSlides: [
       {
-        title: 'Diễn biến & Số liệu chính',
-        fragments: fragments,
+        title: 'Diễn biến trọng điểm & Số liệu',
+        fragments,
       },
     ],
     outro: {
       ctaText: 'Đăng ký kênh để nhận tin mỗi ngày',
-      subText: 'Bấm chuông để không bỏ lỡ các tin tức kinh tế nóng',
+      subText: 'Cảm ơn bạn đã theo dõi bản tin',
     },
   };
 }

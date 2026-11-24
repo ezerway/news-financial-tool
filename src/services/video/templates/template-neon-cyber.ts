@@ -1,6 +1,6 @@
 import { VideoSlideScript } from '../../video-script-generator';
 import { TemplateRenderOptions, VideoTemplateDefinition } from './types';
-import { paginateContentFragments } from './index';
+import { calculateVideoDuration, paginateContentFragments } from './index';
 
 export const neonCyberTemplate: VideoTemplateDefinition = {
   id: 'neon_cyber',
@@ -24,7 +24,7 @@ export const neonCyberTemplate: VideoTemplateDefinition = {
 export function buildNeonCyberHtml(script: VideoSlideScript, options: TemplateRenderOptions = {}): string {
   const width = options.width || 720;
   const height = options.height || 1280;
-  const duration = options.duration || 20;
+  const duration = options.duration || calculateVideoDuration(script);
 
   const allFragments: string[] = [];
   for (const cs of script.contentSlides || []) {
@@ -60,7 +60,7 @@ export function buildNeonCyberHtml(script: VideoSlideScript, options: TemplateRe
       <div id="scene-content-${pageIdx + 1}" class="scene scene-content">
         <div class="safe-area">
           <div class="content-header">
-            <span class="content-badge">FINTECH INTEL</span>
+            <span class="content-badge">NEWS</span>
             <div class="content-header-title">${script.slide1.headline || script.intro.mainTitle}</div>
           </div>
           <div class="content-blocks-wrap">
@@ -551,7 +551,7 @@ export function buildNeonCyberHtml(script: VideoSlideScript, options: TemplateRe
     <!-- HEADER VĨNH CỬU -->
     <div class="header-bar">
       <div class="brand-wrap">
-        <div class="brand-badge">CYBER INTEL</div>
+        <div class="brand-badge">FINANCIAL NEWS</div>
       </div>
       <div class="header-clock" id="timerCode">00:00</div>
     </div>
@@ -561,7 +561,7 @@ export function buildNeonCyberHtml(script: VideoSlideScript, options: TemplateRe
       <div class="progress-track">
         <div class="progress-fill" id="progressFill"></div>
       </div>
-      <div class="footer-terminal">NODE: <span>ACTIVE</span></div>
+      <div class="footer-terminal">REAL-TIME: <span>ACTIVE</span></div>
     </div>
 
     <!-- SCENE 1: INTRO -->
