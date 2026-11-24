@@ -519,12 +519,13 @@ export default function TrendsTab({
                               <span className="hidden sm:inline">{lang === 'vi' ? 'Xem Video' : 'Watch'}</span>
                             </button>
                             
-                            <div className="inline-flex rounded-lg shadow-xs">
+                            {/* Split-button Tạo lại Video */}
+                            <div className="inline-flex items-stretch rounded-lg border border-amber-300 dark:border-amber-700/80 bg-amber-50/70 dark:bg-amber-950/40 shadow-xs overflow-hidden shrink-0">
                               <button
                                 type="button"
                                 onClick={() => onGenerateVideo(trend.id, true)}
                                 disabled={generatingVideoId === trend.id}
-                                className="btn btn-md sm:btn-sm btn-secondary rounded-r-none justify-center font-semibold text-xs text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                                className="h-8 px-2.5 inline-flex items-center justify-center gap-1.5 font-semibold text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-100/80 dark:hover:bg-amber-900/50 transition cursor-pointer border-r border-amber-300 dark:border-amber-700/80 disabled:opacity-50 active:scale-[0.98]"
                                 title={lang === 'vi' ? 'Tạo lại video mới cho xu hướng này (dùng mẫu mặc định)' : 'Re-create video'}
                               >
                                 <RotateCcw className={`w-3.5 h-3.5 ${generatingVideoId === trend.id ? 'animate-spin' : ''}`} />
@@ -545,7 +546,7 @@ export default function TrendsTab({
                                   }
                                 }}
                                 disabled={generatingVideoId === trend.id}
-                                className="px-1.5 py-1 text-xs border border-l-0 border-amber-200 dark:border-amber-800 rounded-r-lg bg-amber-50/50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 hover:bg-amber-100 transition cursor-pointer"
+                                className="h-8 px-1.5 inline-flex items-center justify-center text-amber-700 dark:text-amber-300 hover:bg-amber-100/80 dark:hover:bg-amber-900/50 transition cursor-pointer disabled:opacity-50 active:scale-[0.98]"
                                 title={lang === 'vi' ? 'Chọn mẫu giao diện cụ thể để tạo lại' : 'Select specific template'}
                               >
                                 <ChevronDown className="w-3 h-3" />
@@ -578,37 +579,39 @@ export default function TrendsTab({
                             )}
                           </div>
                         ) : (
-                          <div className="inline-flex rounded-lg shadow-xs relative">
-                            <button
-                              type="button"
-                              onClick={() => onGenerateVideo(trend.id)}
-                              disabled={generatingVideoId === trend.id}
-                              className="btn btn-md sm:btn-sm btn-secondary rounded-r-none justify-center font-semibold text-xs text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/30 hover:bg-purple-100/60"
-                              title={lang === 'vi' ? 'Tạo video ngắn 9:16 (15-30s) từ xu hướng này' : 'Create 9:16 short video'}
-                            >
-                              <Film className={`w-3.5 h-3.5 ${generatingVideoId === trend.id ? 'animate-spin' : ''}`} />
-                              <span className="hidden sm:inline">
-                                {generatingVideoId === trend.id
-                                  ? (lang === 'vi' ? 'Đang tạo...' : 'Creating...')
-                                  : (lang === 'vi' ? 'Tạo Video' : 'Create Video')}
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (templateDropdownTrendId === trend.id && !templateDropdownForce) {
-                                  setTemplateDropdownTrendId(null);
-                                } else {
-                                  setTemplateDropdownTrendId(trend.id);
-                                  setTemplateDropdownForce(false);
-                                }
-                              }}
-                              disabled={generatingVideoId === trend.id}
-                              className="px-1.5 py-1 text-xs border border-l-0 border-purple-300 dark:border-purple-800 rounded-r-lg bg-purple-50/70 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 transition cursor-pointer"
-                              title={lang === 'vi' ? 'Chọn mẫu video cụ thể' : 'Select template'}
-                            >
-                              <ChevronDown className="w-3 h-3" />
-                            </button>
+                          <div className="relative">
+                            <div className="inline-flex items-stretch rounded-lg border border-purple-300 dark:border-purple-700/80 bg-purple-50/70 dark:bg-purple-950/40 shadow-xs overflow-hidden shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => onGenerateVideo(trend.id)}
+                                disabled={generatingVideoId === trend.id}
+                                className="h-8 px-2.5 inline-flex items-center justify-center gap-1.5 font-semibold text-xs text-purple-700 dark:text-purple-300 hover:bg-purple-100/80 dark:hover:bg-purple-900/50 transition cursor-pointer border-r border-purple-300 dark:border-purple-700/80 disabled:opacity-50 active:scale-[0.98]"
+                                title={lang === 'vi' ? 'Tạo video ngắn 9:16 (15-30s) từ xu hướng này' : 'Create 9:16 short video'}
+                              >
+                                <Film className={`w-3.5 h-3.5 ${generatingVideoId === trend.id ? 'animate-spin' : ''}`} />
+                                <span className="hidden sm:inline">
+                                  {generatingVideoId === trend.id
+                                    ? (lang === 'vi' ? 'Đang tạo...' : 'Creating...')
+                                    : (lang === 'vi' ? 'Tạo Video' : 'Create Video')}
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (templateDropdownTrendId === trend.id && !templateDropdownForce) {
+                                    setTemplateDropdownTrendId(null);
+                                  } else {
+                                    setTemplateDropdownTrendId(trend.id);
+                                    setTemplateDropdownForce(false);
+                                  }
+                                }}
+                                disabled={generatingVideoId === trend.id}
+                                className="h-8 px-1.5 inline-flex items-center justify-center text-purple-700 dark:text-purple-300 hover:bg-purple-100/80 dark:hover:bg-purple-900/50 transition cursor-pointer disabled:opacity-50 active:scale-[0.98]"
+                                title={lang === 'vi' ? 'Chọn mẫu video cụ thể' : 'Select template'}
+                              >
+                                <ChevronDown className="w-3 h-3" />
+                              </button>
+                            </div>
 
                             {/* Dropdown Menu Template */}
                             {templateDropdownTrendId === trend.id && !templateDropdownForce && (

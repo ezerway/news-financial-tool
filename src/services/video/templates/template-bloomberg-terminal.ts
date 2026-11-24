@@ -529,7 +529,7 @@ export function buildBloombergTerminalHtml(script: VideoSlideScript, options: Te
     <div class="header-bar">
       <div class="brand-badge">
         <span class="live-dot"></span>
-        <span>TERMINAL WIRE</span>
+        <span>FINANCIAL NEWS</span>
       </div>
       <div class="header-category">${script.intro.categoryLabel || 'BẢN TIN THỊ TRƯỜNG'}</div>
     </div>
@@ -537,7 +537,7 @@ export function buildBloombergTerminalHtml(script: VideoSlideScript, options: Te
     <div class="scenes-wrapper">
       <div id="scene-intro" class="scene">
         <div class="intro-box">
-          <div class="intro-tag">MARKET DISPATCH</div>
+          <div class="intro-tag">TRENDING</div>
           <h1 class="intro-title">${script.intro.mainTitle || 'Financial News'}</h1>
           <p class="intro-tagline">${script.intro.tagline || 'Cập nhật chuyển động kinh tế & thị trường'}</p>
         </div>
