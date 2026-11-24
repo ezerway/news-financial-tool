@@ -106,31 +106,34 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
 ### B. Chu kỳ Tạo Video Dọc 9:16 Tự Động (HyperFrames & Playwright Video Pipeline)
 
 ```
-[ Trend Hot từ Google Trends ] 
+[ Trend Hot từ Google Trends + Full Bài Báo Báo Chí ] 
        │
        ▼
 [ video-script-generator.ts ]
-       ├──> Tầng 1: Google Gemini API (@google/genai)
+       ├──> Đọc toàn văn bài báo (title, sapo, fullText tới 3500 ký tự)
+       ├──> Tóm tắt thành ĐÚNG 3 ĐẾN 7 Ý CHÍNH (không dùng ba chấm, câu hoàn chỉnh)
+       ├──> Tầng 1: Google Gemini API (gemini-3.5-flash-lite, 3.5-flash, 3.8-flash)
        ├──> Tầng 2: Alternate AI Models
-       └──> Tầng 3: Smart Extractor Fallback (100% Offline, lọc câu có số liệu thực tế)
+       └──> Tầng 3: Smart Extractive Summarizer (100% Offline, chấm điểm câu theo vị trí sapo, số liệu & từ khóa)
        │
        ▼
-[ Kịch bản Video JSON 3 phần ]
+[ Kịch bản Video JSON 3 phần & Thời lượng Động 20s - 60s ]
  (Intro 'Financial News' -> Content Slides 40px+ -> Outro Kêu gọi hành động & 4 Icon)
+ Công thức thời lượng: Duration = clamp(20, 60, round(12 + numPages * 5.5s))
        │
        ▼
-[ hyperframes-template.ts ] ──> Sinh mã HTML5 / CSS / Deterministic Timeline (seekTo)
+[ 4 HyperFrames Templates ] ──> Sinh mã HTML5 / CSS / Deterministic Timeline (window.seekTo)
+ (modern_dark, bloomberg_terminal, editorial_magazine, neon_cyber)
        │
        ▼
 [ video-renderer.ts ]
        ├──> Ưu tiên HyperFrames CLI nếu có sẵn trên hệ điều hành
-       └──> Fallback: Playwright Headless Chromium (recordVideo) + FFmpeg H.264 MP4
+       └──> Playwright Headless Chromium (recordVideo) + FFmpeg H.264 MP4 (chờ đúng thời lượng động)
        │
        ▼
 [ storage/videos/ + DB Update ]
        ├──> trends: video_generated = 1, video_path = storage/videos/trend_xxx.mp4
        └──> reels: Tự động tạo bản nháp draft kèm caption & bình luận link nguồn
-
 ```
 
 ---
@@ -179,7 +182,7 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
 - **`uploadTikTokVideo`**: Mở trang upload TikTok Creator Center, tải file video, tìm kiếm và chèn bài nhạc nền thịnh hành từ thư viện TikTok Studio, điều chỉnh âm lượng gốc/nhạc nền, xuất bản và bình luận tự động.
 - **Tự động xử lý xác thực 2FA TikTok qua Gmail**: Khi TikTok hiển thị popup "Verify it's really you", bot tự động kích hoạt gửi mã OTP về Email, mở tab Gmail ngầm để đọc mã xác thực 6 số mới nhất và điền tự động.
 - **`commentTikTokVideoOnly`**: Hỗ trợ bình luận trực tiếp qua trang quản lý nội dung TikTok Studio (`/tiktokstudio/content`) hoặc trang video TikTok công khai, tự động phân tách chuỗi bình luận bằng `|` để bình luận nhiều lần liên tiếp.
-- **`uploadYouTubeShort` (`youtube-reel.ts`)**: Mở YouTube Studio (`studio.youtube.com`), tải video lên, nhập title/description, gắn nhãn Not for kids, chọn chế độ Public, trích xuất link dạng `https://youtube.com/shorts/{id}` và chờ render hoàn tất.
+- **`uploadYouTubeShort` (`youtube-reel.ts`)**: Mở YouTube Studio (`studio.youtube.com`), tải video lên, nhập title/description, gắn nhãn Not for kids, chọn chế độ Public, trích xuất link dạng `https://youtube.com/shorts/{id}` và chờ xuất bản hoàn tất. Ngay sau đó, tự động điều hướng sang Studio Editor (`/video/{id}/editor`) để mở Thư viện Âm thanh, chọn ngẫu nhiên bài nhạc từ `ytve-audioswap-track-row`, bấm Thêm (`#add-track-button`), bấm Save và tự động xác nhận hộp thoại `tp-yt-paper-dialog`.
 - **`commentYouTubeShortOnly` (`youtube-reel.ts`)**: Mở trực tiếp link Shorts, kích hoạt panel comment, nhập bình luận và tự động submit.
 - **`uploadZaloVideo` (`zalo-reel.ts`)**: Mở Zalo Video Creator Studio (`video.zalo.me/creator/video`), kích hoạt modal đăng, upload file video, nhập caption vào contenteditable, ấn Đăng và theo dõi tiến độ xử lý video đến trạng thái "Thành công", trích xuất URL công khai.
 - **`commentZaloVideoOnly` (`zalo-reel.ts`)**: Điều hướng danh sách video đã đăng, click mở bảng bình luận qua `data-row-key` và gửi comment tự động.
@@ -195,6 +198,21 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
    - **Loại trừ cùng Domain**: Tự động bỏ qua các liên kết đã thuộc `financial-news.ezerway.com` hoặc `ezerway.com`.
 2. **Endpoint xử lý redirect (`src/app/go/route.ts`)**:
    - Tiếp nhận tham số `to`, xác thực URL hợp lệ và trả về phản hồi HTTP `302 Found` chuyển hướng trực tiếp đến trang nguồn bài báo.
+
+---
+
+### E. Luồng Tự động hóa Hợp nhất (Post-to-Video Auto Pipeline)
+
+Khi cài đặt `auto_video_publish_after_post` được kích hoạt:
+1. **Kích hoạt sau khi đăng bài viết**:
+   - Dù qua chu kỳ tự động `runAutomationCycle` (cron) hay người dùng bấm nút "Đăng bài" thủ công trên giao diện `/api/publish`.
+   - Khi bài viết Facebook chuyển trạng thái `published`, module `handleAutoVideoGenerationAndPublishing` được gọi ngầm trong background.
+2. **Quy trình thực thi liên hoàn**:
+   - Tự động cào và trích xuất toàn văn bài báo nguồn.
+   - Tóm tắt thành 3-7 ý chính quan trọng nhất có số liệu thực tế.
+   - Render video 9:16 tương ứng (thời lượng động 20s - 60s) theo template được cấu hình hoặc ngẫu nhiên.
+   - Tự động đăng video lên các mạng xã hội video ngắn đã kết nối (Facebook Reels, TikTok, YouTube Shorts kèm AudioSwap, Zalo Video).
+   - Tự động cập nhật database và ghi log chi tiết.
 
 ---
 

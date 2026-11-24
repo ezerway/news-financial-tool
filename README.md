@@ -38,29 +38,40 @@
    - Cơ chế đóng pop-up thông minh (`Not now`, `Chuyển sang trang...`) và mô phỏng thao tác người dùng tự nhiên (Anti-detection).
 
 4. **Tạo Video Dọc 9:16 Tự Động từ Xu Hướng (HyperFrames & Headless Chromium Engine)**:
-   - **Tạo video tự động từ từ khóa (1-click hoặc Hàng loạt)**: Biến mỗi từ khóa xu hướng thành video bản tin dọc 9:16 chuyên nghiệp (thời lượng 15 - 30 giây) chuẩn phong cách tài chính hiện đại.
-   - **Cấu trúc Slide 3 phần chuẩn truyền hình**:
-     - **Intro**: Xuất hiện mượt mà với tiêu đề thương hiệu `Financial News` và chuyên mục `BẢN TIN THỊ TRƯỜNG`.
-     - **Slide nội dung (Headline & Diễn biến)**: Slide 1 hiển thị Headline giật tít sắc bén; các slide sau trình bày các block thông tin chắt lọc số liệu. Tự động chia thêm slide khi nội dung dài (tối đa 2 ý/slide, font chữ tối thiểu 40px), không đánh số thứ tự rườm rà, bọc class chống ngắt dòng số liệu (`.metric-nowrap`).
+   - **Tóm tắt bài báo chuyên sâu thành 3-7 ý chính**: Module đọc toàn văn bài báo (tới 3.500 ký tự) và chắt lọc thành đúng 3 đến 7 ý chính (fragments) mạch lạc, súc tích, câu văn hoàn chỉnh kết thúc bằng dấu chấm, tuyệt đối không dùng ba chấm (`...`).
+   - **Thời lượng video động (20s - 60s)**: Tự động tính toán theo số slide nội dung ($12\text{s} + \text{numPages} \times 5.5\text{s}$, tối thiểu 20s, tối đa 60s), đồng bộ timeline mượt mà trong cả 4 templates (`outroStartTime = DURATION - 4.5s`).
+   - **Bộ sưu tập 4 Templates HyperFrames**:
+     - 🌌 *Hiện đại & Tối giản (Modern Dark)*: Xanh Navy, lưới Blueprint mờ.
+     - 📈 *Wall Street Terminal (Bloomberg Style)*: Đen sâu, vàng kim loại, số liệu sắc bén.
+     - 💎 *Tạp chí Sang trọng (Editorial Luxury)*: Vàng champagne, typography thanh lịch.
+     - ⚡ *Cyberpunk Neon (Crypto & Tech)*: Tím đen công nghệ cao, viền Cyan & Pink.
+     - 🎲 Hỗ trợ hoán đổi ngẫu nhiên thông minh (`random`) để video luôn đổi mới mỗi chu kỳ.
+   - **Cấu trúc Slide chuẩn truyền hình**:
+     - **Intro**: Tiêu đề thương hiệu `Financial News` và chuyên mục `BẢN TIN THỊ TRƯỜNG`.
+     - **Slide nội dung (Headline & Diễn biến)**: Slide 1 hiển thị Headline giật tít sắc bén; các slide sau trình bày các block thông tin chắt lọc số liệu. Tự động chia thêm slide khi nội dung dài (tối đa 1-2 ý/slide, font chữ tối thiểu 40px), không đánh số thứ tự rườm rà, bọc class chống ngắt dòng số liệu (`.metric-nowrap`).
      - **Outro tinh gọn**: Lời cảm ơn `CẢM ƠN BẠN ĐÃ THEO DÕI`, nút CTA nổi bật `⚪ Đăng ký để nhận tin mỗi ngày ➔` và hàng icon nhận diện 4 kênh video ngắn (*Facebook Reels*, *TikTok*, *Shorts*, *Zalo Video*).
    - **Cơ chế 3 tầng phòng thủ kịch bản (Fault-Tolerant)**:
      - Tầng 1: Google Gemini API (`@google/genai`).
      - Tầng 2: Alternate AI Models.
-     - Tầng 3: `Smart Extractor Fallback` 100% offline, tự động trích lọc câu chứa số liệu thực tế từ bài báo khi API AI không khả dụng hoặc hết quota.
+     - Tầng 3: `Smart Extractive Summarizer` 100% offline, tự động chấm điểm và chọn ra 3-7 câu cốt lõi nhất của bài viết theo vị trí Sapo, số liệu và từ khóa khi không có AI.
    - **Tự động liên kết kho Reels**: Video render xong được tự động lưu vào `storage/videos/`, cập nhật cờ `video_generated = 1` trên bảng `trends`, đồng thời tạo bản ghi nháp tương ứng trong bảng `reels` sẵn sàng lên lịch đăng đa kênh.
 
-5. **Hệ thống Chuyển đổi Link Redirect Proxy (`/go/?to=[target_url]`)**:
+5. **Tự Động Hóa Hợp Nhất: Đăng Bài Viết ➔ Tự Tạo Video ➔ Đăng Video Đa Kênh**:
+   - Tùy chọn **"Tự động tạo & đăng Video 9:16 sau khi post bài"** (`auto_video_publish_after_post`) trong Cài đặt:
+   - Khi bài viết xuất bản thành công lên Facebook (qua Auto-Runner hoặc đăng tay từ Studio), hệ thống lập tức chạy ngầm: **Tóm tắt 3-7 ý ➔ Render video 9:16 ➔ Đăng ngay lên Facebook Reels, YouTube Shorts, TikTok, Zalo Video**.
+
+6. **Hệ thống Chuyển đổi Link Redirect Proxy (`/go/?to=[target_url]`)**:
    - **Tự động chuẩn hóa liên kết nguồn**: Mọi URL bài báo trong phần bình luận (cả bài viết và Reels) đều được tự động chuyển đổi sang dạng `https://financial-news.ezerway.com/go/?to=[target_url]`.
    - **Cơ chế loại trừ thông minh (Domain Exemption)**: Tự động giữ nguyên các liên kết thuộc cùng domain `financial-news.ezerway.com` hoặc `ezerway.com` để tránh bọc link lặp lại.
    - **Endpoint `/go` an toàn**: Cung cấp route Next.js tiếp nhận và redirect 302 trực tiếp đến bài báo đích.
 
-6. **Studio Đăng Đa Nền Tảng (Facebook Reels, TikTok, YouTube Shorts, Zalo Video)**:
+7. **Studio Đăng Đa Nền Tảng (Facebook Reels, TikTok, YouTube Shorts, Zalo Video)**:
    - Quản lý kho video ngắn, tải lên trực tiếp từ Dashboard hoặc qua CLI `pnpm post-reel`.
    - Hỗ trợ **hẹn giờ đăng tự động (Scheduled Reels)** chạy ngầm bởi daemon.
    - **Đăng đồng thời hoặc độc lập lên 4 nền tảng**:
      - **Facebook Reels**: Tự động tải video, chọn nhạc nền, đăng lên Page/Cá nhân và bình luận nguồn.
      - **TikTok Video**: Tự động chèn nhạc nền thịnh hành từ thư viện TikTok Studio, đăng video và tự động bình luận. Hỗ trợ giải mã 2FA qua Gmail.
-     - **YouTube Shorts**: Tự động tải video lên YouTube Studio, thiết lập tiêu đề/mô tả và gửi bình luận đầu tiên.
+     - **YouTube Shorts**: Tự động tải video lên YouTube Studio, thiết lập tiêu đề/mô tả, **tự động chuyển sang Studio Editor chọn và chèn nhạc nền bản quyền ngẫu nhiên (AudioSwap)** và gửi bình luận đầu tiên.
      - **Zalo Video**: Tự động tải video lên Zalo Video Creator (`https://video.zalo.me/creator/video`), theo dõi trạng thái xử lý video cho đến khi thành công, trích xuất link phân tích và gửi bình luận tự động.
    - **Kiểm tra trạng thái độc lập**: Mỗi kênh được kiểm tra kết nối độc lập trước khi đăng, không phụ thuộc vào việc kênh khác thành công hay thất bại.
    - **Giao diện lưới 2x2 hiện đại & Nhãn `✓ Đã cmt`**: Thiết kế 4 hộp nền tảng cân xứng không bị co cụm chữ (`whitespace-nowrap`), hiển thị trực quan huy hiệu `✓ Đã cmt` khi hoàn tất bình luận.

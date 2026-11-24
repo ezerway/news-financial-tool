@@ -336,6 +336,7 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
 
 ### 5.5. Đăng Reel lên YouTube Shorts (`POST /api/reels/[id]/publish-youtube`)
 - Tự động mở YouTube Studio (`https://studio.youtube.com/`), tải video lên, điền tiêu đề/mô tả kèm hashtag `#Shorts` và bấm xuất bản công khai.
+- **Tự động thêm nhạc YouTube Studio Editor**: Sau khi xuất bản và lấy `videoId`, bot tự động điều hướng sang `https://studio.youtube.com/video/[video-id]/editor`, mở Audio Library (`#entrypoint-audio-row a`), chọn ngẫu nhiên bài nhạc từ bảng `ytve-audioswap-track-row`, bấm thêm bài hát (`#add-track-button`), bấm Save và tự động xác nhận hộp thoại `tp-yt-paper-dialog` (tích checkbox `id="checkbox"` và bấm `[aria-label="Confirm changes"]`).
 - **Response**:
   ```json
   {
@@ -481,7 +482,10 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
     "telegram_notify_enabled": "true",
     "telegram_bot_token": "123456:ABC...",
     "telegram_chat_id": "-100123456789",
-    "posts_per_cycle": "2"
+    "posts_per_cycle": "2",
+    "redirect_proxy_enabled": "true",
+    "auto_video_publish_after_post": "true",
+    "video_default_template": "random"
   }
   ```
 
@@ -577,11 +581,20 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   ```
 
 ### 11.2. Tạo bản xem trước HTML thời gian thực (`POST /api/video-templates`)
-- Trả về mã nguồn HTML5 độc lập kèm thanh trượt thời gian `window.seekTo(t)` để nhúng vào iframe xem trước.
+- Trả về mã nguồn HTML5 độc lập, thời lượng video tính toán (`duration`) và thanh trượt thời gian `window.seekTo(t)` để nhúng vào iframe xem trước.
 - **Request Body**:
   ```json
   {
     "templateId": "neon_cyber"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "templateId": "neon_cyber",
+    "html": "<!DOCTYPE html>...",
+    "duration": 29
   }
   ```
 
@@ -603,6 +616,17 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
     "templateId": "random"
   }
   ```
+
+### 11.5. Thuật toán Tóm tắt 3-7 Ý chính & Tính Thời lượng Tự động (20s - 60s)
+- **Tóm tắt bài báo (Extractive & Generative AI)**:
+  - Gemini AI hoặc Smart Fallback Extractor đọc toàn văn bài báo và cô đọng thành **3 đến 7 ý chính (fragments)** cốt lõi có số liệu thực tế.
+  - Mỗi ý là câu văn hoàn chỉnh, kết thúc bằng dấu chấm, không dùng ba chấm (`...`).
+- **Phân trang thông minh (`paginateContentFragments`)**:
+  - Tối đa 1-2 ý trên mỗi slide để chữ luôn to rõ (font 40px+), tự động tạo thêm slide khi cần.
+- **Công thức thời lượng chuẩn Reels/TikTok/Shorts**:
+  $$\text{Duration} = \max\Big(20, \min\Big(60, \text{round}(12 + \text{numPages} \times 5.5)\Big)\Big)$$
+  - 12s cố định (Intro + Headline + Outro) + 5.5s cho mỗi slide nội dung.
+  - Video dao động từ **20s đến 60s**, đồng bộ timeline trong cả 4 templates (`outroStartTime = DURATION - 4.5s`).
 
 
 
