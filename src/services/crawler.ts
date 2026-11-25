@@ -203,8 +203,8 @@ export function saveTrendsToDatabase(trends: TrendItem[], geo: string): number {
  */
 export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[]> {
   const targetGeo = geo === 'all' ? 'VN' : geo;
-  const targetUrl = `https://trends.google.com/trending?category=3&hours=4&geo=${encodeURIComponent(targetGeo)}`;
-  logActivity('INFO', 'CRAWL', `[Google Trends Finance] Đang mở danh mục Kinh doanh & Tài chính (category=3) cho ${targetGeo}: ${targetUrl}`);
+  const targetUrl = `https://trends.google.com/trending?hours=4&geo=${encodeURIComponent(targetGeo)}`;
+  logActivity('INFO', 'CRAWL', `[Google Trends Finance] Đang mở cho ${targetGeo}: ${targetUrl}`);
 
   const proxy = await getCrawlerProxy();
   if (proxy) {
