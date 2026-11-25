@@ -186,10 +186,6 @@ export async function addMusicToYouTubeShort(
     const selectedRow = allRows.nth(randomIdx);
     notify(`Đã chọn ngẫu nhiên track #${randomIdx + 1}/${count}, đang thêm vào video...`);
 
-    // Hover hàng để hiển thị nút add-track-button
-    await selectedRow.hover().catch(() => { });
-    await page.waitForTimeout(500);
-
     const addBtn = selectedRow.locator('[id="add-track-button"], #add-track-button').first();
     await addBtn.waitFor({ state: 'visible', timeout: 6000 });
     await addBtn.click();
@@ -204,21 +200,17 @@ export async function addMusicToYouTubeShort(
 
     // 5. Xử lý dialog selector 'tp-yt-paper-dialog' xác nhận thay đổi
     try {
-      const paperDialog = page.locator('tp-yt-paper-dialog').filter({
-        has: page.locator('input[type="checkbox"], #checkbox, [id="checkbox"]'),
-      }).first();
-      const isDialogVisible = await paperDialog.isVisible({ timeout: 6000 }).catch(() => false);
+      const checkbox = page.locator('[id="checkbox"]').first();
+      const isCheckboxVisible = await checkbox.isVisible({ timeout: 6000 }).catch(() => false);
 
-      if (isDialogVisible) {
+      if (isCheckboxVisible) {
         notify('Phát hiện dialog xác nhận (tp-yt-paper-dialog), đang click checkbox và xác nhận...');
         // Click vào checkbox id="checkbox"
-        const checkbox = paperDialog.locator('input[type="checkbox"], #checkbox, [id="checkbox"]').first();
-        await checkbox.waitFor({ state: 'visible', timeout: 4000 });
         await checkbox.click();
         await page.waitForTimeout(800);
 
         // Click button có [aria-label="Confirm changes"]
-        const confirmBtn = paperDialog.locator('[aria-label="Confirm changes"]').first();
+        const confirmBtn = page.locator('[aria-label="Confirm changes"]').first();
         await confirmBtn.waitFor({ state: 'visible', timeout: 4000 });
         await confirmBtn.click();
         await page.waitForTimeout(2500);

@@ -16,6 +16,7 @@ Tài liệu hướng dẫn chi tiết toàn bộ các tập lệnh CLI (Command 
 | `pnpm auto-cycle` | `scripts/auto-cycle.ts` | Chạy chu kỳ cào Google Trends và tạo bài viết |
 | `pnpm post-reel` | `scripts/post-reel.ts` | Đăng video ngắn (Reel) lên Facebook & TikTok |
 | `pnpm cron-daemon` | `scripts/cron-daemon.ts` | Daemon chạy ngầm chu kỳ và quét video hẹn giờ |
+| `./deploy.sh` | `deploy.sh` | Script triển khai 1 lệnh tự động từ máy local lên VPS qua SSH |
 | `pnpm pm2:start` | `pm2 start ecosystem.config.js` | Khởi chạy toàn bộ hệ thống bằng PM2 |
 | `pnpm pm2:restart`| `pm2 restart ecosystem.config.js` | Khởi động lại toàn bộ dịch vụ PM2 |
 | `pnpm pm2:stop` | `pm2 stop ecosystem.config.js` | Dừng toàn bộ dịch vụ PM2 |
@@ -223,3 +224,27 @@ node scripts/playwright.js --url="https://example.com" --selector="#main-content
 - Luôn giải phóng context, page và browser trong khối `finally`.
 - Lắng nghe tín hiệu `SIGINT` / `SIGTERM` của OS để diệt Chromium con.
 - Tự động chặn hình ảnh, media, font và websocket để tiết kiệm tới 85% RAM.
+
+---
+
+### 2.8. Script Triển khai Tự động lên VPS (`deploy.sh`)
+
+Script bash trên máy local tự động kết nối SSH đến VPS, nạp đầy đủ môi trường PATH của Node/NVM/PM2, kéo code mới, build production và khởi động lại PM2.
+
+```bash
+# 1. Chạy đầy đủ (pull -> build -> restart PM2)
+./deploy.sh
+
+# 2. Bỏ qua bước pnpm build (chỉ pull & restart PM2)
+./deploy.sh --no-build       # hoặc: ./deploy.sh -nb
+
+# 3. Bỏ qua bước restart PM2 (chỉ pull & build)
+./deploy.sh --no-restart     # hoặc: ./deploy.sh -nr
+
+# 4. Chỉ kéo code Git (không build, không restart)
+./deploy.sh --no-build --no-restart   # hoặc: ./deploy.sh -nb -nr
+```
+
+**Đặc tính an toàn:**
+- Tự động nạp NVM, `.profile`, `.bash_profile` trong phiên non-interactive SSH để tránh lỗi `pm2: command not found`.
+- Tự động fallback sang `npx pm2` hoặc `pnpm exec pm2` nếu PM2 chưa có trong PATH toàn cục.

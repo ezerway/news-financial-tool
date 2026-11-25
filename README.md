@@ -58,9 +58,19 @@
 
 5. **Tự Động Hóa Hợp Nhất: Đăng Bài Viết ➔ Tự Tạo Video ➔ Đăng Video Đa Kênh**:
    - Tùy chọn **"Tự động tạo & đăng Video 9:16 sau khi post bài"** (`auto_video_publish_after_post`) trong Cài đặt:
-   - Khi bài viết xuất bản thành công lên Facebook (qua Auto-Runner hoặc đăng tay từ Studio), hệ thống lập tức chạy ngầm: **Tóm tắt 3-7 ý ➔ Render video 9:16 ➔ Đăng ngay lên Facebook Reels, YouTube Shorts, TikTok, Zalo Video**.
+   - Khi bài viết xuất bản thành công lên Facebook (qua Auto-Runner hoặc đăng tay từ Studio), hệ thống lập tức chạy ngầm: **Tóm tắt 3-7 ý ➔ Render video 9:16 ➔ Đăng ngay lên các kênh video ngắn**.
+   - **Độc lập Bật/Tắt upload Video 4 nền tảng**: Cung cấp 4 công tắc riêng biệt trong Cài đặt cho phép bạn chỉ định chính xác kênh nào được phép tự động upload video (`fb_reel_auto_post`, `tiktok_auto_post`, `youtube_auto_post`, `zalo_auto_post`).
 
-6. **Hệ thống Chuyển đổi Link Redirect Proxy (`/go/?to=[target_url]`)**:
+6. **Dọn dẹp Bộ nhớ Nâng cao & Tự động Xóa Video Cũ (Storage & Database Cleanup)**:
+   - **Tự động quét và dọn video > 2 ngày**: Background scheduler (chạy mỗi 1 giờ) và chu kỳ Auto-Runner tự động dọn dẹp các video render (`trend_*.mp4`, `reel_*.mp4`) và ảnh screenshot có tuổi đời > 2 ngày, đồng thời tự động reset cờ `video_generated` trong bảng `trends` để giải phóng dung lượng đĩa VPS.
+   - **Quản lý dữ liệu Database tập trung trong Cài đặt**:
+     - 🗑️ **Xóa xu hướng**: Xóa sạch toàn bộ từ khóa xu hướng trong bảng `trends`.
+     - 🗑️ **Xóa bài viết**: Xóa toàn bộ bài viết trong bảng `posts`, tự động xóa ảnh/video liên quan và trả xu hướng về trạng thái `discovered`.
+     - 🗑️ **Xóa Reels**: Xóa toàn bộ video ngắn trong bảng `reels` và dọn các file video gốc.
+     - 🧹 **Dọn video cũ (> 2 ngày)** và **Xóa hết Screenshot & Video** tức thì.
+     - Toàn bộ thao tác xóa đều có bước xác nhận an toàn (Confirm) tránh bấm nhầm.
+
+7. **Hệ thống Chuyển đổi Link Redirect Proxy (`/go/?to=[target_url]`)**:
    - **Tự động chuẩn hóa liên kết nguồn**: Mọi URL bài báo trong phần bình luận (cả bài viết và Reels) đều được tự động chuyển đổi sang dạng `https://financial-news.ezerway.com/go/?to=[target_url]`.
    - **Cơ chế loại trừ thông minh (Domain Exemption)**: Tự động giữ nguyên các liên kết thuộc cùng domain `financial-news.ezerway.com` hoặc `ezerway.com` để tránh bọc link lặp lại.
    - **Endpoint `/go` an toàn**: Cung cấp route Next.js tiếp nhận và redirect 302 trực tiếp đến bài báo đích.

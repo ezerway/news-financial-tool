@@ -263,3 +263,31 @@ Khi cài đặt `auto_video_publish_after_post` được kích hoạt:
 4. **Giãn cách an toàn (Rate Limiting & Human-like Delay)**:
    - Tự động nghỉ 25 - 30 giây giữa các lần đăng bài khi đăng số lượng nhiều.
    - Thao tác nhập bàn phím ngẫu nhiên mô phỏng hành vi người dùng thật.
+
+---
+
+## 5. Cơ chế Dọn dẹp Bộ nhớ Tự động & Quản lý Dung lượng (Storage Cleanup Engine)
+
+Để ngăn chặn cạn kiệt ổ đĩa VPS do các file video render và ảnh đối soát tích tụ theo thời gian, hệ thống tích hợp bộ máy dọn dẹp bộ nhớ chuyên sâu ([storage-cleanup.ts](file:///Users/ezerway/PhpstormProjects/ezerway/news-financial-tool/src/services/storage-cleanup.ts)):
+
+1. **Cơ chế Kích hoạt Kép Tự động (Dual-Trigger Auto Cleanup)**:
+   - **Định kỳ mỗi 1 giờ**: Background scheduler singleton trong runtime server ([reels.ts](file:///Users/ezerway/PhpstormProjects/ezerway/news-financial-tool/src/services/reels.ts)) tự động gọi hàm dọn dẹp `cleanOldReelsStorage(2)`.
+   - **Sau mỗi chu kỳ tự động hóa**: Khi `runAutomationCycle` hoặc `cron-daemon` hoàn tất chu kỳ cào tin và đăng bài, tác vụ dọn dẹp được kích hoạt ngầm ngay sau đó.
+
+2. **Quy trình Dọn dẹp Tệp tin Media Cũ (> 2 ngày)**:
+   - Quét toàn bộ thư mục `storage/videos/` và `storage/screenshots/`:
+     - Xóa các file video render của xu hướng (`trend_*.mp4`), video Reel (`reel_*.mp4`, `tiktok_reel_*.mp4`), video debug Playwright và ảnh chụp màn hình có thời gian sửa đổi cũ hơn 2 ngày (`stat.mtimeMs <= cutoffMs`).
+     - Tự động kiểm tra an toàn: Không xóa các file video của các Reel đang ở trạng thái hẹn giờ (`scheduled`) trong tương lai.
+   - **Đồng bộ hóa Database**:
+     - Reset cờ `video_generated = 0, video_path = NULL` trên bảng `trends` đối với các xu hướng cũ đã bị xóa file video.
+     - Reset các cột đường dẫn screenshot và video debug về `NULL` trên bảng `reels` và `posts`.
+
+3. **Quản trị Xóa Dữ liệu Tập trung trên Web Dashboard**:
+   - Giao diện **Cài đặt $\rightarrow$ Dọn dẹp bộ nhớ** phân tách khoa học thành 2 khối độc lập:
+     - **Quản lý dữ liệu Database**: Nút xóa toàn bộ Từ khóa xu hướng (`DELETE /api/trends?all=true`), Xóa bài viết (`DELETE /api/posts?status=all`), Xóa Reels (`DELETE /api/reels?all=true`).
+     - **Dọn dẹp dung lượng ổ cứng (VPS)**: Nút dọn Video cũ (> 2 ngày) và Xóa hết Screenshot & Video tạm thời.
+   - Mọi thao tác xóa dữ liệu đều yêu cầu xác nhận an toàn (Confirmation toggle) để chống thao tác nhầm.
+
+4. **Đảo chiều Chuỗi Bình luận (`.reverse()`)**:
+   - Khi chia nhỏ chuỗi bình luận theo dấu `|`, hệ thống tự động đảo chiều danh sách trước khi gửi lần lượt vào Facebook, TikTok, YouTube Shorts và Zalo Video để đảm bảo bình luận nguồn chính thống luôn hiển thị ở vị trí ưu tiên cao nhất theo thuật toán của từng nền tảng.
+

@@ -264,7 +264,34 @@ sudo certbot --nginx -d yourdomain.com
 
 ## 7. Quy trình Cập nhật Code mới (CI/CD / Redeploy)
 
-### 7.1. Cấu hình SSH Key để Deploy không cần mật khẩu
+### 7.1. Tự động hóa Deploy 1 lệnh với `deploy.sh` (Khuyên dùng)
+Dự án đã tích hợp sẵn script [deploy.sh](file:///Users/ezerway/PhpstormProjects/ezerway/news-financial-tool/deploy.sh) trên máy cá nhân để tự động hóa toàn bộ quy trình: kết nối SSH, kéo code mới, build production và khởi động lại PM2 với cơ chế tự nạp môi trường Node.js/NVM thông minh.
+
+```bash
+# 1. Chạy đầy đủ mặc định (git pull -> pnpm build -> pm2 restart)
+./deploy.sh
+
+# 2. Không build lại (chỉ git pull -> pm2 restart - dùng khi chỉ sửa config, script ngầm)
+./deploy.sh --no-build
+# hoặc viết tắt:
+./deploy.sh -nb
+
+# 3. Không restart PM2 (chỉ git pull -> pnpm build)
+./deploy.sh --no-restart
+# hoặc viết tắt:
+./deploy.sh -nr
+
+# 4. Chỉ kéo code Git (không build, không restart)
+./deploy.sh --no-build --no-restart
+# hoặc viết tắt:
+./deploy.sh -nb -nr
+```
+
+> **Ghi chú về PM2 và cờ `--publish` trong `ecosystem.config.js`:**
+> - Tiến trình `trendpulse-cron` trong [ecosystem.config.js](file:///Users/ezerway/PhpstormProjects/ezerway/news-financial-tool/ecosystem.config.js) quản lý việc cào tin tự động định kỳ.
+> - Nếu bạn muốn chu kỳ cron tuân theo cài đặt **"Chế độ Auto-Pilot hoàn toàn"** trên Web Dashboard (bật thì đăng, tắt thì chỉ lưu nháp), hãy đảm bảo bỏ cờ `--publish` trong `args: 'scripts/cron-daemon.ts'`.
+
+### 7.2. Cấu hình SSH Key để Deploy không cần mật khẩu
 Để các script CI/CD hoặc máy tính cá nhân deploy tự động lên VPS mà không phải nhập mật khẩu mỗi lần:
 
 1. **Trên máy cá nhân (Local)**:

@@ -88,6 +88,21 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   ```
 
 ### 2.3. Tìm lại link báo chí cho xu hướng (`POST /api/trends/find-sources`)
+- Tìm kiếm nguồn tin chính thống bổ sung khi từ khóa bị thiếu source link.
+
+### 2.4. Xóa xu hướng (`DELETE /api/trends`)
+Hỗ trợ xóa một xu hướng cụ thể, xóa theo trạng thái hoặc xóa toàn bộ xu hướng trong cơ sở dữ liệu.
+- **Query Parameters**:
+  - `all`: Truyền `all=true` để xóa toàn bộ bản ghi trong bảng `trends`.
+  - `id`: ID của xu hướng cần xóa.
+  - `status`: Xóa các xu hướng có trạng thái tương ứng (`discovered`, `drafted`...).
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Đã xóa tất cả xu hướng"
+  }
+  ```
 - **Request Body**:
   ```json
   {
@@ -413,12 +428,25 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
   }
   ```
 
-### 5.13. Xóa video Reel (`DELETE /api/reels/[id]`)
+### 5.13. Xóa một video Reel (`DELETE /api/reels/[id]`)
 - Xóa bản ghi video Reel trong database và tự động xóa file video gốc trong `storage/videos/` nếu có.
 - **Response (200 OK)**:
   ```json
   {
     "success": true
+  }
+  ```
+
+### 5.14. Xóa toàn bộ video Reel (`DELETE /api/reels?all=true`)
+Xóa hàng loạt toàn bộ danh sách Reel trong database và tự động dọn dẹp các tệp tin video gốc, video debug, ảnh screenshot liên quan.
+- **Query Parameters**:
+  - `all=true` hoặc `status=all`
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "count": 16,
+    "message": "Đã xóa toàn bộ 16 video ngắn (Reels) và các file liên quan thành công!"
   }
   ```
 
@@ -513,15 +541,39 @@ Xác thực người dùng quản trị và thiết lập HTTP-Only Cookie.
 ### 8.2. Tải bản sao lưu (`GET /api/backup/db`, `GET /api/backup/full`)
 - Tải về trực tiếp file `app.db` hoặc file `.zip` chứa toàn bộ session và database.
 
-### 8.3. Dọn dẹp bộ nhớ tạm (`POST /api/storage/clean`)
-- **Request Body**:
-  ```json
-  {
-    "cleanScreenshots": true,
-    "cleanVideos": true,
-    "olderThanDays": 7
-  }
-  ```
+### 8.3. Thống kê & Dọn dẹp bộ nhớ Storage (`GET /api/storage/clean`, `POST /api/storage/clean`)
+- **Lấy thống kê tệp tin & dữ liệu (GET)**:
+  Trả về số lượng và dung lượng chi tiết của ảnh chụp màn hình, video Playwright, kèm số lượng thực tế của các bản ghi database (Bài viết, Reels, Xu hướng).
+  - **Response (200 OK)**:
+    ```json
+    {
+      "success": true,
+      "screenshots": { "count": 0, "sizeBytes": 0, "sizeFormatted": "0 B" },
+      "videos": { "count": 20, "sizeBytes": 65849344, "sizeFormatted": "62.8 MB" },
+      "totalCount": 20,
+      "totalSizeBytes": 65849344,
+      "totalFormatted": "62.8 MB",
+      "postsCount": 4,
+      "reelsCount": 16,
+      "trendsCount": 5
+    }
+    ```
+
+- **Thực hiện dọn dẹp bộ nhớ (POST)**:
+  - **Dọn dẹp video & screenshot cũ (> X ngày)**:
+    ```json
+    {
+      "type": "old_reels",
+      "days": 2
+    }
+    ```
+    *Tự động quét toàn bộ file video render (`trend_*.mp4`, `reel_*.mp4`) và screenshots cũ hơn 2 ngày, xóa file đĩa cứng và reset cờ `video_generated = 0` trong bảng `trends`.*
+  - **Xóa toàn bộ screenshot & video tạm**:
+    ```json
+    {
+      "type": "all"
+    }
+    ```
 
 ### 8.4. Xuất / Nhập Profile Session trình duyệt (`GET /api/backup/profile`, `POST /api/backup/profile`)
 - **Xuất (GET)**:
