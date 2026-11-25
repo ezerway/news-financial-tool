@@ -157,17 +157,17 @@ export async function addMusicToYouTubeShort(
     await page.goto(editorUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
     await page.waitForTimeout(3000);
 
-    // 1. Click vào [id="entrypoint-audio-row"] a
-    const audioEntry = page.locator('[id="entrypoint-audio-row"] a, #entrypoint-audio-row a').first();
-    const isAudioEntryVisible = await audioEntry.isVisible({ timeout: 15000 }).catch(() => false);
-    if (!isAudioEntryVisible) {
+    try {
+      // 1. Click vào [id="entrypoint-audio-row"] a
+      const audioEntry = page.locator('[id="entrypoint-audio-row"] a, #entrypoint-audio-row a').first();
+      await audioEntry.waitFor({ state: 'visible', timeout: 25000 });
+      notify('Đang mở danh sách âm thanh Audio Library...');
+      await audioEntry.click();
+      await page.waitForTimeout(2000);
+    } catch {
       notify(`Không tìm thấy nút entrypoint-audio-row trong Studio Editor. Bỏ qua bước thêm nhạc.`, 'WARN');
       return false;
     }
-
-    notify('Đang mở danh sách âm thanh Audio Library...');
-    await audioEntry.click();
-    await page.waitForTimeout(2000);
 
     // 2. Chờ '[id="tracks-table-wrapper"] [role="grid"]' có ytve-audioswap-track-row
     const tracksGrid = page.locator('[id="tracks-table-wrapper"] [role="grid"], #tracks-table-wrapper [role="grid"]');
