@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
+import db from '@/lib/db';
 import { getStorageDir } from '@/services/playwright/session';
 import {
   formatBytes,
@@ -18,6 +19,15 @@ export async function GET() {
     const vdStats = getDirStats(videosDir);
     const totalBytes = scStats.sizeBytes + vdStats.sizeBytes;
 
+    let postsCount = 0;
+    let reelsCount = 0;
+    try {
+      const p = db.prepare('SELECT COUNT(*) as c FROM posts').get() as any;
+      postsCount = p?.c || 0;
+      const r = db.prepare('SELECT COUNT(*) as c FROM reels').get() as any;
+      reelsCount = r?.c || 0;
+    } catch {}
+
     return NextResponse.json({
       success: true,
       screenshots: {
@@ -33,6 +43,8 @@ export async function GET() {
       totalCount: scStats.count + vdStats.count,
       totalSizeBytes: totalBytes,
       totalFormatted: formatBytes(totalBytes),
+      postsCount,
+      reelsCount,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

@@ -12,6 +12,7 @@ import { checkZaloLoginStatus } from '@/services/playwright/zalo-session';
 import { isTikTokAutoPostEnabled, isYouTubeAutoPostEnabled, isZaloAutoPostEnabled } from '@/lib/db';
 import { sendServerPushNotification } from './notifications';
 import { convertCommentLinks } from '@/lib/link-redirect';
+import { cleanOldReelsStorage } from './storage-cleanup';
 import { ReelItem } from '@/types';
 
 export function getReels(status?: string): ReelItem[] {
@@ -1154,20 +1155,43 @@ export async function postCommentToAllPlatforms(
   return results;
 }
 
-export { cleanOldReelsStorage } from './storage-cleanup';
+export function deleteAllReels(): { count: number; deletedVideos: number } {
+  const rows = db.prepare('SELECT id FROM reels').all() as { id: string }[];
+  let count = 0;
+  for (const row of rows) {
+    try {
+      if (deleteReel(row.id)) count++;
+    } catch {}
+  }
+  return { count, deletedVideos: count };
+}
+
+export { cleanOldReelsStorage };
 
 // Background scheduler singleton in Node.js runtime
 declare global {
   var __reelSchedulerStarted: boolean | undefined;
+  var __lastStorageCleanupTime: number | undefined;
 }
 
 if (typeof window === 'undefined' && !globalThis.__reelSchedulerStarted) {
   globalThis.__reelSchedulerStarted = true;
+  globalThis.__lastStorageCleanupTime = 0;
+
   // Run check every 30 seconds
   setInterval(() => {
-    processScheduledReels().catch((err) => {
+    processScheduledReels().catch((err: any) => {
       console.error('[Reel Scheduler Loop Error]', err);
     });
+
+    // Tự động kiểm tra và dọn dẹp các generated video & ảnh chụp màn hình cũ (> 2 ngày) mỗi 1 giờ
+    const now = Date.now();
+    if (!globalThis.__lastStorageCleanupTime || now - globalThis.__lastStorageCleanupTime >= 60 * 60 * 1000) {
+      globalThis.__lastStorageCleanupTime = now;
+      cleanOldReelsStorage(2).catch((err: any) => {
+        console.error('[Auto Storage Cleanup Error]', err);
+      });
+    }
   }, 30 * 1000);
 }
 

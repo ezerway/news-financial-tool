@@ -26,6 +26,7 @@ import {
   AlertCircle,
   Film,
   Link2,
+  FileText,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import TikTokIcon from './TikTokIcon';
@@ -75,6 +76,7 @@ export default function SettingsTab({
     post_tone: settings.post_tone || 'finance_news',
     auto_mode: settings.auto_mode || 'false',
     developer_mode: settings.developer_mode || 'false',
+    fb_reel_auto_post: settings.fb_reel_auto_post || 'true',
     tiktok_auto_post: settings.tiktok_auto_post || 'true',
     youtube_auto_post: settings.youtube_auto_post || 'true',
     youtube_channel_url: settings.youtube_channel_url || '',
@@ -109,6 +111,7 @@ export default function SettingsTab({
       post_tone: settings.post_tone ?? prev.post_tone,
       auto_mode: settings.auto_mode ?? prev.auto_mode,
       developer_mode: settings.developer_mode ?? prev.developer_mode,
+      fb_reel_auto_post: settings.fb_reel_auto_post ?? prev.fb_reel_auto_post,
       tiktok_auto_post: settings.tiktok_auto_post ?? prev.tiktok_auto_post,
       youtube_auto_post: settings.youtube_auto_post ?? prev.youtube_auto_post,
       youtube_channel_url: settings.youtube_channel_url ?? prev.youtube_channel_url,
@@ -381,11 +384,17 @@ export default function SettingsTab({
     videos: { count: number; sizeFormatted: string };
     totalCount: number;
     totalFormatted: string;
+    postsCount?: number;
+    reelsCount?: number;
   } | null>(null);
   const [isLoadingStorage, setIsLoadingStorage] = useState(false);
   const [isCleaningStorage, setIsCleaningStorage] = useState(false);
+  const [isDeletingPosts, setIsDeletingPosts] = useState(false);
+  const [isDeletingReels, setIsDeletingReels] = useState(false);
   const [storageMsg, setStorageMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [showConfirmClean, setShowConfirmClean] = useState(false);
+  const [showConfirmDeletePosts, setShowConfirmDeletePosts] = useState(false);
+  const [showConfirmDeleteReels, setShowConfirmDeleteReels] = useState(false);
 
   const fetchStorageStats = async () => {
     setIsLoadingStorage(true);
@@ -447,6 +456,54 @@ export default function SettingsTab({
       setStorageMsg({ text: 'Lỗi: ' + err.message, type: 'error' });
     } finally {
       setIsCleaningStorage(false);
+    }
+  };
+
+  const handleDeleteAllPosts = async () => {
+    setIsDeletingPosts(true);
+    setStorageMsg(null);
+    try {
+      const res = await fetch('/api/posts?status=all', { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setStorageMsg({
+          text: data.message || (lang === 'vi' ? 'Đã xóa tất cả bài viết thành công!' : 'All posts deleted successfully!'),
+          type: 'success',
+        });
+        setShowConfirmDeletePosts(false);
+        fetchStorageStats();
+        if (onRefreshData) onRefreshData();
+      } else {
+        setStorageMsg({ text: data.error || 'Lỗi khi xóa bài viết', type: 'error' });
+      }
+    } catch (err: any) {
+      setStorageMsg({ text: 'Lỗi: ' + err.message, type: 'error' });
+    } finally {
+      setIsDeletingPosts(false);
+    }
+  };
+
+  const handleDeleteAllReels = async () => {
+    setIsDeletingReels(true);
+    setStorageMsg(null);
+    try {
+      const res = await fetch('/api/reels?all=true', { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setStorageMsg({
+          text: data.message || (lang === 'vi' ? 'Đã xóa tất cả Reels thành công!' : 'All reels deleted successfully!'),
+          type: 'success',
+        });
+        setShowConfirmDeleteReels(false);
+        fetchStorageStats();
+        if (onRefreshData) onRefreshData();
+      } else {
+        setStorageMsg({ text: data.error || 'Lỗi khi xóa Reels', type: 'error' });
+      }
+    } catch (err: any) {
+      setStorageMsg({ text: 'Lỗi: ' + err.message, type: 'error' });
+    } finally {
+      setIsDeletingReels(false);
     }
   };
 
@@ -597,6 +654,29 @@ export default function SettingsTab({
                 <p className="text-[10px] text-slate-400 mt-1">
                   💡 {lang === 'vi' ? 'Dán link Fanpage bạn làm quản trị viên (Ví dụ: https://www.facebook.com/tintuc247)' : 'Paste your Fanpage link where you are admin'}
                 </p>
+              </div>
+
+              {/* Auto Post Facebook Reel toggle */}
+              <div className="flex items-center justify-between p-3 rounded-xl app-tag">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-inherit">
+                    {lang === 'vi' ? 'Tự động đăng lên Facebook Reels khi tạo Video' : 'Auto post to Facebook Reels when generating Video'}
+                  </span>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {lang === 'vi'
+                      ? 'Khi hệ thống tự động render video ngắn 9:16, tự động xuất bản video lên Facebook Reels.'
+                      : 'Automatically publish video to Facebook Reels when generating 9:16 video.'}
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={form.fb_reel_auto_post === 'true'}
+                    onChange={(e) => setForm({ ...form, fb_reel_auto_post: e.target.checked ? 'true' : 'false' })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+                </label>
               </div>
 
               <div className="pt-1 flex flex-wrap items-center gap-2.5">
@@ -1401,6 +1481,121 @@ export default function SettingsTab({
               </button>
             </div>
 
+            {/* Video Publishing Targets Sub-Panel (Channels Selection) */}
+            <div className={`p-3.5 rounded-xl border transition-all ${
+              form.auto_video_publish_after_post === 'true'
+                ? 'bg-slate-50/80 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800'
+                : 'bg-slate-50/40 dark:bg-slate-900/20 border-slate-200/40 dark:border-slate-800/40 opacity-80'
+            }`}>
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200">
+                  <Layers className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>{lang === 'vi' ? 'Kênh xuất bản Video tự động' : 'Video Publishing Target Channels'}</span>
+                </div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                  {lang === 'vi' ? 'Chọn các kênh nhận video ngắn' : 'Select channels to receive short video'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* 1. Facebook Reels */}
+                <div className="flex items-center justify-between p-2.5 rounded-lg border border-blue-200/60 dark:border-blue-900/40 bg-blue-50/40 dark:bg-blue-950/20">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FacebookIcon className="w-4 h-4 fill-blue-600 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                        Facebook Reels
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                        {fbStatus.loggedIn ? (lang === 'vi' ? '✓ Đã kết nối' : '✓ Connected') : (lang === 'vi' ? '⚠ Chưa kết nối' : '⚠ Disconnected')}
+                      </div>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={form.fb_reel_auto_post === 'true'}
+                      onChange={(e) => setForm({ ...form, fb_reel_auto_post: e.target.checked ? 'true' : 'false' })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {/* 2. YouTube Shorts */}
+                <div className="flex items-center justify-between p-2.5 rounded-lg border border-red-200/60 dark:border-red-900/40 bg-red-50/40 dark:bg-red-950/20">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <YouTubeIcon className="w-4 h-4 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                        YouTube Shorts
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                        {youtubeStatus.loggedIn ? (lang === 'vi' ? '✓ Đã kết nối' : '✓ Connected') : (lang === 'vi' ? '⚠ Chưa kết nối' : '⚠ Disconnected')}
+                      </div>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={form.youtube_auto_post === 'true'}
+                      onChange={(e) => setForm({ ...form, youtube_auto_post: e.target.checked ? 'true' : 'false' })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-red-600"></div>
+                  </label>
+                </div>
+
+                {/* 3. TikTok Video */}
+                <div className="flex items-center justify-between p-2.5 rounded-lg border border-rose-200/60 dark:border-rose-900/40 bg-rose-50/40 dark:bg-rose-950/20">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <TikTokIcon className="w-4 h-4 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                        TikTok Video
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                        {tiktokStatus.loggedIn ? (lang === 'vi' ? '✓ Đã kết nối' : '✓ Connected') : (lang === 'vi' ? '⚠ Chưa kết nối' : '⚠ Disconnected')}
+                      </div>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={form.tiktok_auto_post === 'true'}
+                      onChange={(e) => setForm({ ...form, tiktok_auto_post: e.target.checked ? 'true' : 'false' })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-rose-600"></div>
+                  </label>
+                </div>
+
+                {/* 4. Zalo Video */}
+                <div className="flex items-center justify-between p-2.5 rounded-lg border border-sky-200/60 dark:border-sky-900/40 bg-sky-50/40 dark:bg-sky-950/20">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ZaloIcon className="w-4 h-4 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                        Zalo Video Creator
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                        {zaloStatus.loggedIn ? (lang === 'vi' ? '✓ Đã kết nối' : '✓ Connected') : (lang === 'vi' ? '⚠ Chưa kết nối' : '⚠ Disconnected')}
+                      </div>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={form.zalo_auto_post === 'true'}
+                      onChange={(e) => setForm({ ...form, zalo_auto_post: e.target.checked ? 'true' : 'false' })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-sky-600"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
             {/* Posts Per Automation Cycle */}
             <div className="p-3.5 rounded-xl app-tag flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div>
@@ -1533,24 +1728,75 @@ export default function SettingsTab({
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-3 border border-[var(--app-border)]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 flex items-center justify-center shrink-0">
-                  <ImageIcon className="w-4 h-4" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            {/* Card 1: Posts Count */}
+            <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-2 border border-[var(--app-border)]">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-500 flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="font-semibold text-slate-900 dark:text-white text-xs">
-                    {lang === 'vi' ? 'Ảnh chụp màn hình (Screenshots)' : 'Audit Screenshots'}
+                    {lang === 'vi' ? 'Bài viết' : 'Posts'}
                   </div>
                   <div className="text-[11px] text-slate-400 font-mono">
-                    storage/screenshots
+                    bảng posts
                   </div>
                 </div>
               </div>
               <div className="text-right">
                 <div className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                  {storageStats?.screenshots.count ?? 0} {lang === 'vi' ? 'file' : 'files'}
+                  {storageStats?.postsCount ?? 0}
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  {lang === 'vi' ? 'bài' : 'posts'}
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Reels Count */}
+            <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-2 border border-[var(--app-border)]">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-500 flex items-center justify-center shrink-0">
+                  <Film className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-900 dark:text-white text-xs">
+                    {lang === 'vi' ? 'Video Reels' : 'Reels'}
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-mono">
+                    bảng reels
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                  {storageStats?.reelsCount ?? 0}
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  {lang === 'vi' ? 'video' : 'reels'}
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3: Screenshots */}
+            <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-2 border border-[var(--app-border)]">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 flex items-center justify-center shrink-0">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-900 dark:text-white text-xs">
+                    {lang === 'vi' ? 'Ảnh màn hình' : 'Screenshots'}
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-mono">
+                    screenshots
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                  {storageStats?.screenshots.count ?? 0}
                 </div>
                 <div className="text-[10px] text-slate-500 font-mono">
                   {storageStats?.screenshots.sizeFormatted ?? '0 B'}
@@ -1558,23 +1804,24 @@ export default function SettingsTab({
               </div>
             </div>
 
-            <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-3 border border-[var(--app-border)]">
-              <div className="flex items-center gap-2.5">
+            {/* Card 4: Videos */}
+            <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-2 border border-[var(--app-border)]">
+              <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center shrink-0">
                   <Video className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="font-semibold text-slate-900 dark:text-white text-xs">
-                    {lang === 'vi' ? 'Video Playwright ghi lại' : 'Playwright Videos'}
+                    {lang === 'vi' ? 'Video lưu trữ' : 'Videos'}
                   </div>
                   <div className="text-[11px] text-slate-400 font-mono">
-                    storage/videos
+                    videos
                   </div>
                 </div>
               </div>
               <div className="text-right">
                 <div className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                  {storageStats?.videos.count ?? 0} {lang === 'vi' ? 'file' : 'files'}
+                  {storageStats?.videos.count ?? 0}
                 </div>
                 <div className="text-[10px] text-slate-500 font-mono">
                   {storageStats?.videos.sizeFormatted ?? '0 B'}
@@ -1596,60 +1843,148 @@ export default function SettingsTab({
             </div>
           )}
 
-          {/* Delete Action Bar */}
-          <div className="pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Action Blocks */}
+          <div className="pt-1 space-y-3">
             <p className="text-[11px] text-slate-400">
               💡 {lang === 'vi'
-                ? 'Thao tác sẽ xóa các file ảnh/video tạm và gỡ liên kết trong bài viết/reel, không ảnh hưởng đến dữ liệu văn bản. Cron-daemon cũng tự động dọn video & screenshot các post Reel cũ (> 2 ngày) sau mỗi chu kỳ.'
-                : 'This deletes temporary image/video files and resets database references without touching text data. Cron daemon also automatically cleans up videos & screenshots of Reels created 2+ days ago after each cycle.'}
+                ? 'Hệ thống tự động kiểm tra và dọn dẹp các generated video & ảnh chụp màn hình cũ (> 2 ngày) định kỳ mỗi 1 giờ và sau mỗi chu kỳ tự động. Bạn cũng có thể bấm xóa bài viết, xóa reel hoặc dọn dẹp tức thì bên dưới.'
+                : 'The system automatically cleans up generated videos & screenshots older than 2 days every hour and after each automation cycle. You can also manually delete posts, reels, or temporary files below.'}
             </p>
 
-            {showConfirmClean ? (
-              <div className="flex items-center gap-2 self-end sm:self-auto animate-in fade-in">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Nút Xóa bài viết */}
+              {showConfirmDeletePosts ? (
+                <div className="inline-flex items-center gap-1.5 p-1 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 rounded-lg animate-in fade-in">
+                  <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 px-1.5">
+                    {lang === 'vi' ? 'Xác nhận xóa hết bài viết?' : 'Delete all posts?'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmDeletePosts(false)}
+                    disabled={isDeletingPosts}
+                    className="btn btn-xs btn-ghost text-xs cursor-pointer"
+                  >
+                    {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteAllPosts}
+                    disabled={isDeletingPosts}
+                    className="btn btn-xs bg-rose-600 hover:bg-rose-700 text-white border-rose-500 font-semibold cursor-pointer inline-flex items-center gap-1"
+                  >
+                    {isDeletingPosts ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3 h-3" />
+                    )}
+                    <span>{lang === 'vi' ? 'Xóa bài viết' : 'Confirm'}</span>
+                  </button>
+                </div>
+              ) : (
                 <button
                   type="button"
-                  onClick={() => setShowConfirmClean(false)}
-                  disabled={isCleaningStorage}
-                  className="btn btn-sm btn-ghost text-xs"
+                  onClick={() => setShowConfirmDeletePosts(true)}
+                  disabled={(storageStats?.postsCount ?? 0) === 0 || isDeletingPosts}
+                  className="btn btn-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                  title={lang === 'vi' ? 'Xóa toàn bộ các bài viết trong hệ thống' : 'Delete all posts from the system'}
                 >
-                  {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>
+                    {lang === 'vi' ? 'Xóa bài viết' : 'Delete Posts'}
+                    {storageStats?.postsCount !== undefined ? ` (${storageStats.postsCount})` : ''}
+                  </span>
                 </button>
-                <button
-                  type="button"
-                  onClick={handleCleanStorage}
-                  disabled={isCleaningStorage}
-                  className="btn btn-sm bg-rose-600 hover:bg-rose-700 text-white border-rose-500 text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
-                >
-                  {isCleaningStorage ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>{lang === 'vi' ? 'Đang xóa...' : 'Deleting...'}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>{lang === 'vi' ? 'Xác nhận xóa hết' : 'Confirm Delete All'}</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
-                <button
-                  type="button"
-                  onClick={handleCleanOldReels}
-                  disabled={isCleaningStorage}
-                  className="btn btn-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
-                  title={lang === 'vi' ? 'Dọn dẹp video & screenshot của các Reel đã tạo từ 2 ngày trước' : 'Clean up videos & screenshots of Reels created 2+ days ago'}
-                >
-                  {isCleaningStorage ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Film className="w-3.5 h-3.5" />
-                  )}
-                  <span>{lang === 'vi' ? 'Dọn Reel cũ (> 2 ngày)' : 'Clean Reels (> 2 days)'}</span>
-                </button>
+              )}
 
+              {/* Nút Xóa Reels */}
+              {showConfirmDeleteReels ? (
+                <div className="inline-flex items-center gap-1.5 p-1 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 rounded-lg animate-in fade-in">
+                  <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 px-1.5">
+                    {lang === 'vi' ? 'Xác nhận xóa hết Reels?' : 'Delete all reels?'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmDeleteReels(false)}
+                    disabled={isDeletingReels}
+                    className="btn btn-xs btn-ghost text-xs cursor-pointer"
+                  >
+                    {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteAllReels}
+                    disabled={isDeletingReels}
+                    className="btn btn-xs bg-rose-600 hover:bg-rose-700 text-white border-rose-500 font-semibold cursor-pointer inline-flex items-center gap-1"
+                  >
+                    {isDeletingReels ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3 h-3" />
+                    )}
+                    <span>{lang === 'vi' ? 'Xóa Reels' : 'Confirm'}</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmDeleteReels(true)}
+                  disabled={(storageStats?.reelsCount ?? 0) === 0 || isDeletingReels}
+                  className="btn btn-md bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                  title={lang === 'vi' ? 'Xóa toàn bộ các video ngắn (Reels) trong hệ thống' : 'Delete all reels from the system'}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>
+                    {lang === 'vi' ? 'Xóa Reel' : 'Delete Reels'}
+                    {storageStats?.reelsCount !== undefined ? ` (${storageStats.reelsCount})` : ''}
+                  </span>
+                </button>
+              )}
+
+              {/* Nút Dọn video/Reel cũ (> 2 ngày) */}
+              <button
+                type="button"
+                onClick={handleCleanOldReels}
+                disabled={isCleaningStorage}
+                className="btn btn-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                title={lang === 'vi' ? 'Dọn dẹp video & screenshot các bài/Reel đã tạo > 2 ngày' : 'Clean up videos & screenshots older than 2 days'}
+              >
+                {isCleaningStorage ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Film className="w-3.5 h-3.5" />
+                )}
+                <span>{lang === 'vi' ? 'Dọn Video cũ (> 2 ngày)' : 'Clean Old Videos (> 2 days)'}</span>
+              </button>
+
+              {/* Nút Xóa hết Screenshot & Video */}
+              {showConfirmClean ? (
+                <div className="inline-flex items-center gap-1.5 p-1 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 rounded-lg animate-in fade-in">
+                  <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 px-1.5">
+                    {lang === 'vi' ? 'Xóa tất cả file tạm?' : 'Delete all media files?'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmClean(false)}
+                    disabled={isCleaningStorage}
+                    className="btn btn-xs btn-ghost text-xs cursor-pointer"
+                  >
+                    {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCleanStorage}
+                    disabled={isCleaningStorage}
+                    className="btn btn-xs bg-rose-600 hover:bg-rose-700 text-white border-rose-500 font-semibold cursor-pointer inline-flex items-center gap-1"
+                  >
+                    {isCleaningStorage ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3 h-3" />
+                    )}
+                    <span>{lang === 'vi' ? 'Xác nhận xóa' : 'Confirm'}</span>
+                  </button>
+                </div>
+              ) : (
                 <button
                   type="button"
                   onClick={() => setShowConfirmClean(true)}
@@ -1662,8 +1997,8 @@ export default function SettingsTab({
                     {storageStats?.totalCount ? ` (${storageStats.totalCount})` : ''}
                   </span>
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}

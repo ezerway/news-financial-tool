@@ -5,6 +5,7 @@ import db, { getSetting, logActivity, repairInconsistentTrendStatuses, isAutoVid
 import { TrendItem, NewsArticle } from '@/types';
 import { findDuplicatePost, getExistingPosts } from './dedup';
 import { handleAutoVideoGenerationAndPublishing } from './video/auto-video-publisher';
+import { cleanOldReelsStorage } from './storage-cleanup';
 
 export interface AutomationCycleOptions {
   forcePublish?: boolean;
@@ -202,6 +203,9 @@ export async function runAutomationCycle(options?: AutomationCycleOptions) {
         }
       }
     }
+
+    // Tự động kiểm tra và dọn dẹp các generated video & ảnh screenshot cũ (> 2 ngày) sau mỗi chu kỳ
+    cleanOldReelsStorage(2).catch(() => {});
 
     return {
       success: successfulCount > 0,

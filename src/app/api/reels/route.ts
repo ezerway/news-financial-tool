@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getReels, createReel, processScheduledReels } from '@/services/reels';
+import { getReels, createReel, processScheduledReels, deleteAllReels } from '@/services/reels';
 
 export async function GET(req: NextRequest) {
   try {
@@ -42,4 +42,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const all = searchParams.get('all') === 'true' || searchParams.get('status') === 'all';
+
+    if (!all) {
+      return NextResponse.json(
+        { success: false, error: 'Vui lòng cung cấp tham số ?all=true để xóa toàn bộ reels' },
+        { status: 400 }
+      );
+    }
+
+    const result = deleteAllReels();
+    return NextResponse.json({
+      success: true,
+      count: result.count,
+      message: `Đã xóa toàn bộ ${result.count} video ngắn (Reels) và các file liên quan thành công!`,
+    });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
 

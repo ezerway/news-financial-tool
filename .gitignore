@@ -61,3 +61,7 @@ storage/**/*.webm
 test-results/
 playwright-report/
 
+# deployment scripts
+deploy.sh
+
+

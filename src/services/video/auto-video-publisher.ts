@@ -1,5 +1,6 @@
 import db, {
   logActivity,
+  isFbReelAutoPostEnabled,
   isTikTokAutoPostEnabled,
   isYouTubeAutoPostEnabled,
   isZaloAutoPostEnabled,
@@ -64,8 +65,8 @@ export async function handleAutoVideoGenerationAndPublishing(
       return { success: false, error: 'Reel record missing' };
     }
 
-    // 2. Xuất bản lên Facebook Reels
-    if (reel.status !== 'published') {
+    // 2. Xuất bản lên Facebook Reels (nếu bật cấu hình)
+    if (isFbReelAutoPostEnabled() && reel.status !== 'published') {
       try {
         logActivity('INFO', 'AUTO_VIDEO', `[Facebook Reel] Đang tự động đăng video [${reelId}]...`);
         const fbRes = await publishReelById(reelId, { headless, syncOtherPlatforms: false });
@@ -77,6 +78,8 @@ export async function handleAutoVideoGenerationAndPublishing(
       } catch (fbErr: any) {
         logActivity('WARN', 'AUTO_VIDEO', `[Facebook Reel] Lỗi ngoại lệ: ${fbErr.message}`);
       }
+    } else if (!isFbReelAutoPostEnabled()) {
+      logActivity('INFO', 'AUTO_VIDEO', '[Facebook Reel] Bỏ qua đăng Facebook Reel vì cấu hình đã tắt.');
     }
 
     // 3. Xuất bản lên TikTok (nếu bật cấu hình)

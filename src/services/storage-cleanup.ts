@@ -217,13 +217,20 @@ export async function cleanOldReelsStorage(days: number = 2): Promise<CleanupRes
     } catch {}
   }
 
-  // 2. Dọn thêm các file tạm rác liên quan đến Reel trong storage/videos & storage/screenshots có tuổi đời > safeDays
+  // 2. Dọn thêm các file video và ảnh tạm trong storage/videos & storage/screenshots có tuổi đời > safeDays
   if (fs.existsSync(videosDir)) {
     try {
       const vidFiles = fs.readdirSync(videosDir);
       for (const file of vidFiles) {
         if (file === '.gitkeep' || file.startsWith('.')) continue;
-        if (file.startsWith('reel_') || file.startsWith('tiktok_reel_')) {
+        const ext = path.extname(file).toLowerCase();
+        // Quét tất cả file video được tạo: trend_*, reel_*, tiktok_reel_*, hoặc mọi file mp4/webm/mkv
+        if (
+          file.startsWith('trend_') ||
+          file.startsWith('reel_') ||
+          file.startsWith('tiktok_reel_') ||
+          ['.mp4', '.webm', '.mkv'].includes(ext)
+        ) {
           const filePath = path.join(videosDir, file);
           try {
             const stat = fs.statSync(filePath);
@@ -234,6 +241,32 @@ export async function cleanOldReelsStorage(days: number = 2): Promise<CleanupRes
         }
       }
     } catch {}
+  }
+
+  // 3. Reset trạng thái bảng trends nếu video đã tạo cũ hơn safeDays hoặc file video không còn tồn tại
+  try {
+    const oldTrendsWithVideo = db
+      .prepare(
+        `
+        SELECT id, video_path
+        FROM trends
+        WHERE (video_generated = 1 OR video_path IS NOT NULL)
+          AND datetime(COALESCE(video_created_at, created_at, 'now')) <= datetime('now', '-' || ? || ' days')
+      `
+      )
+      .all(safeDays) as { id: string; video_path?: string }[];
+
+    for (const t of oldTrendsWithVideo) {
+      if (t.video_path) {
+        const vidFile = resolveStorageFile(t.video_path, videosDir);
+        if (vidFile) {
+          safelyDeleteFile(vidFile, true);
+        }
+      }
+      db.prepare(`UPDATE trends SET video_generated = 0, video_path = NULL WHERE id = ?`).run(t.id);
+    }
+  } catch (err: any) {
+    console.error('[Storage Cleanup] Lỗi cập nhật bảng trends:', err.message);
   }
 
   if (fs.existsSync(screenshotsDir)) {

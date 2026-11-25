@@ -527,6 +527,14 @@ export function resolveHeadless(preferredHeadless = true): boolean {
   return preferredHeadless;
 }
 
+export function isFbReelAutoPostEnabled(): boolean {
+  try {
+    return getSetting('fb_reel_auto_post', 'true') === 'true';
+  } catch {
+    return true;
+  }
+}
+
 export function isTikTokAutoPostEnabled(): boolean {
   try {
     return getSetting('tiktok_auto_post', 'true') === 'true';
