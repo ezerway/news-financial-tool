@@ -565,6 +565,8 @@ export async function uploadYouTubeShortVideo(options: {
       const videoIdMatch = shortsUrl.match(/(?:shorts\/|youtu\.be\/|watch\?v=)([a-zA-Z0-9_\-]+)/);
       const videoId = videoIdMatch ? videoIdMatch[1] : null;
       if (videoId) {
+        // Chờ 2 phút cho video xử lý
+        await page.waitForTimeout(120000);
         await addMusicToYouTubeShort(page, videoId, notify);
       }
     }

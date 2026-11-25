@@ -57,7 +57,7 @@ export function buildEditorialMagazineHtml(script: VideoSlideScript, options: Te
           <div class="content-slide-wrapper">
             <div class="editorial-content-header">
               <span class="editorial-header-title">${script.contentSlides[0]?.title || 'GÓC NHÌN & DỮ LIỆU TÀI CHÍNH'}</span>
-              <span class="editorial-header-badge">INSIGHT</span>
+              <!-- <span class="editorial-header-badge">INSIGHT</span> -->
             </div>
             <div class="content-blocks-container">
               ${blocksHtml}
