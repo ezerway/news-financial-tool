@@ -43,11 +43,11 @@ export async function checkYouTubeLoginStatus(): Promise<YouTubeStatusResult> {
   }
 
   // Quét nhanh qua file Cookies SQLite hoặc Default/Network/Cookies của Chromium nếu có
-  const defaultDir = path.join(userDataDir, 'Default');
-  const cookiesPath = path.join(defaultDir, 'Network', 'Cookies');
-  const oldCookiesPath = path.join(defaultDir, 'Cookies');
+  const defaultDir = path.join(/*turbopackIgnore: true*/ userDataDir, 'Default');
+  const cookiesPath = path.join(/*turbopackIgnore: true*/ defaultDir, 'Network', 'Cookies');
+  const oldCookiesPath = path.join(/*turbopackIgnore: true*/ defaultDir, 'Cookies');
 
-  const hasCookieFile = fs.existsSync(cookiesPath) || fs.existsSync(oldCookiesPath);
+  const hasCookieFile = fs.existsSync(/*turbopackIgnore: true*/ cookiesPath) || fs.existsSync(/*turbopackIgnore: true*/ oldCookiesPath);
   if (!hasCookieFile) {
     return {
       loggedIn: false,

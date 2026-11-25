@@ -142,12 +142,12 @@ export async function renderTrendVideo(
   const width = options.width || 720; // 720x1280 (chuẩn HD 9:16 tối ưu tốc độ render)
   const height = options.height || 1280;
 
-  const storageDir = path.join(process.cwd(), 'storage');
-  const videosDir = path.join(storageDir, 'videos');
-  const tempDir = path.join(storageDir, 'temp', 'video_render');
+  const storageDir = path.join(/*turbopackIgnore: true*/ process.cwd(), 'storage');
+  const videosDir = path.join(/*turbopackIgnore: true*/ storageDir, 'videos');
+  const tempDir = path.join(/*turbopackIgnore: true*/ storageDir, 'temp', 'video_render');
 
-  if (!fs.existsSync(videosDir)) fs.mkdirSync(videosDir, { recursive: true });
-  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+  if (!fs.existsSync(/*turbopackIgnore: true*/ videosDir)) fs.mkdirSync(/*turbopackIgnore: true*/ videosDir, { recursive: true });
+  if (!fs.existsSync(/*turbopackIgnore: true*/ tempDir)) fs.mkdirSync(/*turbopackIgnore: true*/ tempDir, { recursive: true });
 
   // 1. KIỂM TRA CHỐNG TẠO LẶP: Nếu đã có video cho xu hướng này thì không tạo lại
   if (!options.force && trend.id) {
@@ -158,9 +158,9 @@ export async function renderTrendVideo(
     if (existing?.video_generated === 1 && existing?.video_path) {
       const fullPath = path.isAbsolute(existing.video_path)
         ? existing.video_path
-        : path.join(process.cwd(), existing.video_path);
+        : path.join(/*turbopackIgnore: true*/ process.cwd(), existing.video_path);
 
-      if (fs.existsSync(fullPath)) {
+      if (fs.existsSync(/*turbopackIgnore: true*/ fullPath)) {
         logActivity(
           'INFO',
           'VIDEO_RENDER',
@@ -206,8 +206,8 @@ export async function renderTrendVideo(
   );
 
   const renderId = 'trend_' + (trend.id || crypto.randomUUID().substring(0, 8)) + '_' + Date.now();
-  const tempHtmlPath = path.join(tempDir, `${renderId}.html`);
-  const finalMp4Path = path.join(videosDir, `${renderId}.mp4`);
+  const tempHtmlPath = path.join(/*turbopackIgnore: true*/ tempDir, `${renderId}.html`);
+  const finalMp4Path = path.join(/*turbopackIgnore: true*/ videosDir, `${renderId}.mp4`);
 
   fs.writeFileSync(tempHtmlPath, htmlContent, 'utf-8');
 
@@ -220,7 +220,7 @@ export async function renderTrendVideo(
     try {
       logActivity('INFO', 'VIDEO_RENDER', `Phát hiện HyperFrames CLI (${hyperframesBin}), tiến hành render video...`);
       await execAsync(`"${hyperframesBin}" render --composition "${tempHtmlPath}" --output "${finalMp4Path}" --fps 25 --duration ${duration}`);
-      if (fs.existsSync(finalMp4Path)) {
+      if (fs.existsSync(/*turbopackIgnore: true*/ finalMp4Path)) {
         renderedSuccessfully = true;
       }
     } catch (hfErr: any) {
@@ -231,8 +231,8 @@ export async function renderTrendVideo(
   // 5. Nếu không có HyperFrames CLI hoặc render CLI thất bại, render bằng Headless Chromium + FFmpeg
   if (!renderedSuccessfully) {
     logActivity('INFO', 'VIDEO_RENDER', 'Render video bằng Playwright Chromium + FFmpeg engine (Cross-platform)...');
-    const sessionDir = path.join(tempDir, `session_${renderId}`);
-    if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
+    const sessionDir = path.join(/*turbopackIgnore: true*/ tempDir, `session_${renderId}`);
+    if (!fs.existsSync(/*turbopackIgnore: true*/ sessionDir)) fs.mkdirSync(/*turbopackIgnore: true*/ sessionDir, { recursive: true });
 
     // Cờ Chromium tối ưu cho Linux VPS / Docker / macOS / Windows
     const browser = await chromium.launch({
@@ -285,7 +285,7 @@ export async function renderTrendVideo(
       await browser.close();
     }
 
-    if (!rawVideoPath || !fs.existsSync(rawVideoPath)) {
+    if (!rawVideoPath || !fs.existsSync(/*turbopackIgnore: true*/ rawVideoPath)) {
       throw new Error('Không thể thu thập video từ Playwright canvas.');
     }
 
@@ -298,7 +298,7 @@ export async function renderTrendVideo(
         const ffmpegCmd = `"${ffmpegBin}" -y -i "${rawVideoPath}" -c:v libx264 -preset fast -crf 22 -pix_fmt yuv420p "${finalMp4Path}"`;
         await execAsync(ffmpegCmd);
 
-        if (fs.existsSync(finalMp4Path)) {
+        if (fs.existsSync(/*turbopackIgnore: true*/ finalMp4Path)) {
           finalVideoOutputFile = finalMp4Path;
           renderedSuccessfully = true;
         }
@@ -332,7 +332,7 @@ export async function renderTrendVideo(
     fs.unlinkSync(tempHtmlPath);
   } catch {}
 
-  if (!fs.existsSync(finalVideoOutputFile)) {
+  if (!fs.existsSync(/*turbopackIgnore: true*/ finalVideoOutputFile)) {
     throw new Error('Quá trình render hoàn tất nhưng không tìm thấy file video đầu ra.');
   }
 

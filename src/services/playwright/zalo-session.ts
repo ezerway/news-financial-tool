@@ -49,7 +49,7 @@ export async function checkZaloLoginStatus(): Promise<ZaloStatusResult> {
   }
 
   // Kiểm tra sự tồn tại của thư mục profile Chromium
-  if (!fs.existsSync(userDataDir)) {
+  if (!fs.existsSync(/*turbopackIgnore: true*/ userDataDir)) {
     return {
       loggedIn: false,
       message: 'Chưa có dữ liệu phiên trình duyệt. Vui lòng đăng nhập Zalo Video Creator.',
@@ -57,11 +57,11 @@ export async function checkZaloLoginStatus(): Promise<ZaloStatusResult> {
   }
 
   // Quét file cookies Chromium
-  const defaultDir = path.join(userDataDir, 'Default');
-  const cookiesPath = path.join(defaultDir, 'Network', 'Cookies');
-  const oldCookiesPath = path.join(defaultDir, 'Cookies');
+  const defaultDir = path.join(/*turbopackIgnore: true*/ userDataDir, 'Default');
+  const cookiesPath = path.join(/*turbopackIgnore: true*/ defaultDir, 'Network', 'Cookies');
+  const oldCookiesPath = path.join(/*turbopackIgnore: true*/ defaultDir, 'Cookies');
 
-  const hasCookieFile = fs.existsSync(cookiesPath) || fs.existsSync(oldCookiesPath);
+  const hasCookieFile = fs.existsSync(/*turbopackIgnore: true*/ cookiesPath) || fs.existsSync(/*turbopackIgnore: true*/ oldCookiesPath);
   if (!hasCookieFile) {
     return {
       loggedIn: false,
