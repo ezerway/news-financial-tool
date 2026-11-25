@@ -27,6 +27,7 @@ import {
   Film,
   Link2,
   FileText,
+  TrendingUp,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import TikTokIcon from './TikTokIcon';
@@ -386,15 +387,18 @@ export default function SettingsTab({
     totalFormatted: string;
     postsCount?: number;
     reelsCount?: number;
+    trendsCount?: number;
   } | null>(null);
   const [isLoadingStorage, setIsLoadingStorage] = useState(false);
   const [isCleaningStorage, setIsCleaningStorage] = useState(false);
   const [isDeletingPosts, setIsDeletingPosts] = useState(false);
   const [isDeletingReels, setIsDeletingReels] = useState(false);
+  const [isDeletingTrends, setIsDeletingTrends] = useState(false);
   const [storageMsg, setStorageMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [showConfirmClean, setShowConfirmClean] = useState(false);
   const [showConfirmDeletePosts, setShowConfirmDeletePosts] = useState(false);
   const [showConfirmDeleteReels, setShowConfirmDeleteReels] = useState(false);
+  const [showConfirmDeleteTrends, setShowConfirmDeleteTrends] = useState(false);
 
   const fetchStorageStats = async () => {
     setIsLoadingStorage(true);
@@ -504,6 +508,30 @@ export default function SettingsTab({
       setStorageMsg({ text: 'Lỗi: ' + err.message, type: 'error' });
     } finally {
       setIsDeletingReels(false);
+    }
+  };
+
+  const handleDeleteAllTrends = async () => {
+    setIsDeletingTrends(true);
+    setStorageMsg(null);
+    try {
+      const res = await fetch('/api/trends?all=true', { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setStorageMsg({
+          text: data.message || (lang === 'vi' ? 'Đã xóa tất cả xu hướng thành công!' : 'All trends deleted successfully!'),
+          type: 'success',
+        });
+        setShowConfirmDeleteTrends(false);
+        fetchStorageStats();
+        if (onRefreshData) onRefreshData();
+      } else {
+        setStorageMsg({ text: data.error || 'Lỗi khi xóa xu hướng', type: 'error' });
+      }
+    } catch (err: any) {
+      setStorageMsg({ text: 'Lỗi: ' + err.message, type: 'error' });
+    } finally {
+      setIsDeletingTrends(false);
     }
   };
 
@@ -1727,104 +1755,142 @@ export default function SettingsTab({
             </button>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-            {/* Card 1: Posts Count */}
-            <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-2 border border-[var(--app-border)]">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-500 flex items-center justify-center shrink-0">
-                  <FileText className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-semibold text-slate-900 dark:text-white text-xs">
-                    {lang === 'vi' ? 'Bài viết' : 'Posts'}
+          {/* Stats Cards - Nhóm 1: Dữ liệu nội dung (Database) */}
+          <div className="space-y-2">
+            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              {lang === 'vi' ? 'Dữ liệu nội dung (Database)' : 'Content Database'}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              {/* Card 1: Trends Count */}
+              <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-3 border border-[var(--app-border)]">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 flex items-center justify-center shrink-0">
+                    <TrendingUp className="w-4 h-4" />
                   </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    bảng posts
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-900 dark:text-white text-xs truncate">
+                      {lang === 'vi' ? 'Từ khóa xu hướng' : 'Trending Topics'}
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-mono">
+                      bảng trends
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                    {storageStats?.trendsCount ?? 0}
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-medium">
+                    {lang === 'vi' ? 'xu hướng' : 'trends'}
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                  {storageStats?.postsCount ?? 0}
+
+              {/* Card 2: Posts Count */}
+              <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-3 border border-[var(--app-border)]">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-500 flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-900 dark:text-white text-xs truncate">
+                      {lang === 'vi' ? 'Bài viết Fanpage' : 'Social Posts'}
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-mono">
+                      bảng posts
+                    </div>
+                  </div>
                 </div>
-                <div className="text-[10px] text-slate-500 font-mono">
-                  {lang === 'vi' ? 'bài' : 'posts'}
+                <div className="text-right shrink-0">
+                  <div className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                    {storageStats?.postsCount ?? 0}
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-medium">
+                    {lang === 'vi' ? 'bài viết' : 'posts'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3: Reels Count */}
+              <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-3 border border-[var(--app-border)]">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-500 flex items-center justify-center shrink-0">
+                    <Film className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-900 dark:text-white text-xs truncate">
+                      {lang === 'vi' ? 'Video ngắn (Reels)' : 'Shorts & Reels'}
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-mono">
+                      bảng reels
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                    {storageStats?.reelsCount ?? 0}
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-medium">
+                    {lang === 'vi' ? 'video' : 'reels'}
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Card 2: Reels Count */}
-            <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-2 border border-[var(--app-border)]">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-500 flex items-center justify-center shrink-0">
-                  <Film className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-semibold text-slate-900 dark:text-white text-xs">
-                    {lang === 'vi' ? 'Video Reels' : 'Reels'}
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    bảng reels
-                  </div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                  {storageStats?.reelsCount ?? 0}
-                </div>
-                <div className="text-[10px] text-slate-500 font-mono">
-                  {lang === 'vi' ? 'video' : 'reels'}
-                </div>
-              </div>
+          {/* Stats Cards - Nhóm 2: Dung lượng tệp đĩa cứng (Storage Files) */}
+          <div className="space-y-2">
+            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              {lang === 'vi' ? 'Tệp tin lưu trữ (Storage Disk)' : 'Disk Storage'}
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              {/* Card 4: Screenshots */}
+              <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-3 border border-[var(--app-border)]">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 flex items-center justify-center shrink-0">
+                    <ImageIcon className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-900 dark:text-white text-xs truncate">
+                      {lang === 'vi' ? 'Ảnh chụp màn hình (Screenshots)' : 'Screenshots'}
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-mono">
+                      storage/screenshots
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                    {storageStats?.screenshots.count ?? 0} {lang === 'vi' ? 'file' : 'files'}
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-mono">
+                    {storageStats?.screenshots.sizeFormatted ?? '0 B'}
+                  </div>
+                </div>
+              </div>
 
-            {/* Card 3: Screenshots */}
-            <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-2 border border-[var(--app-border)]">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 flex items-center justify-center shrink-0">
-                  <ImageIcon className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-semibold text-slate-900 dark:text-white text-xs">
-                    {lang === 'vi' ? 'Ảnh màn hình' : 'Screenshots'}
+              {/* Card 5: Videos */}
+              <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-3 border border-[var(--app-border)]">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center shrink-0">
+                    <Video className="w-4 h-4" />
                   </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    screenshots
-                  </div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                  {storageStats?.screenshots.count ?? 0}
-                </div>
-                <div className="text-[10px] text-slate-500 font-mono">
-                  {storageStats?.screenshots.sizeFormatted ?? '0 B'}
-                </div>
-              </div>
-            </div>
-
-            {/* Card 4: Videos */}
-            <div className="app-subcard p-3 rounded-xl flex items-center justify-between gap-2 border border-[var(--app-border)]">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center shrink-0">
-                  <Video className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-semibold text-slate-900 dark:text-white text-xs">
-                    {lang === 'vi' ? 'Video lưu trữ' : 'Videos'}
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    videos
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-900 dark:text-white text-xs truncate">
+                      {lang === 'vi' ? 'Video Render & Playwright' : 'Rendered & Playwright Videos'}
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-mono">
+                      storage/videos
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                  {storageStats?.videos.count ?? 0}
-                </div>
-                <div className="text-[10px] text-slate-500 font-mono">
-                  {storageStats?.videos.sizeFormatted ?? '0 B'}
+                <div className="text-right shrink-0">
+                  <div className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                    {storageStats?.videos.count ?? 0} {lang === 'vi' ? 'file' : 'files'}
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-mono">
+                    {storageStats?.videos.sizeFormatted ?? '0 B'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1844,160 +1910,220 @@ export default function SettingsTab({
           )}
 
           {/* Action Blocks */}
-          <div className="pt-1 space-y-3">
+          <div className="pt-2 space-y-3">
             <p className="text-[11px] text-slate-400">
               💡 {lang === 'vi'
-                ? 'Hệ thống tự động kiểm tra và dọn dẹp các generated video & ảnh chụp màn hình cũ (> 2 ngày) định kỳ mỗi 1 giờ và sau mỗi chu kỳ tự động. Bạn cũng có thể bấm xóa bài viết, xóa reel hoặc dọn dẹp tức thì bên dưới.'
-                : 'The system automatically cleans up generated videos & screenshots older than 2 days every hour and after each automation cycle. You can also manually delete posts, reels, or temporary files below.'}
+                ? 'Hệ thống tự động kiểm tra và dọn dẹp các generated video & ảnh chụp màn hình cũ (> 2 ngày) định kỳ mỗi 1 giờ và sau mỗi chu kỳ tự động. Bạn cũng có thể bấm xóa dữ liệu hoặc dọn dẹp dung lượng đĩa bên dưới.'
+                : 'The system automatically cleans up generated videos & screenshots older than 2 days every hour and after each automation cycle. You can also manually delete data or clear disk storage below.'}
             </p>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Nút Xóa bài viết */}
-              {showConfirmDeletePosts ? (
-                <div className="inline-flex items-center gap-1.5 p-1 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 rounded-lg animate-in fade-in">
-                  <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 px-1.5">
-                    {lang === 'vi' ? 'Xác nhận xóa hết bài viết?' : 'Delete all posts?'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmDeletePosts(false)}
-                    disabled={isDeletingPosts}
-                    className="btn btn-xs btn-ghost text-xs cursor-pointer"
-                  >
-                    {lang === 'vi' ? 'Hủy' : 'Cancel'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDeleteAllPosts}
-                    disabled={isDeletingPosts}
-                    className="btn btn-xs bg-rose-600 hover:bg-rose-700 text-white border-rose-500 font-semibold cursor-pointer inline-flex items-center gap-1"
-                  >
-                    {isDeletingPosts ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-3 h-3" />
-                    )}
-                    <span>{lang === 'vi' ? 'Xóa bài viết' : 'Confirm'}</span>
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmDeletePosts(true)}
-                  disabled={(storageStats?.postsCount ?? 0) === 0 || isDeletingPosts}
-                  className="btn btn-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
-                  title={lang === 'vi' ? 'Xóa toàn bộ các bài viết trong hệ thống' : 'Delete all posts from the system'}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>
-                    {lang === 'vi' ? 'Xóa bài viết' : 'Delete Posts'}
-                    {storageStats?.postsCount !== undefined ? ` (${storageStats.postsCount})` : ''}
-                  </span>
-                </button>
-              )}
-
-              {/* Nút Xóa Reels */}
-              {showConfirmDeleteReels ? (
-                <div className="inline-flex items-center gap-1.5 p-1 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 rounded-lg animate-in fade-in">
-                  <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 px-1.5">
-                    {lang === 'vi' ? 'Xác nhận xóa hết Reels?' : 'Delete all reels?'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmDeleteReels(false)}
-                    disabled={isDeletingReels}
-                    className="btn btn-xs btn-ghost text-xs cursor-pointer"
-                  >
-                    {lang === 'vi' ? 'Hủy' : 'Cancel'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDeleteAllReels}
-                    disabled={isDeletingReels}
-                    className="btn btn-xs bg-rose-600 hover:bg-rose-700 text-white border-rose-500 font-semibold cursor-pointer inline-flex items-center gap-1"
-                  >
-                    {isDeletingReels ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-3 h-3" />
-                    )}
-                    <span>{lang === 'vi' ? 'Xóa Reels' : 'Confirm'}</span>
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmDeleteReels(true)}
-                  disabled={(storageStats?.reelsCount ?? 0) === 0 || isDeletingReels}
-                  className="btn btn-md bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
-                  title={lang === 'vi' ? 'Xóa toàn bộ các video ngắn (Reels) trong hệ thống' : 'Delete all reels from the system'}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>
-                    {lang === 'vi' ? 'Xóa Reel' : 'Delete Reels'}
-                    {storageStats?.reelsCount !== undefined ? ` (${storageStats.reelsCount})` : ''}
-                  </span>
-                </button>
-              )}
-
-              {/* Nút Dọn video/Reel cũ (> 2 ngày) */}
-              <button
-                type="button"
-                onClick={handleCleanOldReels}
-                disabled={isCleaningStorage}
-                className="btn btn-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
-                title={lang === 'vi' ? 'Dọn dẹp video & screenshot các bài/Reel đã tạo > 2 ngày' : 'Clean up videos & screenshots older than 2 days'}
-              >
-                {isCleaningStorage ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            {/* Khối 1: Xóa dữ liệu nội dung (Database) */}
+            <div className="p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-200/70 dark:border-slate-800/70 space-y-2">
+              <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                <span>🗄️</span>
+                <span>{lang === 'vi' ? 'Dữ liệu Database (Nội dung & Bản tin):' : 'Database Content:'}</span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Nút Xóa Xu hướng */}
+                {showConfirmDeleteTrends ? (
+                  <div className="inline-flex items-center gap-1.5 p-1 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 rounded-lg animate-in fade-in">
+                    <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 px-1.5">
+                      {lang === 'vi' ? 'Xác nhận xóa hết xu hướng?' : 'Delete all trends?'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmDeleteTrends(false)}
+                      disabled={isDeletingTrends}
+                      className="btn btn-xs btn-ghost text-xs cursor-pointer"
+                    >
+                      {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteAllTrends}
+                      disabled={isDeletingTrends}
+                      className="btn btn-xs bg-rose-600 hover:bg-rose-700 text-white border-rose-500 font-semibold cursor-pointer inline-flex items-center gap-1"
+                    >
+                      {isDeletingTrends ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3 h-3" />
+                      )}
+                      <span>{lang === 'vi' ? 'Xóa xu hướng' : 'Confirm'}</span>
+                    </button>
+                  </div>
                 ) : (
-                  <Film className="w-3.5 h-3.5" />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmDeleteTrends(true)}
+                    disabled={(storageStats?.trendsCount ?? 0) === 0 || isDeletingTrends}
+                    className="btn btn-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                    title={lang === 'vi' ? 'Xóa toàn bộ các từ khóa xu hướng trong hệ thống' : 'Delete all trends from the system'}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>
+                      {lang === 'vi' ? 'Xóa xu hướng' : 'Delete Trends'}
+                      {storageStats?.trendsCount !== undefined ? ` (${storageStats.trendsCount})` : ''}
+                    </span>
+                  </button>
                 )}
-                <span>{lang === 'vi' ? 'Dọn Video cũ (> 2 ngày)' : 'Clean Old Videos (> 2 days)'}</span>
-              </button>
 
-              {/* Nút Xóa hết Screenshot & Video */}
-              {showConfirmClean ? (
-                <div className="inline-flex items-center gap-1.5 p-1 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 rounded-lg animate-in fade-in">
-                  <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 px-1.5">
-                    {lang === 'vi' ? 'Xóa tất cả file tạm?' : 'Delete all media files?'}
-                  </span>
+                {/* Nút Xóa bài viết */}
+                {showConfirmDeletePosts ? (
+                  <div className="inline-flex items-center gap-1.5 p-1 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 rounded-lg animate-in fade-in">
+                    <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 px-1.5">
+                      {lang === 'vi' ? 'Xác nhận xóa hết bài viết?' : 'Delete all posts?'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmDeletePosts(false)}
+                      disabled={isDeletingPosts}
+                      className="btn btn-xs btn-ghost text-xs cursor-pointer"
+                    >
+                      {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteAllPosts}
+                      disabled={isDeletingPosts}
+                      className="btn btn-xs bg-rose-600 hover:bg-rose-700 text-white border-rose-500 font-semibold cursor-pointer inline-flex items-center gap-1"
+                    >
+                      {isDeletingPosts ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3 h-3" />
+                      )}
+                      <span>{lang === 'vi' ? 'Xóa bài viết' : 'Confirm'}</span>
+                    </button>
+                  </div>
+                ) : (
                   <button
                     type="button"
-                    onClick={() => setShowConfirmClean(false)}
-                    disabled={isCleaningStorage}
-                    className="btn btn-xs btn-ghost text-xs cursor-pointer"
+                    onClick={() => setShowConfirmDeletePosts(true)}
+                    disabled={(storageStats?.postsCount ?? 0) === 0 || isDeletingPosts}
+                    className="btn btn-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                    title={lang === 'vi' ? 'Xóa toàn bộ các bài viết trong hệ thống' : 'Delete all posts from the system'}
                   >
-                    {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>
+                      {lang === 'vi' ? 'Xóa bài viết' : 'Delete Posts'}
+                      {storageStats?.postsCount !== undefined ? ` (${storageStats.postsCount})` : ''}
+                    </span>
                   </button>
+                )}
+
+                {/* Nút Xóa Reels */}
+                {showConfirmDeleteReels ? (
+                  <div className="inline-flex items-center gap-1.5 p-1 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 rounded-lg animate-in fade-in">
+                    <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 px-1.5">
+                      {lang === 'vi' ? 'Xác nhận xóa hết Reels?' : 'Delete all reels?'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmDeleteReels(false)}
+                      disabled={isDeletingReels}
+                      className="btn btn-xs btn-ghost text-xs cursor-pointer"
+                    >
+                      {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteAllReels}
+                      disabled={isDeletingReels}
+                      className="btn btn-xs bg-rose-600 hover:bg-rose-700 text-white border-rose-500 font-semibold cursor-pointer inline-flex items-center gap-1"
+                    >
+                      {isDeletingReels ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3 h-3" />
+                      )}
+                      <span>{lang === 'vi' ? 'Xóa Reels' : 'Confirm'}</span>
+                    </button>
+                  </div>
+                ) : (
                   <button
                     type="button"
-                    onClick={handleCleanStorage}
-                    disabled={isCleaningStorage}
-                    className="btn btn-xs bg-rose-600 hover:bg-rose-700 text-white border-rose-500 font-semibold cursor-pointer inline-flex items-center gap-1"
+                    onClick={() => setShowConfirmDeleteReels(true)}
+                    disabled={(storageStats?.reelsCount ?? 0) === 0 || isDeletingReels}
+                    className="btn btn-md bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                    title={lang === 'vi' ? 'Xóa toàn bộ các video ngắn (Reels) trong hệ thống' : 'Delete all reels from the system'}
                   >
-                    {isCleaningStorage ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-3 h-3" />
-                    )}
-                    <span>{lang === 'vi' ? 'Xác nhận xóa' : 'Confirm'}</span>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>
+                      {lang === 'vi' ? 'Xóa Reel' : 'Delete Reels'}
+                      {storageStats?.reelsCount !== undefined ? ` (${storageStats.reelsCount})` : ''}
+                    </span>
                   </button>
-                </div>
-              ) : (
+                )}
+              </div>
+            </div>
+
+            {/* Khối 2: Giải phóng dung lượng đĩa cứng (Disk Storage) */}
+            <div className="p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-200/70 dark:border-slate-800/70 space-y-2">
+              <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                <span>💾</span>
+                <span>{lang === 'vi' ? 'Dung lượng ổ cứng VPS (Tệp tạm & Media):' : 'Disk Storage (Temp & Media Files):'}</span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Nút Dọn video/Reel cũ (> 2 ngày) */}
                 <button
                   type="button"
-                  onClick={() => setShowConfirmClean(true)}
-                  disabled={(storageStats?.totalCount ?? 0) === 0 || isCleaningStorage}
-                  className="btn btn-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                  onClick={handleCleanOldReels}
+                  disabled={isCleaningStorage}
+                  className="btn btn-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                  title={lang === 'vi' ? 'Dọn dẹp video & screenshot các bài/Reel đã tạo > 2 ngày' : 'Clean up videos & screenshots older than 2 days'}
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>
-                    {lang === 'vi' ? 'Xóa hết Screenshot & Video' : 'Delete All Screenshots & Videos'}
-                    {storageStats?.totalCount ? ` (${storageStats.totalCount})` : ''}
-                  </span>
+                  {isCleaningStorage ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Film className="w-3.5 h-3.5" />
+                  )}
+                  <span>{lang === 'vi' ? 'Dọn Video cũ (> 2 ngày)' : 'Clean Old Videos (> 2 days)'}</span>
                 </button>
-              )}
+
+                {/* Nút Xóa hết Screenshot & Video */}
+                {showConfirmClean ? (
+                  <div className="inline-flex items-center gap-1.5 p-1 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 rounded-lg animate-in fade-in">
+                    <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 px-1.5">
+                      {lang === 'vi' ? 'Xóa tất cả file tạm?' : 'Delete all media files?'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmClean(false)}
+                      disabled={isCleaningStorage}
+                      className="btn btn-xs btn-ghost text-xs cursor-pointer"
+                    >
+                      {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCleanStorage}
+                      disabled={isCleaningStorage}
+                      className="btn btn-xs bg-rose-600 hover:bg-rose-700 text-white border-rose-500 font-semibold cursor-pointer inline-flex items-center gap-1"
+                    >
+                      {isCleaningStorage ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3 h-3" />
+                      )}
+                      <span>{lang === 'vi' ? 'Xác nhận xóa' : 'Confirm'}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmClean(true)}
+                    disabled={(storageStats?.totalCount ?? 0) === 0 || isCleaningStorage}
+                    className="btn btn-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/80 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>
+                      {lang === 'vi' ? 'Xóa hết Screenshot & Video' : 'Delete All Screenshots & Videos'}
+                      {storageStats?.totalCount ? ` (${storageStats.totalCount})` : ''}
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

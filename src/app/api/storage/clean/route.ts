@@ -21,11 +21,14 @@ export async function GET() {
 
     let postsCount = 0;
     let reelsCount = 0;
+    let trendsCount = 0;
     try {
       const p = db.prepare('SELECT COUNT(*) as c FROM posts').get() as any;
       postsCount = p?.c || 0;
       const r = db.prepare('SELECT COUNT(*) as c FROM reels').get() as any;
       reelsCount = r?.c || 0;
+      const t = db.prepare('SELECT COUNT(*) as c FROM trends').get() as any;
+      trendsCount = t?.c || 0;
     } catch {}
 
     return NextResponse.json({
@@ -45,6 +48,7 @@ export async function GET() {
       totalFormatted: formatBytes(totalBytes),
       postsCount,
       reelsCount,
+      trendsCount,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
