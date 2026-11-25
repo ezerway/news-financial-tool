@@ -28,7 +28,8 @@ async function startDaemon() {
   let customLimit: number | undefined;
   let customIntervalMinutes: number | undefined;
   let customCleanDays: number | undefined;
-  const forcePublish = process.argv.includes('--publish');
+  // Chỉ ép xuất bản (true) nếu có cờ --publish trên CLI. Ngược lại để undefined để tuân theo cài đặt auto_mode trong DB
+  const forcePublish = process.argv.includes('--publish') ? true : undefined;
 
   for (let i = 0; i < process.argv.length; i++) {
     const arg = process.argv[i];

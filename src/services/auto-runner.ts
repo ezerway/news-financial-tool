@@ -23,7 +23,7 @@ export async function runAutomationCycle(options?: AutomationCycleOptions) {
 
   const geo = getSetting('target_geo', 'VN');
   const autoMode = getSetting('auto_mode', 'false') === 'true';
-  const shouldPublish = options?.forcePublish ?? autoMode;
+  const shouldPublish = typeof options?.forcePublish === 'boolean' ? options.forcePublish : autoMode;
 
   try {
     // Step 1: Crawl latest Google Trends Business & Finance (category=3)

@@ -1,7 +1,8 @@
 import { runAutomationCycle, retryTrendSourcesAndPublish } from '../src/services/auto-runner';
 
 async function main() {
-  const forcePublish = process.argv.includes('--publish');
+  // Chỉ ép xuất bản (true) nếu có cờ --publish trên CLI. Ngược lại để undefined để tuân theo cài đặt auto_mode trong DB
+  const forcePublish = process.argv.includes('--publish') ? true : undefined;
   const isRetryMissing = process.argv.includes('--retry') || process.argv.includes('--retry-missing');
 
   let customLimit: number | undefined;
