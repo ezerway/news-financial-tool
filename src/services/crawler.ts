@@ -243,6 +243,11 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
       await page.waitForTimeout(1000);
     }
 
+    const catBtn = page.locator('[aria-label="All categories, select category"]').first();
+    await catBtn.click();
+    const catFinance = page.locator('[data-value="3"]').first();
+    await catFinance.click();
+    await page.waitForTimeout(5000);
     const rowLocators = page.locator('tbody tr').filter({ hasText: /\d+\+?/ });
     const count = await rowLocators.count();
 
@@ -253,7 +258,6 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
 
     logActivity('INFO', 'CRAWL', `[Google Trends Finance] Tìm thấy ${count} xu hướng. Đang trích xuất bài báo nguồn từ section "In the news"...`);
 
-    await page.waitForTimeout(10000);
     const trendList: TrendItem[] = [];
     const limit = Math.min(count, 20);
     const existingPosts = getExistingPosts();
