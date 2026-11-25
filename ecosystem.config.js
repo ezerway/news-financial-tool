@@ -4,17 +4,17 @@ const apps = [
   // 1. Dịch vụ màn hình ảo Xvfb cho Linux VPS (Tự động khởi chạy & tự phục hồi cho Playwright / RPC)
   ...(isLinux
     ? [
-        {
-          name: 'trendpulse-xvfb',
-          script: 'scripts/run-xvfb.js',
-          cwd: __dirname,
-          instances: 1,
-          exec_mode: 'fork',
-          autorestart: true,
-          watch: false,
-          max_memory_restart: '150M',
-        },
-      ]
+      {
+        name: 'trendpulse-xvfb',
+        script: 'scripts/run-xvfb.js',
+        cwd: __dirname,
+        instances: 1,
+        exec_mode: 'fork',
+        autorestart: true,
+        watch: false,
+        max_memory_restart: '150M',
+      },
+    ]
     : []),
 
   // 2. Next.js Web Application Server
@@ -45,7 +45,7 @@ const apps = [
   {
     name: 'trendpulse-cron',
     script: 'node_modules/tsx/dist/cli.mjs',
-    args: 'scripts/cron-daemon.ts --publish',
+    args: 'scripts/cron-daemon.ts',
     cwd: __dirname,
     instances: 1,
     exec_mode: 'fork',
