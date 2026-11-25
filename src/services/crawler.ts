@@ -203,7 +203,7 @@ export function saveTrendsToDatabase(trends: TrendItem[], geo: string): number {
  */
 export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[]> {
   const targetGeo = geo === 'all' ? 'VN' : geo;
-  const targetUrl = `https://trends.google.com/trending?hours=4&geo=${encodeURIComponent(targetGeo)}`;
+  const targetUrl = `https://trends.google.com/trending?category=3&hours=4&geo=${encodeURIComponent(targetGeo)}`;
   logActivity('INFO', 'CRAWL', `[Google Trends Finance] Đang mở cho ${targetGeo}: ${targetUrl}`);
 
   const proxy = await getCrawlerProxy();
@@ -243,11 +243,14 @@ export async function crawlGoogleTrendsCategory3(geo = 'VN'): Promise<TrendItem[
       await page.waitForTimeout(1000);
     }
 
-    const catBtn = page.locator('[aria-label="All categories, select category"]').first();
+    const catBtn = page.locator('[aria-label*="select category"]').first();
+    await catBtn.waitFor({ state: "visible", timeout: 5000 });
     await catBtn.click();
     const catFinance = page.locator('[data-value="3"]').first();
+    await catFinance.waitFor({ state: "visible", timeout: 5000 });
     await catFinance.click();
     await page.waitForTimeout(5000);
+
     const rowLocators = page.locator('tbody tr').filter({ hasText: /\d+\+?/ });
     const count = await rowLocators.count();
 
