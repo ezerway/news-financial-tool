@@ -59,7 +59,7 @@ export function buildBloombergTerminalHtml(script: VideoSlideScript, options: Te
           <div class="content-slide-wrapper">
             <div class="terminal-content-header">
               <span class="terminal-header-title">► ${script.contentSlides[0]?.title || 'DỮ LIỆU & CHỈ SỐ QUAN TRỌNG'}</span>
-              <span class="terminal-header-status">VERIFIED</span>
+              <!-- <span class="terminal-header-status">VERIFIED</span> -->
             </div>
             <div class="content-blocks-container">
               ${blocksHtml}
