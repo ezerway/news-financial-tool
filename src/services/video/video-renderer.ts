@@ -152,8 +152,8 @@ export async function renderTrendVideo(
   // 1. KIỂM TRA CHỐNG TẠO LẶP: Nếu đã có video cho xu hướng này thì không tạo lại
   if (!options.force && trend.id) {
     const existing = db
-      .prepare('SELECT video_generated, video_path FROM trends WHERE id = ?')
-      .get(trend.id) as { video_generated?: number; video_path?: string } | undefined;
+      .prepare('SELECT video_generated, video_path, slide_script_json FROM trends WHERE id = ?')
+      .get(trend.id) as { video_generated?: number; video_path?: string; slide_script_json?: string } | undefined;
 
     if (existing?.video_generated === 1 && existing?.video_path) {
       const fullPath = path.isAbsolute(existing.video_path)
@@ -171,10 +171,17 @@ export async function renderTrendVideo(
           .prepare('SELECT id FROM reels WHERE video_path = ? OR trend_id = ?')
           .get(existing.video_path, trend.id) as { id: string } | undefined;
 
+        let savedScript = {} as any;
+        if (existing.slide_script_json) {
+          try {
+            savedScript = JSON.parse(existing.slide_script_json);
+          } catch {}
+        }
+
         return {
           videoPath: existing.video_path,
           reelId: existingReel?.id || '',
-          script: {} as any,
+          script: savedScript,
           alreadyExisted: true,
         };
       }
@@ -339,13 +346,13 @@ export async function renderTrendVideo(
   // Đảm bảo đường dẫn web luôn dùng slash '/' kể cả trên Windows
   const relativeVideoPath = `storage/videos/${path.basename(finalVideoOutputFile)}`.replace(/\\/g, '/');
 
-  // 7. Cập nhật trạng thái bảng trends
+  // 7. Cập nhật trạng thái bảng trends và lưu kịch bản slide
   if (trend.id) {
     db.prepare(`
       UPDATE trends 
-      SET video_generated = 1, video_path = ?, video_created_at = CURRENT_TIMESTAMP 
+      SET video_generated = 1, video_path = ?, video_created_at = CURRENT_TIMESTAMP, slide_script_json = ? 
       WHERE id = ?
-    `).run(relativeVideoPath, trend.id);
+    `).run(relativeVideoPath, JSON.stringify(script), trend.id);
   }
 
   // 8. Tự động tạo bản ghi trong bảng reels

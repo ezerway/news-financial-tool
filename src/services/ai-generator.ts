@@ -128,7 +128,36 @@ export async function generateSocialPost(
   let postContent = '';
   let commentContent = '';
 
-  if (apiKey) {
+  const ollamaConfig = getOllamaConfig();
+  const buildOllamaArticlesContext = () =>
+    exactArticles
+      .slice(0, 3)
+      .map((a, i) => `Bài báo ${i + 1} [${a.source || 'Báo chí'}] "${a.title}":\n${(a.content || a.snippet || '').slice(0, 700)}`)
+      .join('\n\n');
+
+  // ƯU TIÊN 1: Nếu người dùng cấu hình "Ưu tiên chạy Ollama" cho bài viết (Primary Mode)
+  if (ollamaConfig.enabled && ollamaConfig.postMode === 'primary') {
+    try {
+      logActivity('INFO', 'GENERATE', `Chế độ Ollama Primary đang chạy (${ollamaConfig.postModel}) để tạo bài viết cho: "${trend.title}"...`);
+      const res = await generateFacebookPostWithOllama(
+        trend.title,
+        buildOllamaArticlesContext(),
+        sourceUrls,
+        tone,
+        ollamaConfig.postModel
+      );
+      if (res.postContent) {
+        postContent = res.postContent;
+        commentContent = res.commentContent || '';
+        logActivity('SUCCESS', 'GENERATE', `Ollama Primary (${ollamaConfig.postModel}) đã tạo bài viết thành công.`);
+      }
+    } catch (ollamaPrimaryErr: any) {
+      logActivity('WARN', 'GENERATE', `Ollama Primary gặp sự cố (${ollamaPrimaryErr?.message}), tự động chuyển sang Gemini.`);
+    }
+  }
+
+  // TẦNG 2: Google Gemini AI (nếu chưa có bài viết từ Ollama Primary)
+  if (!postContent && apiKey) {
     try {
       const ai = new GoogleGenAI({ apiKey });
 
@@ -230,23 +259,25 @@ Trả về duy nhất JSON hợp lệ (không kèm markdown \`\`\`json):
     }
   }
 
-  // Fallback 1: Sử dụng mô hình Ollama cục bộ trên VPS (nếu bật chế độ extract_and_fallback hoặc khi không có Gemini Key)
+  // TẦNG 3: Dự phòng Ollama cục bộ trên VPS (nếu chế độ postMode !== 'disabled' hoặc khi không có Gemini Key)
   if (!postContent) {
     try {
-      const ollamaConfig = getOllamaConfig();
-      if (ollamaConfig.enabled && (ollamaConfig.role === 'extract_and_fallback' || !apiKey)) {
-        logActivity('INFO', 'GENERATE', `Kích hoạt Ollama (${ollamaConfig.model}) tạo bài viết thay thế cho "${trend.title}"...`);
-        const articlesContext = exactArticles
-          .slice(0, 3)
-          .map((a, i) => `Bài báo ${i + 1} [${a.source || 'Báo chí'}] "${a.title}":\n${(a.content || a.snippet || '').slice(0, 700)}`)
-          .join('\n\n');
-        const fallbackRes = await generateFacebookPostWithOllama(trend.title, articlesContext, sourceUrls, tone);
+      if (ollamaConfig.enabled && (ollamaConfig.postMode !== 'disabled' || !apiKey)) {
+        logActivity('INFO', 'GENERATE', `Kích hoạt Ollama (${ollamaConfig.postModel}) tạo bài viết thay thế cho "${trend.title}"...`);
+        const articlesContext = buildOllamaArticlesContext();
+        const fallbackRes = await generateFacebookPostWithOllama(
+          trend.title,
+          articlesContext,
+          sourceUrls,
+          tone,
+          ollamaConfig.postModel
+        );
         if (fallbackRes.postContent) {
           postContent = fallbackRes.postContent;
           if (fallbackRes.commentContent) {
             commentContent = fallbackRes.commentContent;
           }
-          logActivity('SUCCESS', 'GENERATE', `Ollama đã tạo bài viết thành công thay thế Gemini.`);
+          logActivity('SUCCESS', 'GENERATE', `Ollama (${ollamaConfig.postModel}) đã tạo bài viết thành công thay thế Gemini.`);
         }
       }
     } catch (ollamaFallbackErr: any) {
@@ -254,7 +285,7 @@ Trả về duy nhất JSON hợp lệ (không kèm markdown \`\`\`json):
     }
   }
 
-  // Fallback 2: Mẫu định dạng dự phòng thông minh (nếu cả Gemini và Ollama đều không khả dụng)
+  // TẦNG 4: Mẫu định dạng dự phòng thông minh (nếu cả Gemini và Ollama đều không khả dụng)
   if (!postContent) {
     const topicUpper = trend.title.toUpperCase();
     const articleSummaries = exactArticles.length > 0

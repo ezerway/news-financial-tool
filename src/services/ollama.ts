@@ -13,17 +13,42 @@ export interface OllamaHealthResult {
 export function getOllamaConfig() {
   const enabled = getSetting('ollama_enabled') === 'true';
   const endpoint = getSetting('ollama_endpoint') || 'http://127.0.0.1:11434';
-  const model = getSetting('ollama_model') || 'qwen2.5:3b';
-  const role = getSetting('ollama_role') || 'extract_only'; // 'extract_only' | 'extract_and_fallback'
+  const defaultModel = getSetting('ollama_model') || 'qwen2.5:3b';
+  const role = getSetting('ollama_role') || 'extract_only'; // Tương thích ngược: 'extract_only' | 'extract_and_fallback'
   const timeoutSeconds = parseInt(getSetting('ollama_timeout_seconds') || '90', 10);
   const timeoutMs = (isNaN(timeoutSeconds) || timeoutSeconds < 15 ? 90 : timeoutSeconds) * 1000;
+
+  // Cấu hình riêng cho từng tác vụ
+  const extractEnabled = (getSetting('ollama_extract_enabled') || 'true') === 'true';
+
+  // Chế độ cho bài viết: 'disabled' | 'fallback' | 'primary'
+  // Nếu chưa có setting mới, map từ role cũ
+  const savedPostMode = getSetting('ollama_post_mode');
+  const postMode: 'disabled' | 'fallback' | 'primary' = savedPostMode
+    ? (savedPostMode as any)
+    : role === 'extract_and_fallback'
+    ? 'fallback'
+    : 'disabled';
+  const postModel = (getSetting('ollama_post_model') || '').trim();
+
+  // Chế độ cho video: 'disabled' | 'fallback' | 'primary'
+  const savedVideoMode = getSetting('ollama_video_mode');
+  const videoMode: 'disabled' | 'fallback' | 'primary' = savedVideoMode
+    ? (savedVideoMode as any)
+    : 'fallback';
+  const videoModel = (getSetting('ollama_video_model') || '').trim();
 
   return {
     enabled,
     endpoint: endpoint.replace(/\/+$/, ''),
-    model,
+    model: defaultModel,
     role,
     timeoutMs,
+    extractEnabled,
+    postMode,
+    postModel: postModel || defaultModel,
+    videoMode,
+    videoModel: videoModel || defaultModel,
   };
 }
 
@@ -91,6 +116,7 @@ export async function checkOllamaHealth(customEndpoint?: string, customModel?: s
 export async function queryOllama(
   prompt: string,
   options?: {
+    model?: string;
     system?: string;
     temperature?: number;
     timeoutMs?: number;
@@ -99,11 +125,11 @@ export async function queryOllama(
 ): Promise<string> {
   const config = getOllamaConfig();
   const endpoint = config.endpoint;
-  const model = config.model;
+  const targetModel = options?.model || config.model;
   const timeoutMs = options?.timeoutMs || config.timeoutMs || 90000;
 
   const bodyPayload: any = {
-    model,
+    model: targetModel,
     prompt,
     stream: false,
     keep_alive: '30m',
@@ -189,14 +215,18 @@ Hãy tạo BẢN TỔNG HỢP DỮ KIỆN CỐT LÕI (Fact Sheet) từ bài báo
 }
 
 /**
- * Tạo bài đăng Facebook dự phòng bằng Ollama khi Gemini gặp sự cố (Rate Limit 429 hoặc lỗi mạng)
+ * Tạo bài đăng Facebook bằng Ollama (ưu tiên hoặc dự phòng khi Gemini gặp sự cố)
  */
 export async function generateFacebookPostWithOllama(
   trendTitle: string,
   factsContext: string,
   sourceUrls: string[],
-  tone = 'chuyên gia, sắc sảo, khách quan'
+  tone = 'chuyên gia, sắc sảo, khách quan',
+  customModel?: string
 ): Promise<{ postContent: string; commentContent: string }> {
+  const config = getOllamaConfig();
+  const targetModel = customModel || config.postModel || config.model;
+
   const system = `Bạn là một chuyên gia sáng tạo nội dung mạng xã hội hàng đầu về tài chính, kinh tế và tin tức xã hội tại Việt Nam.
 Nhiệm vụ của bạn là viết một bài đăng Facebook hấp dẫn, sâu sắc dựa trên các dữ kiện được cung cấp.
 
@@ -226,13 +256,14 @@ ${sourceUrls.slice(0, 3).map((u, i) => `${i + 1}. ${u}`).join('\n')}
 
 Hãy tạo bài viết Facebook và bình luận nguồn theo định dạng JSON yêu cầu:`;
 
-  logActivity('INFO', 'OLLAMA_FALLBACK', `Đang kích hoạt Ollama dự phòng để tạo bài viết cho: "${trendTitle}" (timeout: ${Math.round(Math.max(getOllamaConfig().timeoutMs, 90000) / 1000)}s)...`);
+  logActivity('INFO', 'OLLAMA', `Đang gọi Ollama (${targetModel}) để tạo bài viết cho: "${trendTitle}" (timeout: ${Math.round(Math.max(config.timeoutMs, 90000) / 1000)}s)...`);
 
   const response = await queryOllama(prompt, {
+    model: targetModel,
     system,
     temperature: 0.4,
     numPredict: 550,
-    timeoutMs: Math.max(getOllamaConfig().timeoutMs, 90000),
+    timeoutMs: Math.max(config.timeoutMs, 90000),
   });
 
   let postContent = '';
@@ -259,6 +290,6 @@ Hãy tạo bài viết Facebook và bình luận nguồn theo định dạng JSO
     commentContent = `🔗 Nguồn tin và bài viết chi tiết để bạn đọc tham khảo:\n${sourceUrls.map((u, i) => `${i + 1}. ${u}`).join('\n')}`;
   }
 
-  logActivity('SUCCESS', 'OLLAMA_FALLBACK', `Ollama đã tạo bài viết dự phòng thành công cho "${trendTitle}".`);
+  logActivity('SUCCESS', 'OLLAMA', `Ollama (${targetModel}) đã tạo bài viết thành công cho "${trendTitle}".`);
   return { postContent, commentContent };
 }

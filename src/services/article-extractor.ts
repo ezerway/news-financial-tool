@@ -238,8 +238,8 @@ export async function extractArticlesContent(
       if (extracted.fullText && extracted.fullText.length > 100) {
         let finalContent = extracted.fullText;
 
-        // Nếu Ollama bật trên VPS, gửi toàn văn để Qwen2.5:3b tinh lọc số liệu & sự kiện
-        if (ollamaConfig.enabled) {
+        // Nếu Ollama bật trên VPS và tác vụ trích xuất được kích hoạt, gửi toàn văn để Qwen2.5 tinh lọc số liệu & sự kiện
+        if (ollamaConfig.enabled && ollamaConfig.extractEnabled) {
           try {
             const sourceForOllama = extracted.rawFullText || extracted.fullText;
             const factSheet = await summarizeAndExtractArticleWithOllama(

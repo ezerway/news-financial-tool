@@ -13,6 +13,7 @@ import {
   ChevronRight,
   ChevronLeft,
   Check,
+  CheckCircle2,
   Edit3,
   Eye,
   Loader2,
@@ -55,20 +56,25 @@ export default function SlidePreviewModal({
   const [script, setScript] = useState<VideoSlideScript | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isFromCache, setIsFromCache] = useState(false);
+  const [isSavingEdits, setIsSavingEdits] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState('random');
   const [activeTab, setActiveTab] = useState<'preview' | 'edit'>('preview');
 
-  // Fetch script khi mở modal
+  // Fetch script khi mở modal (Ưu tiên lấy kịch bản đã sinh trước đó)
   useEffect(() => {
     if (isOpen && trend?.id) {
       setErrorMsg(null);
       setIsLoading(true);
+      setIsFromCache(false);
       fetch(`/api/trends/${trend.id}/slide-preview`)
         .then((res) => res.json())
         .then((data) => {
           if (data.success && data.script) {
             setScript(data.script);
+            setIsFromCache(!!data.fromCache);
           } else {
             setErrorMsg(data.error || 'Không thể tải kịch bản slide');
           }
@@ -82,7 +88,7 @@ export default function SlidePreviewModal({
     }
   }, [isOpen, trend?.id]);
 
-  // Sinh lại script bằng AI
+  // Sinh lại script bằng AI khi người dùng chủ động yêu cầu
   const handleRegenerateScript = async () => {
     if (!trend?.id) return;
     setIsRegenerating(true);
@@ -96,6 +102,7 @@ export default function SlidePreviewModal({
       const data = await res.json();
       if (data.success && data.script) {
         setScript(data.script);
+        setIsFromCache(false);
       } else {
         setErrorMsg(data.error || 'Lỗi sinh lại kịch bản slide');
       }
@@ -103,6 +110,31 @@ export default function SlidePreviewModal({
       setErrorMsg(err.message || 'Lỗi kết nối');
     } finally {
       setIsRegenerating(false);
+    }
+  };
+
+  // Lưu chỉnh sửa kịch bản vào CSDL
+  const handleSaveEdits = async () => {
+    if (!trend?.id || !script) return;
+    setIsSavingEdits(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`/api/trends/${trend.id}/slide-preview`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ script }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSaveSuccessMsg(true);
+        setTimeout(() => setSaveSuccessMsg(false), 2500);
+      } else {
+        setErrorMsg(data.error || 'Lỗi khi lưu kịch bản');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Lỗi kết nối');
+    } finally {
+      setIsSavingEdits(false);
     }
   };
 
@@ -129,6 +161,11 @@ export default function SlidePreviewModal({
               {trend.video_generated === 1 && (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-medium">
                   {lang === 'vi' ? 'Đã có video cũ' : 'Has existing video'}
+                </span>
+              )}
+              {isFromCache && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 font-medium">
+                  {lang === 'vi' ? '✓ Đã lưu kịch bản' : '✓ Saved script'}
                 </span>
               )}
             </div>
@@ -473,6 +510,24 @@ export default function SlidePreviewModal({
           </button>
 
           <div className="flex items-center gap-2">
+            {activeTab === 'edit' && (
+              <button
+                type="button"
+                onClick={handleSaveEdits}
+                disabled={isSavingEdits || !script}
+                className="btn btn-sm btn-secondary text-xs gap-1.5 font-semibold text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span>
+                  {isSavingEdits
+                    ? (lang === 'vi' ? 'Đang lưu...' : 'Saving...')
+                    : saveSuccessMsg
+                    ? (lang === 'vi' ? '✓ Đã lưu!' : '✓ Saved!')
+                    : (lang === 'vi' ? 'Lưu kịch bản' : 'Save script')}
+                </span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={handleStartRender}

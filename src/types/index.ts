@@ -20,6 +20,7 @@ export interface TrendItem {
   video_generated?: number;
   video_path?: string | null;
   video_created_at?: string | null;
+  slide_script_json?: string | null;
   created_at?: string;
 }
 

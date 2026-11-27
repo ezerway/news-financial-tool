@@ -1,10 +1,27 @@
 import { runAutomationCycle } from '../src/services/auto-runner';
 import { processScheduledReels } from '../src/services/reels';
 import { cleanOldReelsStorage } from '../src/services/storage-cleanup';
-import { logActivity, getSetting } from '../src/lib/db';
+import { logActivity, getSetting, cleanOldActivityLogs } from '../src/lib/db';
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function runLogsCleanup(days: number, contextLabel: string) {
+  try {
+    const res = cleanOldActivityLogs(days);
+    if (res.deletedCount > 0) {
+      console.log(
+        `🧹 [${formatTime(new Date())}] [${contextLabel}] Đã dọn dẹp ${res.deletedCount} bản ghi nhật ký hệ thống cũ (> ${days} ngày).`
+      );
+    } else {
+      console.log(
+        `🧹 [${formatTime(new Date())}] [${contextLabel}] Đã kiểm tra nhật ký: Không có bản ghi cũ (> ${days} ngày) cần xóa.`
+      );
+    }
+  } catch (err: any) {
+    console.error(`❌ [${formatTime(new Date())}] [${contextLabel}] Lỗi dọn dẹp nhật ký:`, err.message);
+  }
 }
 
 async function runReelsStorageCleanup(days: number, contextLabel: string) {
@@ -75,14 +92,14 @@ async function startDaemon() {
   console.log(`⏰ Chu kỳ lặp lại: Cứ mỗi ${intervalMinutes} phút chạy 1 lần`);
   console.log(`📤 Tự động xuất bản lên Facebook: ${forcePublish ? 'CÓ (bật qua --publish)' : 'Theo cài đặt Auto-Pilot trong Web'}`);
   console.log(`📊 Số bài viết tối đa mỗi lần: ${customLimit ? `${customLimit} bài (qua CLI)` : 'Theo cấu hình trong Cài đặt'}`);
-  console.log(`🧹 Dọn dẹp bộ nhớ Reel: Tự động xóa video & screenshot của post Reel tạo từ ${cleanDays} ngày trước`);
+  console.log(`🧹 Dọn dẹp hệ thống: Tự động xóa nhật ký (logs) & media Reel tạo từ ${cleanDays} ngày trước`);
   console.log(`🕒 Thời gian bắt đầu: ${new Date().toLocaleString('vi-VN')}`);
   console.log(`======================================================\n`);
 
   logActivity(
     'INFO',
     'AUTO',
-    `Cron daemon khởi động - chu kỳ chạy mỗi ${intervalMinutes} phút, tự động dọn dẹp Reel cũ > ${cleanDays} ngày.`
+    `Cron daemon khởi động - chu kỳ chạy mỗi ${intervalMinutes} phút, tự động dọn dẹp log & Reel cũ > ${cleanDays} ngày.`
   );
 
   // Vòng lặp kiểm tra và đăng Reel đã đặt lịch mỗi 30 giây
@@ -100,7 +117,8 @@ async function startDaemon() {
   // Kiểm tra lịch Reel ngay khi khởi động
   processScheduledReels().catch(() => {});
 
-  // Dọn dẹp video & screenshot các post Reel cũ (> 2 ngày) ngay khi khởi động
+  // Dọn dẹp logs và media post Reel cũ (> 2 ngày) ngay khi khởi động
+  runLogsCleanup(cleanDays, 'Khởi động');
   await runReelsStorageCleanup(cleanDays, 'Khởi động');
 
   // Hàm thực thi chu kỳ và hẹn giờ cho lần kế tiếp
@@ -119,7 +137,8 @@ async function startDaemon() {
       console.error(`❌ [${formatTime(new Date())}] Lỗi thực thi chu kỳ:`, err.message);
     }
 
-    // Tự động dọn dẹp video & screenshot của các post Reel cũ sau mỗi chu kỳ
+    // Tự động dọn dẹp nhật ký hệ thống và video/screenshot Reel cũ sau mỗi chu kỳ
+    runLogsCleanup(cleanDays, 'Chu kỳ');
     await runReelsStorageCleanup(cleanDays, 'Chu kỳ');
 
     const nextRunTime = new Date(Date.now() + intervalMs);

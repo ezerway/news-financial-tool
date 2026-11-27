@@ -104,6 +104,11 @@ export default function SettingsTab({
     ollama_model: settings.ollama_model || 'qwen2.5:3b',
     ollama_role: settings.ollama_role || 'extract_only',
     ollama_timeout_seconds: settings.ollama_timeout_seconds || '90',
+    ollama_extract_enabled: settings.ollama_extract_enabled || 'true',
+    ollama_post_mode: settings.ollama_post_mode || (settings.ollama_role === 'extract_and_fallback' ? 'fallback' : 'fallback'),
+    ollama_post_model: settings.ollama_post_model || '',
+    ollama_video_mode: settings.ollama_video_mode || 'fallback',
+    ollama_video_model: settings.ollama_video_model || '',
   });
 
   useEffect(() => {
@@ -142,6 +147,11 @@ export default function SettingsTab({
       ollama_model: settings.ollama_model ?? prev.ollama_model,
       ollama_role: settings.ollama_role ?? prev.ollama_role,
       ollama_timeout_seconds: settings.ollama_timeout_seconds ?? prev.ollama_timeout_seconds,
+      ollama_extract_enabled: settings.ollama_extract_enabled ?? prev.ollama_extract_enabled,
+      ollama_post_mode: settings.ollama_post_mode ?? prev.ollama_post_mode,
+      ollama_post_model: settings.ollama_post_model ?? prev.ollama_post_model,
+      ollama_video_mode: settings.ollama_video_mode ?? prev.ollama_video_mode,
+      ollama_video_model: settings.ollama_video_model ?? prev.ollama_video_model,
     }));
   }, [settings]);
 
@@ -1505,20 +1515,6 @@ export default function SettingsTab({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-inherit mb-1">
-                        {t('ollama_role_label')}
-                      </label>
-                      <select
-                        value={form.ollama_role}
-                        onChange={(e) => setForm({ ...form, ollama_role: e.target.value })}
-                        className="w-full h-9 px-3 app-input rounded-lg text-xs font-medium focus:outline-hidden focus:border-emerald-500"
-                      >
-                        <option value="extract_only">{t('ollama_role_extract_only')}</option>
-                        <option value="extract_and_fallback">{t('ollama_role_extract_and_fallback')}</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-inherit mb-1">
                         {lang === 'vi' ? 'Thời gian chờ tối đa (Timeout)' : 'Timeout (Seconds)'}
                       </label>
                       <select
@@ -1532,40 +1528,181 @@ export default function SettingsTab({
                         <option value="180">180 {lang === 'vi' ? 'giây (VPS 1-2 vCPU)' : 'seconds'}</option>
                       </select>
                     </div>
+
+                    <div className="flex flex-col justify-end">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleTestOllama}
+                          disabled={isTestingOllama}
+                          className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white border-none text-xs gap-1.5 font-medium disabled:opacity-50 h-9"
+                        >
+                          {isTestingOllama ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>{t('ollama_testing')}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Cpu className="w-3.5 h-3.5" />
+                              <span>{t('ollama_test_btn')}</span>
+                            </>
+                          )}
+                        </button>
+
+                        {ollamaTestMsg && (
+                          <span
+                            className={`text-xs font-medium flex items-center gap-1 ${
+                              ollamaTestMsg.type === 'success'
+                                ? 'text-emerald-700 dark:text-emerald-400'
+                                : 'text-rose-600 dark:text-rose-400'
+                            }`}
+                          >
+                            {ollamaTestMsg.type === 'success' ? '✓ ' : '✕ '}
+                            {ollamaTestMsg.text}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={handleTestOllama}
-                      disabled={isTestingOllama}
-                      className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white border-none text-xs gap-1.5 font-medium disabled:opacity-50"
-                    >
-                      {isTestingOllama ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>{t('ollama_testing')}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Cpu className="w-3.5 h-3.5" />
-                          <span>{t('ollama_test_btn')}</span>
-                        </>
-                      )}
-                    </button>
-
-                    {ollamaTestMsg && (
-                      <span
-                        className={`text-xs font-medium flex items-center gap-1 ${
-                          ollamaTestMsg.type === 'success'
-                            ? 'text-emerald-700 dark:text-emerald-400'
-                            : 'text-rose-600 dark:text-rose-400'
-                        }`}
-                      >
-                        {ollamaTestMsg.type === 'success' ? '✓ ' : '✕ '}
-                        {ollamaTestMsg.text}
+                  {/* PHÂN VÙNG CÀI ĐẶT RIÊNG CHO TỪNG TÁC VỤ */}
+                  <div className="pt-3 border-t border-emerald-500/20 space-y-3">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                      <span>⚙️</span>
+                      <span>
+                        {lang === 'vi'
+                          ? 'Cài đặt Ollama riêng cho từng tác vụ'
+                          : 'Task-specific Ollama Settings'}
                       </span>
-                    )}
+                    </div>
+
+                    {/* 1. Trích xuất dữ kiện bài báo */}
+                    <div className="p-3 rounded-xl bg-white/70 dark:bg-slate-900/50 border border-emerald-500/15 flex items-center justify-between gap-3">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                          {t('ollama_extract_label')}
+                        </span>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {t('ollama_extract_desc')}
+                        </p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={form.ollama_extract_enabled !== 'false'}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              ollama_extract_enabled: e.target.checked ? 'true' : 'false',
+                            })
+                          }
+                          className="sr-only peer"
+                        />
+                        <div className="w-10 h-5 bg-slate-300 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    {/* 2. Cài đặt riêng cho Tạo bài viết (Facebook Post) */}
+                    <div className="p-3.5 rounded-xl bg-white/70 dark:bg-slate-900/50 border border-emerald-500/15 space-y-2.5">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                          <span>✍️</span>
+                          <span>{t('ollama_post_mode_label')}</span>
+                        </span>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {t('ollama_post_mode_desc')}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {lang === 'vi' ? 'Chế độ tạo bài viết' : 'Post Generation Mode'}
+                          </label>
+                          <select
+                            value={form.ollama_post_mode || 'fallback'}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                ollama_post_mode: e.target.value as any,
+                                ollama_role:
+                                  e.target.value === 'disabled'
+                                    ? 'extract_only'
+                                    : 'extract_and_fallback',
+                              })
+                            }
+                            className="w-full h-8 px-2.5 app-input rounded-lg text-xs font-medium focus:outline-hidden focus:border-emerald-500 cursor-pointer"
+                          >
+                            <option value="fallback">{t('ollama_mode_fallback')}</option>
+                            <option value="primary">{t('ollama_mode_primary')}</option>
+                            <option value="disabled">{t('ollama_mode_disabled')}</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {lang === 'vi' ? 'Model riêng cho bài viết (Tùy chọn)' : 'Post Custom Model (Optional)'}
+                          </label>
+                          <input
+                            type="text"
+                            value={form.ollama_post_model || ''}
+                            onChange={(e) =>
+                              setForm({ ...form, ollama_post_model: e.target.value })
+                            }
+                            placeholder={form.ollama_model ? `${form.ollama_model} (Mặc định)` : 'qwen2.5:3b'}
+                            className="w-full h-8 px-2.5 app-input rounded-lg text-xs font-mono placeholder-slate-400 focus:outline-hidden focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. Cài đặt riêng cho Tạo video 9:16 (Video Script Generation) */}
+                    <div className="p-3.5 rounded-xl bg-white/70 dark:bg-slate-900/50 border border-emerald-500/15 space-y-2.5">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                          <span>🎬</span>
+                          <span>{t('ollama_video_mode_label')}</span>
+                        </span>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {t('ollama_video_mode_desc')}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {lang === 'vi' ? 'Chế độ tạo kịch bản video' : 'Video Script Mode'}
+                          </label>
+                          <select
+                            value={form.ollama_video_mode || 'fallback'}
+                            onChange={(e) =>
+                              setForm({ ...form, ollama_video_mode: e.target.value as any })
+                            }
+                            className="w-full h-8 px-2.5 app-input rounded-lg text-xs font-medium focus:outline-hidden focus:border-emerald-500 cursor-pointer"
+                          >
+                            <option value="fallback">{t('ollama_mode_fallback')}</option>
+                            <option value="primary">{t('ollama_mode_primary')}</option>
+                            <option value="disabled">{t('ollama_mode_disabled')}</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {lang === 'vi' ? 'Model riêng cho video (Tùy chọn)' : 'Video Custom Model (Optional)'}
+                          </label>
+                          <input
+                            type="text"
+                            value={form.ollama_video_model || ''}
+                            onChange={(e) =>
+                              setForm({ ...form, ollama_video_model: e.target.value })
+                            }
+                            placeholder={form.ollama_model ? `${form.ollama_model} (Mặc định)` : 'qwen2.5:3b'}
+                            className="w-full h-8 px-2.5 app-input rounded-lg text-xs font-mono placeholder-slate-400 focus:outline-hidden focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

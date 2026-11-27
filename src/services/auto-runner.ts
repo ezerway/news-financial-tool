@@ -1,7 +1,7 @@
 import { crawlGoogleTrends, getStoredTrends, findExactNewsSources } from './crawler';
 import { generateSocialPost } from './ai-generator';
 import { executePublishAndComment } from './playwright/fb-automation';
-import db, { getSetting, logActivity, repairInconsistentTrendStatuses, isAutoVideoPublishAfterPostEnabled } from '@/lib/db';
+import db, { getSetting, logActivity, repairInconsistentTrendStatuses, isAutoVideoPublishAfterPostEnabled, cleanOldActivityLogs } from '@/lib/db';
 import { TrendItem, NewsArticle } from '@/types';
 import { findDuplicatePost, getExistingPosts } from './dedup';
 import { handleAutoVideoGenerationAndPublishing } from './video/auto-video-publisher';
@@ -206,6 +206,14 @@ export async function runAutomationCycle(options?: AutomationCycleOptions) {
 
     // Tự động kiểm tra và dọn dẹp các generated video & ảnh screenshot cũ (> 2 ngày) sau mỗi chu kỳ
     cleanOldReelsStorage(2).catch(() => {});
+
+    // Tự động dọn dẹp nhật ký hệ thống cũ quá 2 ngày
+    try {
+      const logCleanResult = cleanOldActivityLogs(2);
+      if (logCleanResult.deletedCount > 0) {
+        logActivity('INFO', 'AUTO', `Đã dọn dẹp ${logCleanResult.deletedCount} bản ghi nhật ký hệ thống cũ quá 2 ngày.`);
+      }
+    } catch {}
 
     return {
       success: successfulCount > 0,

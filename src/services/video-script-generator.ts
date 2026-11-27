@@ -82,7 +82,22 @@ export async function generateVideoSlideScript(trend: TrendItem): Promise<VideoS
     } catch { }
   }
 
-  // 2. Tầng 1: Google Gemini API
+  // 1. Tầng 1: Ưu tiên Ollama Local AI nếu cấu hình videoMode === 'primary'
+  const ollamaConfig = getOllamaConfig();
+  if (ollamaConfig.enabled && ollamaConfig.videoMode === 'primary') {
+    try {
+      logActivity('INFO', 'VIDEO_SCRIPT', `Chế độ Ollama Primary đang sinh kịch bản Slide (${ollamaConfig.videoModel}) cho: "${trend.title}"...`);
+      const ollamaScript = await generateVideoSlideScriptWithOllama(trend, exactArticles, ollamaConfig.videoModel);
+      if (ollamaScript && ollamaScript.slide1?.headline) {
+        logActivity('SUCCESS', 'VIDEO_SCRIPT', `Đã tạo kịch bản slide thành công qua Ollama Primary (${ollamaConfig.videoModel})`);
+        return sanitizeAndFormatScript(ollamaScript);
+      }
+    } catch (ollamaErr: any) {
+      logActivity('WARN', 'VIDEO_SCRIPT', `Ollama Primary sinh slide không thành công (${ollamaErr?.message}), chuyển sang Gemini.`);
+    }
+  }
+
+  // 2. Tầng 2: Google Gemini API
   const geminiApiKey = resolveGeminiApiKey();
   if (geminiApiKey) {
     try {
@@ -177,14 +192,13 @@ Trả về DUY NHẤT một JSON hợp lệ dạng:
     }
   }
 
-  // 2. Tầng 2: Ollama Local AI (VPS qwen2.5:3b) - kích hoạt khi bật Ollama hoặc khi không có/hết quota Gemini
-  const ollamaConfig = getOllamaConfig();
-  if (ollamaConfig.enabled) {
+  // 3. Tầng 3: Ollama Local AI Fallback (VPS) - kích hoạt khi videoMode !== 'disabled' hoặc khi không có/hết quota Gemini
+  if (ollamaConfig.enabled && ollamaConfig.videoMode !== 'disabled') {
     try {
-      logActivity('INFO', 'VIDEO_SCRIPT', `Đang sinh kịch bản Slide bằng Ollama Local AI (${ollamaConfig.model}) cho: "${trend.title}"...`);
-      const ollamaScript = await generateVideoSlideScriptWithOllama(trend, exactArticles);
+      logActivity('INFO', 'VIDEO_SCRIPT', `Đang sinh kịch bản Slide dự phòng bằng Ollama Local AI (${ollamaConfig.videoModel}) cho: "${trend.title}"...`);
+      const ollamaScript = await generateVideoSlideScriptWithOllama(trend, exactArticles, ollamaConfig.videoModel);
       if (ollamaScript && ollamaScript.slide1?.headline) {
-        logActivity('SUCCESS', 'VIDEO_SCRIPT', `Đã tạo kịch bản slide thành công qua Ollama Local AI (${ollamaConfig.model})`);
+        logActivity('SUCCESS', 'VIDEO_SCRIPT', `Đã tạo kịch bản slide thành công qua Ollama Local AI (${ollamaConfig.videoModel})`);
         return sanitizeAndFormatScript(ollamaScript);
       }
     } catch (ollamaErr: any) {
@@ -192,7 +206,7 @@ Trả về DUY NHẤT một JSON hợp lệ dạng:
     }
   }
 
-  // 3. Tầng 3: Smart Extractor Fallback (100% Offline, không phụ thuộc API ngoài)
+  // 4. Tầng 4: Smart Extractor Fallback (100% Offline, không phụ thuộc API ngoài)
   logActivity('INFO', 'VIDEO_SCRIPT', `Sử dụng Smart Extractor Fallback để tạo kịch bản slide từ bài báo nguồn.`);
   return createSmartFallbackScript(trend, exactArticles);
 }
@@ -202,8 +216,12 @@ Trả về DUY NHẤT một JSON hợp lệ dạng:
  */
 async function generateVideoSlideScriptWithOllama(
   trend: TrendItem,
-  exactArticles: NewsArticle[]
+  exactArticles: NewsArticle[],
+  customModel?: string
 ): Promise<VideoSlideScript | null> {
+  const config = getOllamaConfig();
+  const targetModel = customModel || config.videoModel || config.model;
+
   const articlesContext = exactArticles
     .slice(0, 3)
     .map((a, i) => `[${a.source || 'Báo chí'}] ${a.title}:\n${(a.content || a.snippet || '').slice(0, 700)}`)
@@ -253,10 +271,11 @@ ${articlesContext || trend.title}
 Hãy tạo kịch bản JSON theo đúng định dạng:`;
 
   const response = await queryOllama(prompt, {
+    model: targetModel,
     system,
     temperature: 0.3,
     numPredict: 500,
-    timeoutMs: Math.max(getOllamaConfig().timeoutMs, 75000),
+    timeoutMs: Math.max(config.timeoutMs, 75000),
   });
 
   const jsonMatch = response.match(/\{[\s\S]*\}/);

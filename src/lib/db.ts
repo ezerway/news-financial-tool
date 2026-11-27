@@ -6,7 +6,7 @@ const storageDir = path.join(/*turbopackIgnore: true*/ process.cwd(), 'storage')
 if (!fs.existsSync(/*turbopackIgnore: true*/ storageDir)) {
   try {
     fs.mkdirSync(/*turbopackIgnore: true*/ storageDir, { recursive: true });
-  } catch {}
+  } catch { }
 }
 
 export const dbPath = path.join(/*turbopackIgnore: true*/ storageDir, 'app.db');
@@ -15,7 +15,7 @@ export function initSchema(database: Database.Database) {
   // Set busy timeout to prevent concurrency lock errors on multi-process / external drive
   try {
     database.pragma('busy_timeout = 30000');
-  } catch {}
+  } catch { }
 
   // Check current journal mode; avoid redundant/locking switches
   try {
@@ -37,7 +37,7 @@ export function initSchema(database: Database.Database) {
 
   try {
     database.pragma('synchronous = NORMAL');
-  } catch {}
+  } catch { }
 
   // Initialize schema
   try {
@@ -54,6 +54,7 @@ export function initSchema(database: Database.Database) {
         video_generated INTEGER DEFAULT 0,
         video_path TEXT,
         video_created_at DATETIME,
+        slide_script_json TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -126,91 +127,94 @@ export function initSchema(database: Database.Database) {
   // Safe migration for video_path, fb_post_url, screenshot_path, debug_video_path if tables already exist
   try {
     database.exec(`ALTER TABLE posts ADD COLUMN video_path TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE posts ADD COLUMN record_video INTEGER DEFAULT 1`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN fb_post_url TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN screenshot_path TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN debug_video_path TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN tiktok_post_url TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN tiktok_status TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN tiktok_error_message TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN tiktok_debug_video_path TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN tiktok_screenshot_path TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN comment_content TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN comment_status TEXT DEFAULT 'idle'`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN tiktok_comment_status TEXT DEFAULT 'idle'`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN youtube_post_url TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN youtube_status TEXT DEFAULT 'idle'`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN youtube_comment_status TEXT DEFAULT 'idle'`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN youtube_error_message TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN youtube_debug_video_path TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN youtube_screenshot_path TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN zalo_post_url TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN zalo_status TEXT DEFAULT 'idle'`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN zalo_comment_status TEXT DEFAULT 'idle'`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN zalo_error_message TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN zalo_debug_video_path TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN zalo_screenshot_path TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE reels ADD COLUMN trend_id TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE trends ADD COLUMN video_generated INTEGER DEFAULT 0`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE trends ADD COLUMN video_path TEXT`);
-  } catch {}
+  } catch { }
   try {
     database.exec(`ALTER TABLE trends ADD COLUMN video_created_at DATETIME`);
-  } catch {}
+  } catch { }
+  try {
+    database.exec(`ALTER TABLE trends ADD COLUMN slide_script_json TEXT`);
+  } catch { }
 
   // Insert default settings if not exists
   try {
@@ -243,6 +247,11 @@ export function initSchema(database: Database.Database) {
       ollama_model: 'qwen2.5:3b',
       ollama_role: 'extract_only',
       ollama_timeout_seconds: '90',
+      ollama_extract_enabled: 'true',
+      ollama_post_mode: 'fallback', // 'disabled' | 'fallback' | 'primary'
+      ollama_post_model: '',
+      ollama_video_mode: 'fallback', // 'disabled' | 'fallback' | 'primary'
+      ollama_video_model: '',
     };
 
     const insertSettingStmt = database.prepare(`
@@ -252,12 +261,12 @@ export function initSchema(database: Database.Database) {
     for (const [key, value] of Object.entries(defaultSettings)) {
       insertSettingStmt.run(key, value);
     }
-  } catch {}
+  } catch { }
 
   // Tự động kiểm tra và đồng bộ trạng thái xu hướng không hợp lệ
   try {
     repairInconsistentTrendStatuses(database);
-  } catch {}
+  } catch { }
 }
 
 export function repairInconsistentTrendStatuses(database: Database.Database) {
@@ -274,7 +283,7 @@ export function repairInconsistentTrendStatuses(database: Database.Database) {
       try {
         const parsed = JSON.parse(t.articles_json || '[]');
         hasValidSources = Array.isArray(parsed) && parsed.some((a: any) => a.url && !a.url.includes('google.com'));
-      } catch {}
+      } catch { }
 
       if (!hasValidSources) {
         database.prepare(`UPDATE trends SET status = 'discovered' WHERE id = ?`).run(t.id);
@@ -379,10 +388,10 @@ function createDatabaseConnection(): Database.Database {
 
       // 1. Remove stale WAL & SHM files
       if (fs.existsSync(/*turbopackIgnore: true*/ walFile)) {
-        try { fs.unlinkSync(/*turbopackIgnore: true*/ walFile); } catch {}
+        try { fs.unlinkSync(/*turbopackIgnore: true*/ walFile); } catch { }
       }
       if (fs.existsSync(/*turbopackIgnore: true*/ shmFile)) {
-        try { fs.unlinkSync(/*turbopackIgnore: true*/ shmFile); } catch {}
+        try { fs.unlinkSync(/*turbopackIgnore: true*/ shmFile); } catch { }
       }
 
       // 2. Try reopening
@@ -404,7 +413,7 @@ function createDatabaseConnection(): Database.Database {
       try {
         fs.renameSync(dbPath, corruptBackup);
         console.warn(`Đã lưu bản sao database hỏng tại: ${corruptBackup}`);
-      } catch {}
+      } catch { }
 
       const freshDb = new Database(dbPath, { timeout: 30000 });
       initSchema(freshDb);
@@ -463,6 +472,28 @@ export function logActivity(level: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS', action
   `).run(id, level, action, message, detailsJson);
   console.log(`[${level}] [${action}] ${message}`);
   return id;
+}
+
+/**
+ * Tự động xóa các bản ghi nhật ký (activity_logs) cũ hơn số ngày chỉ định (mặc định 2 ngày)
+ */
+export function cleanOldActivityLogs(days = 2): { deletedCount: number } {
+  const safeDays = Math.max(1, Number(days) || 2);
+  try {
+    const info = db.prepare(`
+      DELETE FROM activity_logs
+      WHERE created_at < datetime('now', '-' || ? || ' days')
+    `).run(safeDays);
+
+    const deletedCount = Number(info.changes || 0);
+    if (deletedCount > 0) {
+      console.log(`🧹 Đã dọn dẹp ${deletedCount} bản ghi nhật ký (activity_logs) cũ hơn ${safeDays} ngày.`);
+    }
+    return { deletedCount };
+  } catch (err: any) {
+    console.error('Lỗi khi dọn dẹp activity_logs cũ:', err?.message);
+    return { deletedCount: 0 };
+  }
 }
 
 export function getSetting(key: string, defaultValue = ''): string {

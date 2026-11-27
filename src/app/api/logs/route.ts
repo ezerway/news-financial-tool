@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
+import db, { cleanOldActivityLogs } from '@/lib/db';
 import { ActivityLog } from '@/types';
 
 export async function GET(req: NextRequest) {
@@ -53,10 +53,19 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const daysParam = searchParams.get('days');
+
+    if (daysParam) {
+      const days = parseInt(daysParam, 10);
+      const res = cleanOldActivityLogs(isNaN(days) ? 2 : days);
+      return NextResponse.json({ success: true, deletedCount: res.deletedCount, days });
+    }
+
     db.prepare('DELETE FROM activity_logs').run();
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: 'Đã xóa toàn bộ nhật ký' });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
