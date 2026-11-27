@@ -11,7 +11,7 @@ export function getStorageDir(): string {
   if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) {
     try {
       fs.mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
-    } catch { }
+    } catch {}
   }
   return dir;
 }
@@ -42,7 +42,7 @@ export function cleanStaleChromeLocks(userDataDir: string = getUserDataDir()): v
         ) {
           fs.unlinkSync(/*turbopackIgnore: true*/ filePath);
         }
-      } catch { }
+      } catch {}
     }
 
     // Clean up stale orphan 0-byte SQLite journal and lock files in Default directory
@@ -58,11 +58,11 @@ export function cleanStaleChromeLocks(userDataDir: string = getUserDataDir()): v
             if (stat.size === 0) {
               fs.unlinkSync(/*turbopackIgnore: true*/ filePath);
             }
-          } catch { }
+          } catch {}
         }
       }
     }
-  } catch { }
+  } catch {}
 }
 
 export function isSessionAvailable(): boolean {
@@ -219,17 +219,17 @@ export async function launchInteractiveLogin(initialUrl?: string): Promise<strin
   const effectivePageUrl = !isGenericRoot(pageUrlSetting) ? pageUrlSetting : (!isGenericRoot(targetUrlSetting) ? targetUrlSetting : '');
   const target = initialUrl || effectivePageUrl || 'https://www.facebook.com/';
   logActivity('INFO', 'AUTH', `Đang mở Facebook tại: ${target}. Bạn có thể đăng nhập hoặc chuyển đổi sang Fanpage cần đăng bài.`);
-  await page.goto(target, { waitUntil: 'domcontentloaded' }).catch(() => { });
+  await page.goto(target, { waitUntil: 'domcontentloaded' }).catch(() => {});
 
   // Save session state on navigation or periodically
   const saveState = async () => {
     try {
       await browser.storageState({ path: getSessionPath() });
-    } catch { }
+    } catch {}
   };
 
   page.on('load', () => {
-    saveState().catch(() => { });
+    saveState().catch(() => {});
   });
 
   // Moderate periodic save (every 15s instead of 3s to avoid CDP focus & render jitter)
