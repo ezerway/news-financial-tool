@@ -200,7 +200,8 @@ export async function addMusicToYouTubeShort(
 
     // 5. Xử lý dialog selector 'tp-yt-paper-dialog' xác nhận thay đổi
     try {
-      const checkbox = page.locator('[id="checkbox"]').first();
+      await page.waitForSelector('#checkbox-container', { timeout: 4000 }).catch(() => { });
+      const checkbox = page.locator('#checkbox-container').first();
       notify('Phát hiện dialog xác nhận (tp-yt-paper-dialog), đang click checkbox và xác nhận...');
       // Click vào checkbox id="checkbox"
       await checkbox.click();
@@ -555,7 +556,7 @@ export async function uploadYouTubeShortVideo(options: {
       const videoId = videoIdMatch ? videoIdMatch[1] : null;
       if (videoId) {
         // Chờ 2 phút cho video xử lý
-        await page.waitForTimeout(120000);
+        await page.waitForTimeout(60000);
         await addMusicToYouTubeShort(page, videoId, notify);
       }
     }
