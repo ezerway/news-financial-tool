@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ActivityLog } from '@/types';
 import { Activity, Trash2, CheckCircle2, AlertTriangle, AlertCircle, Info, RefreshCw } from 'lucide-react';
 import Pagination from './Pagination';
@@ -16,6 +16,58 @@ interface LogsTabProps {
   isLoading?: boolean;
 }
 
+const ACTION_GROUPS = [
+  {
+    labelVi: '📰 Báo chí & Bài viết',
+    labelEn: '📰 News & Posts',
+    actions: [
+      { value: 'CRAWL', labelVi: 'Cào tin tức', labelEn: 'Crawl News' },
+      { value: 'EXTRACTOR', labelVi: 'Trích xuất bài gốc', labelEn: 'Article Extractor' },
+      { value: 'GENERATE', labelVi: 'AI Tạo bài viết', labelEn: 'AI Generate Post' },
+      { value: 'REGENERATE_POST', labelVi: 'Tạo lại bài viết', labelEn: 'Regenerate Post' },
+      { value: 'PUBLISH', labelVi: 'Đăng bài viết', labelEn: 'Publish Post' },
+      { value: 'COMMENT', labelVi: 'Bình luận nguồn', labelEn: 'Comment Source' },
+      { value: 'UPDATE_POST_LINK', labelVi: 'Cập nhật link bài', labelEn: 'Update Post Link' },
+    ],
+  },
+  {
+    labelVi: '🎬 Video 9:16 & Đa nền tảng',
+    labelEn: '🎬 9:16 Video & Platforms',
+    actions: [
+      { value: 'SLIDE_PREVIEW', labelVi: 'Xem trước Slide', labelEn: 'Slide Preview' },
+      { value: 'VIDEO_SCRIPT', labelVi: 'Soạn kịch bản Video', labelEn: 'Video Script' },
+      { value: 'VIDEO_RENDER', labelVi: 'Render Video', labelEn: 'Video Render' },
+      { value: 'AUTO_VIDEO', labelVi: 'Tự động tạo Video', labelEn: 'Auto Video' },
+      { value: 'POST_REEL', labelVi: 'Đăng Facebook Reel', labelEn: 'Post Facebook Reel' },
+      { value: 'POST_TIKTOK', labelVi: 'Đăng TikTok', labelEn: 'Post TikTok' },
+      { value: 'COMMENT_TIKTOK', labelVi: 'Bình luận TikTok', labelEn: 'Comment TikTok' },
+      { value: 'POST_YOUTUBE_SHORTS', labelVi: 'Đăng YouTube Shorts', labelEn: 'Post YouTube Shorts' },
+      { value: 'POST_ZALO_VIDEO', labelVi: 'Đăng Zalo Video', labelEn: 'Post Zalo Video' },
+      { value: 'UPDATE_REEL_LINK', labelVi: 'Cập nhật link Reel', labelEn: 'Update Reel Link' },
+      { value: 'DELETE_REEL', labelVi: 'Xóa Reel', labelEn: 'Delete Reel' },
+    ],
+  },
+  {
+    labelVi: '🤖 Trí tuệ nhân tạo (AI Engine)',
+    labelEn: '🤖 AI Engine',
+    actions: [
+      { value: 'OLLAMA', labelVi: 'Ollama AI cục bộ', labelEn: 'Local Ollama AI' },
+      { value: 'OLLAMA_FALLBACK', labelVi: 'Ollama Fallback', labelEn: 'Ollama Fallback' },
+    ],
+  },
+  {
+    labelVi: '⚙️ Hệ thống & Tự động',
+    labelEn: '⚙️ System & Automation',
+    actions: [
+      { value: 'AUTO', labelVi: 'Auto-Pilot Tự động', labelEn: 'Auto-Pilot Engine' },
+      { value: 'AUTH', labelVi: 'Xác thực & Cookies', labelEn: 'Auth & Cookies' },
+      { value: 'NOTIFICATION', labelVi: 'Thông báo Telegram', labelEn: 'Telegram Alert' },
+      { value: 'BACKUP', labelVi: 'Sao lưu dữ liệu', labelEn: 'Data Backup' },
+      { value: 'RETRY', labelVi: 'Thử lại tác vụ', labelEn: 'Task Retry' },
+    ],
+  },
+];
+
 export default function LogsTab({
   logs,
   onClearLogs,
@@ -29,6 +81,22 @@ export default function LogsTab({
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+
+  const knownActionSet = useMemo(() => {
+    const set = new Set<string>();
+    ACTION_GROUPS.forEach((g) => g.actions.forEach((a) => set.add(a.value)));
+    return set;
+  }, []);
+
+  const otherActions = useMemo(() => {
+    const set = new Set<string>();
+    logs.forEach((l) => {
+      if (l.action && !knownActionSet.has(l.action)) {
+        set.add(l.action);
+      }
+    });
+    return Array.from(set).sort();
+  }, [logs, knownActionSet]);
 
   const filteredLogs = logs.filter((l) => {
     const matchesLevel = levelFilter === 'all' || l.level === levelFilter;
@@ -109,12 +177,27 @@ export default function LogsTab({
             className="app-input h-8 text-xs font-semibold rounded-lg px-2.5 focus:outline-hidden focus:border-indigo-500 cursor-pointer"
           >
             <option value="all">{t('log_action_all')}</option>
-            <option value="CRAWL">CRAWL ({lang === 'vi' ? 'Cào tin' : 'Crawl'})</option>
-            <option value="GENERATE">GENERATE ({lang === 'vi' ? 'AI Viết bài' : 'AI Write'})</option>
-            <option value="PUBLISH">PUBLISH ({lang === 'vi' ? 'Đăng bài' : 'Publish'})</option>
-            <option value="COMMENT">COMMENT ({lang === 'vi' ? 'Bình luận nguồn' : 'Comment'})</option>
-            <option value="AUTH">AUTH ({lang === 'vi' ? 'Xác thực' : 'Auth'})</option>
-            <option value="AUTO">AUTO ({lang === 'vi' ? 'Tự động hóa' : 'Automation'})</option>
+            {ACTION_GROUPS.map((group) => (
+              <optgroup
+                key={group.labelEn}
+                label={lang === 'vi' ? group.labelVi : group.labelEn}
+              >
+                {group.actions.map((act) => (
+                  <option key={act.value} value={act.value}>
+                    {act.value} ({lang === 'vi' ? act.labelVi : act.labelEn})
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+            {otherActions.length > 0 && (
+              <optgroup label={lang === 'vi' ? '⚡ Khác' : '⚡ Other'}>
+                {otherActions.map((act) => (
+                  <option key={act} value={act}>
+                    {act}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
 
           {/* Limit Selector */}
