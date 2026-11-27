@@ -4,6 +4,7 @@ import { getSetting, logActivity } from '@/lib/db';
 import { resolveGeminiApiKey } from './ai-generator';
 import { extractArticlesContent } from './article-extractor';
 import { findExactNewsSources } from './crawler';
+import { getOllamaConfig, queryOllama } from './ollama';
 
 export interface VideoSlideScript {
   intro: {
@@ -176,9 +177,97 @@ Trả về DUY NHẤT một JSON hợp lệ dạng:
     }
   }
 
+  // 2. Tầng 2: Ollama Local AI (VPS qwen2.5:3b) - kích hoạt khi bật Ollama hoặc khi không có/hết quota Gemini
+  const ollamaConfig = getOllamaConfig();
+  if (ollamaConfig.enabled) {
+    try {
+      logActivity('INFO', 'VIDEO_SCRIPT', `Đang sinh kịch bản Slide bằng Ollama Local AI (${ollamaConfig.model}) cho: "${trend.title}"...`);
+      const ollamaScript = await generateVideoSlideScriptWithOllama(trend, exactArticles);
+      if (ollamaScript && ollamaScript.slide1?.headline) {
+        logActivity('SUCCESS', 'VIDEO_SCRIPT', `Đã tạo kịch bản slide thành công qua Ollama Local AI (${ollamaConfig.model})`);
+        return sanitizeAndFormatScript(ollamaScript);
+      }
+    } catch (ollamaErr: any) {
+      logActivity('WARN', 'VIDEO_SCRIPT', `Ollama sinh kịch bản slide không thành công (${ollamaErr?.message}), chuyển sang Smart Extractor Fallback.`);
+    }
+  }
+
   // 3. Tầng 3: Smart Extractor Fallback (100% Offline, không phụ thuộc API ngoài)
   logActivity('INFO', 'VIDEO_SCRIPT', `Sử dụng Smart Extractor Fallback để tạo kịch bản slide từ bài báo nguồn.`);
   return createSmartFallbackScript(trend, exactArticles);
+}
+
+/**
+ * Sinh kịch bản Slide Video 9:16 bằng mô hình Ollama cục bộ (qwen2.5:3b)
+ */
+async function generateVideoSlideScriptWithOllama(
+  trend: TrendItem,
+  exactArticles: NewsArticle[]
+): Promise<VideoSlideScript | null> {
+  const articlesContext = exactArticles
+    .slice(0, 3)
+    .map((a, i) => `[${a.source || 'Báo chí'}] ${a.title}:\n${(a.content || a.snippet || '').slice(0, 700)}`)
+    .join('\n\n');
+
+  const system = `Bạn là biên tập viên tin tức kinh tế, tài chính & xã hội chuyên nghiệp.
+Nhiệm vụ của bạn: Đọc kỹ thông tin bài báo và tạo kịch bản video dọc 9:16 gồm ĐÚNG TỪ 3 ĐẾN 5 Ý CHÍNH quan trọng nhất chứa số liệu thực tế, mốc thời gian.
+
+NGUYÊN TẮC BẮT BUỘC:
+1. Mỗi ý chính (fragment) là 1 câu văn súc tích (15 - 25 từ), chuẩn ngữ pháp, kết thúc bằng dấu chấm.
+2. TUYỆT ĐỐI KHÔNG dùng dấu ba chấm (... hoặc …), không viết câu lửng.
+3. TUYỆT ĐỐI KHÔNG dùng từ: "Google", "Slide", "Trang trình bày".
+4. BẮT BUỘC trả về DUY NHẤT một JSON hợp lệ:
+{
+  "intro": {
+    "categoryLabel": "BẢN TIN THỊ TRƯỜNG",
+    "mainTitle": "Financial News",
+    "tagline": "Chuyển động tài chính & kinh tế nóng nhất"
+  },
+  "slide1": {
+    "category": "TIN NÓNG",
+    "headline": "Tiêu đề giật tít ngắn gọn",
+    "timestamp": "Mới nhất"
+  },
+  "contentSlides": [
+    {
+      "title": "Diễn biến trọng điểm & Số liệu",
+      "fragments": [
+        "Ý chính 1: Diễn biến sự kiện quan trọng nhất kèm số liệu cốt lõi.",
+        "Ý chính 2: Nguyên nhân hoặc động thái từ các bên liên quan.",
+        "Ý chính 3: Tác động đến thị trường hoặc khuyến nghị phân tích."
+      ]
+    }
+  ],
+  "outro": {
+    "ctaText": "Đăng ký kênh để nhận tin mỗi ngày",
+    "subText": "Cảm ơn bạn đã theo dõi bản tin"
+  }
+}`;
+
+  const prompt = `Chủ đề xu hướng: "${trend.title}"
+Khu vực: ${trend.geo || 'VN'}
+
+Thông tin bài báo nguồn:
+${articlesContext || trend.title}
+
+Hãy tạo kịch bản JSON theo đúng định dạng:`;
+
+  const response = await queryOllama(prompt, {
+    system,
+    temperature: 0.3,
+    numPredict: 500,
+    timeoutMs: Math.max(getOllamaConfig().timeoutMs, 75000),
+  });
+
+  const jsonMatch = response.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    const parsed = JSON.parse(jsonMatch[0]) as VideoSlideScript;
+    if (parsed.intro && parsed.slide1 && Array.isArray(parsed.contentSlides)) {
+      return parsed;
+    }
+  }
+
+  return null;
 }
 
 /**

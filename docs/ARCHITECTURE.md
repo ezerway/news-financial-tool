@@ -115,7 +115,7 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
        ├──> Đọc toàn văn bài báo (title, sapo, fullText tới 3500 ký tự)
        ├──> Tóm tắt thành ĐÚNG 3 ĐẾN 7 Ý CHÍNH (không dùng ba chấm, câu hoàn chỉnh)
        ├──> Tầng 1: Google Gemini API (gemini-3.5-flash-lite, 3.5-flash, 3.8-flash)
-       ├──> Tầng 2: Alternate AI Models
+       ├──> Tầng 2: Ollama Local AI (qwen2.5:3b trên VPS - khi bật Ollama hoặc khi Gemini hết Quota / Offline)
        └──> Tầng 3: Smart Extractive Summarizer (100% Offline, chấm điểm câu theo vị trí sapo, số liệu & từ khóa)
        │
        ▼

@@ -23,12 +23,47 @@ export function resolveGeminiApiKey(): string {
   return dbKey || envKey;
 }
 
-export async function generateSocialPost(trend: TrendItem, customTone?: string, options?: { force?: boolean }): Promise<PostItem> {
+export async function generateSocialPost(
+  trend: TrendItem,
+  customTone?: string,
+  options?: { force?: boolean; targetPostId?: string }
+): Promise<PostItem> {
   const apiKey = resolveGeminiApiKey();
   const tone = customTone || getSetting('post_tone', 'finance_news');
 
-  // DEDUPLICATION GUARD: Prevent creating duplicate posts for trends that already have posts
-  if (!options?.force) {
+  // Xác định bài viết mục tiêu nếu đã tồn tại để CẬP NHẬT đè thay vì tạo mới
+  let targetPostId = options?.targetPostId;
+  if (!targetPostId && trend.id) {
+    const existingPost = db
+      .prepare(`SELECT id, status FROM posts WHERE trend_id = ? ORDER BY created_at DESC LIMIT 1`)
+      .get(trend.id) as { id: string; status: string } | undefined;
+
+    if (existingPost) {
+      if (!options?.force) {
+        if (existingPost.status === 'published') {
+          const err = `Xu hướng "${trend.title}" đã được xuất bản trên Facebook trước đó. Không thể tạo bài mới để tránh trùng lặp.`;
+          logActivity('WARN', 'GENERATE', err);
+          throw new Error(err);
+        }
+        logActivity(
+          'INFO',
+          'GENERATE',
+          `Xu hướng "${trend.title}" đã có bản thảo (ID: ${existingPost.id}). Trả về bản thảo hiện có để tránh tạo bài trùng lặp.`
+        );
+        const p = db.prepare('SELECT * FROM posts WHERE id = ?').get(existingPost.id) as any;
+        return {
+          ...p,
+          source_urls: p.source_urls ? JSON.parse(p.source_urls) : [],
+        };
+      } else {
+        // Khi force = true: gán targetPostId để ghi đè cập nhật lên bài viết này
+        targetPostId = existingPost.id;
+      }
+    }
+  }
+
+  // Deduplication guard phụ phòng trường hợp trend_id khác nhưng cùng chủ đề
+  if (!options?.force && !targetPostId) {
     const dup = findDuplicatePost(trend);
     if (dup.isDuplicate && dup.matchedPost) {
       if (dup.matchedPost.status === 'published' && dup.matchedPost.fb_post_url) {
@@ -36,18 +71,8 @@ export async function generateSocialPost(trend: TrendItem, customTone?: string, 
         logActivity('WARN', 'GENERATE', err);
         throw new Error(err);
       }
-      logActivity(
-        'INFO',
-        'GENERATE',
-        `Xu hướng "${trend.title}" đã có bản thảo (ID: ${dup.matchedPost.id}). Trả về bản thảo hiện có để tránh tạo bài trùng lặp.`
-      );
       return dup.matchedPost;
     }
-  } else if (trend.id) {
-    // Khi người dùng yêu cầu force chạy lại / retry, xóa bài viết cũ chưa hoàn thiện của trend này để tạo bài mới tinh
-    try {
-      db.prepare(`DELETE FROM posts WHERE trend_id = ? AND status != 'published'`).run(trend.id);
-    } catch { }
   }
 
   // STRICT REQUIREMENT: Only use exact publisher source links, filter out ANY google.com / google trend URLs
@@ -272,36 +297,65 @@ ${articleSummaries}
     commentContent = convertCommentLinks(commentContent);
   }
 
-  const postId = 'post_' + crypto.randomUUID().substring(0, 8);
-  const newPost: PostItem = {
-    id: postId,
-    trend_id: trend.id,
-    trend_title: trend.title,
-    post_content: postContent,
-    comment_content: commentContent,
-    source_urls: sourceUrls,
-    status: 'draft',
-  };
+  let resultPost: PostItem;
 
-  // Save to database
-  db.prepare(`
-    INSERT INTO posts (id, trend_id, trend_title, post_content, comment_content, source_urls, status)
-    VALUES (@id, @trend_id, @trend_title, @post_content, @comment_content, @source_urls, @status)
-  `).run({
-    id: newPost.id,
-    trend_id: newPost.trend_id || null,
-    trend_title: newPost.trend_title,
-    post_content: newPost.post_content,
-    comment_content: newPost.comment_content,
-    source_urls: JSON.stringify(newPost.source_urls),
-    status: newPost.status,
-  });
+  if (targetPostId) {
+    // CẬP NHẬT TRỰC TIẾP LÊN BẢN GHI CŨ (Giữ nguyên ID, không tạo bản ghi mới)
+    db.prepare(`
+      UPDATE posts 
+      SET post_content = @post_content,
+          comment_content = @comment_content,
+          source_urls = @source_urls,
+          error_message = NULL,
+          status = CASE WHEN status = 'published' THEN 'published' ELSE 'draft' END
+      WHERE id = @id
+    `).run({
+      id: targetPostId,
+      post_content: postContent,
+      comment_content: commentContent,
+      source_urls: JSON.stringify(sourceUrls),
+    });
+
+    const updatedRow = db.prepare('SELECT * FROM posts WHERE id = ?').get(targetPostId) as any;
+    resultPost = {
+      ...updatedRow,
+      source_urls: updatedRow.source_urls ? JSON.parse(updatedRow.source_urls) : [],
+    };
+    logActivity('SUCCESS', 'GENERATE', `Đã cập nhật đè nội dung bài viết [${targetPostId}] cho "${trend.title}".`);
+  } else {
+    // TẠO BẢN GHI MỚI NẾU CHƯA CÓ BẢN GHI NÀO
+    const postId = 'post_' + crypto.randomUUID().substring(0, 8);
+    resultPost = {
+      id: postId,
+      trend_id: trend.id,
+      trend_title: trend.title,
+      post_content: postContent,
+      comment_content: commentContent,
+      source_urls: sourceUrls,
+      status: 'draft',
+    };
+
+    db.prepare(`
+      INSERT INTO posts (id, trend_id, trend_title, post_content, comment_content, source_urls, status)
+      VALUES (@id, @trend_id, @trend_title, @post_content, @comment_content, @source_urls, @status)
+    `).run({
+      id: resultPost.id,
+      trend_id: resultPost.trend_id || null,
+      trend_title: resultPost.trend_title,
+      post_content: resultPost.post_content,
+      comment_content: resultPost.comment_content,
+      source_urls: JSON.stringify(resultPost.source_urls),
+      status: resultPost.status,
+    });
+    logActivity('SUCCESS', 'GENERATE', `Tạo bài viết mới ${postId} cho "${trend.title}".`);
+  }
 
   // Mark trend status as drafted
-  db.prepare(`UPDATE trends SET status = 'drafted' WHERE id = ?`).run(trend.id);
+  if (trend.id) {
+    db.prepare(`UPDATE trends SET status = 'drafted' WHERE id = ?`).run(trend.id);
+  }
   db.prepare(`UPDATE trends SET status = 'drafted' WHERE LOWER(TRIM(title)) = LOWER(TRIM(?))`).run(trend.title);
   trend.status = 'drafted';
 
-  logActivity('SUCCESS', 'GENERATE', `Generated post ${postId} for "${trend.title}" with verified publisher sources.`);
-  return newPost;
+  return resultPost;
 }

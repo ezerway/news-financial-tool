@@ -259,6 +259,9 @@ export default function DashboardPage() {
       const data = await res.json();
       if (data.success) {
         showToast('Đã viết lại bài đăng thành công!', 'success');
+        if (data.post) {
+          setPosts((prev) => prev.map((p) => (p.id === postId ? data.post : p)));
+        }
         await fetchData(true);
       } else {
         showToast(`Lỗi viết lại bài viết: ${data.error}`, 'error');

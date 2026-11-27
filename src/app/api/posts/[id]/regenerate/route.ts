@@ -59,26 +59,8 @@ export async function POST(
 
     logActivity('INFO', 'REGENERATE_POST', `Người dùng yêu cầu viết lại nội dung bài đăng [${id}] cho: "${trend.title}"...`);
 
-    // 3. Gọi hàm sinh bài viết mới với force: true
-    const newPostData = await generateSocialPost(trend, customTone, { force: true });
-
-    // 4. Cập nhật trực tiếp vào record bài viết hiện tại
-    db.prepare(`
-      UPDATE posts 
-      SET post_content = ?, comment_content = ?, source_urls = ?, error_message = NULL, status = 'draft'
-      WHERE id = ?
-    `).run(
-      newPostData.post_content,
-      newPostData.comment_content,
-      JSON.stringify(newPostData.source_urls || []),
-      id
-    );
-
-    const updatedRow = db.prepare('SELECT * FROM posts WHERE id = ?').get(id) as any;
-    const updatedPost: PostItem = {
-      ...updatedRow,
-      source_urls: updatedRow.source_urls ? JSON.parse(updatedRow.source_urls) : [],
-    };
+    // 3. Gọi hàm sinh bài viết và ghi đè trực tiếp lên bài viết cũ (targetPostId: id)
+    const updatedPost = await generateSocialPost(trend, customTone, { force: true, targetPostId: id });
 
     logActivity('SUCCESS', 'REGENERATE_POST', `Đã viết lại bài đăng [${id}] thành công cho: "${trend.title}".`);
 
