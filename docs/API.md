@@ -528,7 +528,27 @@ Xóa hàng loạt toàn bộ danh sách Reel trong database và tự động d�
   }
   ```
 
-### 7.4. Lấy nhật ký hoạt động (`GET /api/logs`)
+### 7.4. Kiểm tra kết nối Ollama cục bộ VPS (`POST /api/settings/ollama-test`)
+- Kiểm tra trạng thái máy chủ Ollama trên VPS và xác minh model đã sẵn sàng hoạt động (mặc định: `qwen2.5:3b`).
+- **Request Body** (tùy chọn):
+  ```json
+  {
+    "endpoint": "http://127.0.0.1:11434",
+    "model": "qwen2.5:3b"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "ok": true,
+    "hasRequestedModel": true,
+    "models": ["qwen2.5:3b:latest"],
+    "message": "Kết nối thành công! Model \"qwen2.5:3b\" đã sẵn sàng hoạt động trên VPS."
+  }
+  ```
+
+### 7.5. Lấy nhật ký hoạt động (`GET /api/logs`)
 - **Query Parameters**: `level`, `action`, `limit`, `page`.
 
 ---

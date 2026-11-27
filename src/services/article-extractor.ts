@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { logActivity } from '@/lib/db';
 import { NewsArticle } from '@/types';
+import { getOllamaConfig, summarizeAndExtractArticleWithOllama } from '@/services/ollama';
 
 function cleanWhitespace(text: string): string {
   if (!text) return '';
@@ -19,7 +20,7 @@ function cleanWhitespace(text: string): string {
 export async function extractSingleArticle(
   url: string,
   timeoutMs = 8000
-): Promise<{ title?: string; sapo?: string; body?: string; fullText?: string }> {
+): Promise<{ title?: string; sapo?: string; body?: string; fullText?: string; rawFullText?: string }> {
   if (!url || !url.startsWith('http')) {
     return {};
   }
@@ -64,7 +65,7 @@ export async function extractSingleArticle(
 /**
  * Bóc tách nội dung bài báo từ chuỗi HTML bằng Cheerio
  */
-function parseHtmlArticle(html: string): { title?: string; sapo?: string; body?: string; fullText?: string } {
+function parseHtmlArticle(html: string): { title?: string; sapo?: string; body?: string; fullText?: string; rawFullText?: string } {
   const $ = cheerio.load(html);
 
   // Loại bỏ các thẻ rác và vùng không thuộc nội dung bài báo
@@ -142,8 +143,10 @@ function parseHtmlArticle(html: string): { title?: string; sapo?: string; body?:
 
   const cleanTitle = cleanWhitespace(title);
   const cleanSapo = cleanWhitespace(sapo);
-  // Lấy tối đa khoảng 6-8 đoạn văn chính để đảm bảo súc tích, đủ dữ kiện
+  // Lấy tối đa khoảng 6-8 đoạn văn chính để đảm bảo súc tích cho luồng tiêu chuẩn
   const cleanBody = paragraphs.slice(0, 8).join('\n\n');
+  // Lấy toàn văn đầy đủ (tối đa 30 đoạn văn có ý nghĩa) dành cho Ollama đọc hiểu sâu
+  const deepBody = paragraphs.slice(0, 30).join('\n\n');
 
   const fullTextParts: string[] = [];
   if (cleanTitle) fullTextParts.push(`Tiêu đề: ${cleanTitle}`);
@@ -156,7 +159,14 @@ function parseHtmlArticle(html: string): { title?: string; sapo?: string; body?:
 
   const fullText = fullTextParts.join('\n\n');
 
-  // Giới hạn tối đa ~2.000 ký tự cho mỗi bài để tối ưu token cho Gemini
+  // Chuỗi toàn văn sâu cho Ollama
+  const rawParts: string[] = [];
+  if (cleanTitle) rawParts.push(`Tiêu đề: ${cleanTitle}`);
+  if (cleanSapo && cleanSapo !== cleanTitle) rawParts.push(`Tóm tắt: ${cleanSapo}`);
+  if (deepBody) rawParts.push(`Nội dung chi tiết:\n${deepBody}`);
+  const rawFullText = rawParts.join('\n\n');
+
+  // Giới hạn tối đa ~2.000 ký tự cho mỗi bài khi gửi trực tiếp tới Gemini
   const truncatedFullText = fullText.length > 2200 ? fullText.slice(0, 2200) + '...' : fullText;
 
   return {
@@ -164,6 +174,7 @@ function parseHtmlArticle(html: string): { title?: string; sapo?: string; body?:
     sapo: cleanSapo,
     body: cleanBody,
     fullText: truncatedFullText,
+    rawFullText: rawFullText || truncatedFullText,
   };
 }
 
@@ -173,7 +184,7 @@ function parseHtmlArticle(html: string): { title?: string; sapo?: string; body?:
 async function extractWithPlaywright(
   url: string,
   timeoutMs = 10000
-): Promise<{ title?: string; sapo?: string; body?: string; fullText?: string }> {
+): Promise<{ title?: string; sapo?: string; body?: string; fullText?: string; rawFullText?: string }> {
   const { chromium } = await import('playwright');
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
@@ -200,13 +211,19 @@ async function extractWithPlaywright(
 /**
  * Đọc và trích xuất nội dung toàn văn cho một danh sách bài báo nguồn.
  * Tự động bỏ qua các bài đã có content hoặc liên kết không hợp lệ.
+ * Nếu Ollama được bật, tự động chuyển toàn văn qua mô hình qwen2.5:3b để lọc dữ kiện (Fact Sheet).
  */
-export async function extractArticlesContent(articles: NewsArticle[]): Promise<NewsArticle[]> {
+export async function extractArticlesContent(
+  articles: NewsArticle[],
+  trendTitle?: string
+): Promise<NewsArticle[]> {
   if (!articles || articles.length === 0) return [];
 
   const validArticles = articles.filter(
     (a) => a.url && a.url.startsWith('http') && !a.url.includes('google.com')
   );
+
+  const ollamaConfig = getOllamaConfig();
 
   const extractPromises = validArticles.map(async (art) => {
     // Nếu bài báo đã có content đầy đủ (từ cache), không cào lại
@@ -219,7 +236,36 @@ export async function extractArticlesContent(articles: NewsArticle[]): Promise<N
       const extracted = await extractSingleArticle(art.url, 8000);
 
       if (extracted.fullText && extracted.fullText.length > 100) {
-        art.content = extracted.fullText;
+        let finalContent = extracted.fullText;
+
+        // Nếu Ollama bật trên VPS, gửi toàn văn để Qwen2.5:3b tinh lọc số liệu & sự kiện
+        if (ollamaConfig.enabled) {
+          try {
+            const sourceForOllama = extracted.rawFullText || extracted.fullText;
+            const factSheet = await summarizeAndExtractArticleWithOllama(
+              sourceForOllama,
+              extracted.title || art.title,
+              trendTitle || art.title
+            );
+
+            if (factSheet && factSheet.length >= 80) {
+              finalContent = `[DỮ KIỆN CỐT LÕI TỔNG HỢP BỞI OLLAMA QWEN2.5]\n${factSheet}\n\n(Nội dung bài báo gốc: "${extracted.title || art.title}")`;
+              logActivity(
+                'SUCCESS',
+                'EXTRACTOR',
+                `Đã tinh lọc nội dung qua Ollama qwen2.5:3b (${finalContent.length} ký tự) cho: "${art.title.slice(0, 50)}..."`
+              );
+            }
+          } catch (ollamaErr: any) {
+            logActivity(
+              'WARN',
+              'EXTRACTOR',
+              `Ollama xử lý bài báo không thành công (${ollamaErr.message}), tự động dự phòng sang nội dung chuẩn.`
+            );
+          }
+        }
+
+        art.content = finalContent;
         art.extracted_at = new Date().toISOString();
         if (extracted.title && (!art.title || art.title.length < 15)) {
           art.title = extracted.title;

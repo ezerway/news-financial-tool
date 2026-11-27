@@ -5,6 +5,7 @@ import { findExactNewsSources } from './crawler';
 import { findDuplicatePost } from './dedup';
 import { extractArticlesContent } from './article-extractor';
 import { convertCommentLinks } from '@/lib/link-redirect';
+import { getOllamaConfig, generateFacebookPostWithOllama } from './ollama';
 import crypto from 'crypto';
 
 export function resolveGeminiApiKey(): string {
@@ -83,7 +84,7 @@ export async function generateSocialPost(trend: TrendItem, customTone?: string, 
   if (needsExtraction) {
     try {
       logActivity('INFO', 'GENERATE', `Đang đọc và trích xuất nội dung từ ${exactArticles.length} bài báo nguồn cho "${trend.title}"...`);
-      exactArticles = await extractArticlesContent(exactArticles);
+      exactArticles = await extractArticlesContent(exactArticles, trend.title);
       trend.articles = exactArticles;
       if (trend.id) {
         db.prepare('UPDATE trends SET articles_json = ? WHERE id = ?').run(
@@ -200,11 +201,34 @@ Trả về duy nhất JSON hợp lệ (không kèm markdown \`\`\`json):
         postContent = responseText;
       }
     } catch (apiErr: any) {
-      logActivity('WARN', 'GENERATE', `Gemini API call failed, falling back to smart template: ${apiErr?.message}`);
+      logActivity('WARN', 'GENERATE', `Gemini API call failed, attempting fallback: ${apiErr?.message}`);
     }
   }
 
-  // Fallback template adhering strictly to the 3 principles
+  // Fallback 1: Sử dụng mô hình Ollama cục bộ trên VPS (nếu bật chế độ extract_and_fallback hoặc khi không có Gemini Key)
+  if (!postContent) {
+    try {
+      const ollamaConfig = getOllamaConfig();
+      if (ollamaConfig.enabled && (ollamaConfig.role === 'extract_and_fallback' || !apiKey)) {
+        logActivity('INFO', 'GENERATE', `Kích hoạt Ollama (${ollamaConfig.model}) tạo bài viết thay thế cho "${trend.title}"...`);
+        const articlesContext = exactArticles
+          .map((a, i) => `Bài báo ${i + 1} [${a.source || 'Báo chí'}] "${a.title}":\n${a.content || a.snippet || ''}`)
+          .join('\n\n');
+        const fallbackRes = await generateFacebookPostWithOllama(trend.title, articlesContext, sourceUrls, tone);
+        if (fallbackRes.postContent) {
+          postContent = fallbackRes.postContent;
+          if (fallbackRes.commentContent) {
+            commentContent = fallbackRes.commentContent;
+          }
+          logActivity('SUCCESS', 'GENERATE', `Ollama đã tạo bài viết thành công thay thế Gemini.`);
+        }
+      }
+    } catch (ollamaFallbackErr: any) {
+      logActivity('WARN', 'GENERATE', `Ollama fallback không thành công: ${ollamaFallbackErr?.message}`);
+    }
+  }
+
+  // Fallback 2: Mẫu định dạng dự phòng thông minh (nếu cả Gemini và Ollama đều không khả dụng)
   if (!postContent) {
     const topicUpper = trend.title.toUpperCase();
     const articleSummaries = exactArticles.length > 0

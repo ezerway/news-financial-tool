@@ -238,6 +238,10 @@ export function initSchema(database: Database.Database) {
       posts_per_cycle: '1',
       redirect_proxy_enabled: 'true',
       video_default_template: 'random',
+      ollama_enabled: 'false',
+      ollama_endpoint: 'http://127.0.0.1:11434',
+      ollama_model: 'qwen2.5:3b',
+      ollama_role: 'extract_only',
     };
 
     const insertSettingStmt = database.prepare(`

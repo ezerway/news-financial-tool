@@ -79,9 +79,11 @@ Tài liệu này mô tả chi tiết kiến trúc kỹ thuật, luồng dữ li�
      5. Độ tương đồng từ khóa cao (Token Jaccard Similarity $\ge$ 65%).
    - **Tự động giải phóng trạng thái cũ**: Các bài viết cũ hơn 1 ngày trước sẽ không chặn các chủ đề xuất hiện lại hôm nay; trình dọn dẹp `repairInconsistentTrendStatuses` tự động đưa các xu hướng cũ về lại `discovered`.
 
-3. **Sáng tạo nội dung chuyên sâu (`article-extractor.ts` & `ai-generator.ts`)**:
+3. **Sáng tạo nội dung chuyên sâu (`article-extractor.ts`, `ollama.ts` & `ai-generator.ts`)**:
    - Trước khi gửi bài cho AI, dịch vụ `article-extractor.ts` tự động cào và trích xuất toàn văn nội dung bài báo nguồn (sử dụng Cheerio để bóc tách nhanh các thẻ bài viết `article`, `.content-detail` và tự động fallback sang Playwright không đầu nếu gặp trang web SPA hoặc Cloudflare).
-   - Nội dung bài báo đầy đủ được đưa vào prompt ngữ cảnh cho Google Gemini API (danh sách model hiện đại: `gemini-3.5-flash-lite`, `gemini-3.5-flash`, `gemini-3.8-flash`).
+   - **Tích hợp mô hình Ollama cục bộ (`qwen2.5:3b`)**: Khi người dùng bật tính năng Ollama trong Cài đặt, toàn văn bài báo được gửi tới Ollama chạy trực tiếp trên VPS (`http://127.0.0.1:11434`) để trích xuất Fact Sheet súc tích (số liệu định lượng %, tỷ giá, số tiền, mốc thời gian và sự kiện cốt lõi). Nếu Ollama offline hoặc quá tải, hệ thống tự động fallback mềm về trích xuất thông thường.
+   - Nội dung bài báo đầy đủ hoặc Fact Sheet tinh lọc được đưa vào prompt ngữ cảnh cho Google Gemini API (danh sách model hiện đại: `gemini-3.5-flash-lite`, `gemini-3.5-flash`, `gemini-3.8-flash`).
+   - Nếu Gemini gặp sự cố (Rate limit 429 hoặc lỗi mạng), Ollama `qwen2.5:3b` đóng vai trò Fallback Generator để viết bài Facebook thay thế.
    - Nhận về:
      - `post_content`: Nội dung bài viết chính mang góc nhìn phân tích thị trường chuyên sâu, chuẩn công thức Hook & Insight (tuyệt đối không chứa liên kết để giữ reach tự nhiên).
      - `comment_content`: Nội dung bình luận trích dẫn đầy đủ nguồn gốc (hỗ trợ phân tách nhiều bình luận liên tiếp bằng ký tự `|`).

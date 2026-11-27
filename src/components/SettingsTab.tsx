@@ -28,6 +28,7 @@ import {
   Link2,
   FileText,
   TrendingUp,
+  Cpu,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import TikTokIcon from './TikTokIcon';
@@ -98,6 +99,10 @@ export default function SettingsTab({
     redirect_proxy_enabled: settings.redirect_proxy_enabled || 'true',
     video_default_template: settings.video_default_template || 'random',
     auto_video_publish_after_post: settings.auto_video_publish_after_post || 'false',
+    ollama_enabled: settings.ollama_enabled || 'false',
+    ollama_endpoint: settings.ollama_endpoint || 'http://127.0.0.1:11434',
+    ollama_model: settings.ollama_model || 'qwen2.5:3b',
+    ollama_role: settings.ollama_role || 'extract_only',
   });
 
   useEffect(() => {
@@ -131,6 +136,10 @@ export default function SettingsTab({
       redirect_proxy_enabled: settings.redirect_proxy_enabled ?? prev.redirect_proxy_enabled,
       video_default_template: settings.video_default_template ?? prev.video_default_template,
       auto_video_publish_after_post: settings.auto_video_publish_after_post ?? prev.auto_video_publish_after_post,
+      ollama_enabled: settings.ollama_enabled ?? prev.ollama_enabled,
+      ollama_endpoint: settings.ollama_endpoint ?? prev.ollama_endpoint,
+      ollama_model: settings.ollama_model ?? prev.ollama_model,
+      ollama_role: settings.ollama_role ?? prev.ollama_role,
     }));
   }, [settings]);
 
@@ -285,6 +294,44 @@ export default function SettingsTab({
   const [showTelegramToken, setShowTelegramToken] = useState(false);
   const [isTestingSlack, setIsTestingSlack] = useState(false);
   const [slackTestMsg, setSlackTestMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Ollama states
+  const [isTestingOllama, setIsTestingOllama] = useState(false);
+  const [ollamaTestMsg, setOllamaTestMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const handleTestOllama = async () => {
+    setIsTestingOllama(true);
+    setOllamaTestMsg(null);
+    try {
+      const res = await fetch('/api/settings/ollama-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: form.ollama_endpoint,
+          model: form.ollama_model,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.hasRequestedModel) {
+        setOllamaTestMsg({
+          type: 'success',
+          text: data.message || (lang === 'vi' ? 'Kết nối Ollama thành công!' : 'Ollama connection successful!'),
+        });
+      } else {
+        setOllamaTestMsg({
+          type: 'error',
+          text: data.message || (lang === 'vi' ? 'Không thể kết nối đến Ollama' : 'Cannot connect to Ollama'),
+        });
+      }
+    } catch (err: any) {
+      setOllamaTestMsg({
+        type: 'error',
+        text: (lang === 'vi' ? 'Lỗi: ' : 'Error: ') + (err.message || 'Unknown error'),
+      });
+    } finally {
+      setIsTestingOllama(false);
+    }
+  };
 
   useEffect(() => {
     if (isBrowserNotificationSupported()) {
@@ -1391,6 +1438,117 @@ export default function SettingsTab({
                   {showKey ? (lang === 'vi' ? 'Ẩn' : 'Hide') : (lang === 'vi' ? 'Hiện' : 'Show')}
                 </button>
               </div>
+            </div>
+
+            {/* OLLAMA LOCAL AI CONFIGURATION */}
+            <div className="p-4 rounded-xl app-tag border border-emerald-500/25 bg-emerald-500/5 space-y-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-inherit flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+                    <Cpu className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span className="truncate">{t('ollama_enable_label')}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md font-mono bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 font-semibold">
+                      VPS Local
+                    </span>
+                  </div>
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {t('ollama_enable_desc')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm({ ...form, ollama_enabled: form.ollama_enabled === 'true' ? 'false' : 'true' })
+                  }
+                  className={`w-12 h-6 sm:w-14 sm:h-7 flex items-center rounded-full p-1 transition-colors duration-200 shrink-0 ${
+                    form.ollama_enabled === 'true'
+                      ? 'bg-emerald-600 justify-end'
+                      : 'bg-slate-300 dark:bg-slate-700 justify-start'
+                  }`}
+                >
+                  <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white shadow-md"></div>
+                </button>
+              </div>
+
+              {form.ollama_enabled === 'true' && (
+                <div className="pt-2 border-t border-emerald-500/15 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-inherit mb-1">
+                        {t('ollama_endpoint_label')}
+                      </label>
+                      <input
+                        type="text"
+                        value={form.ollama_endpoint}
+                        onChange={(e) => setForm({ ...form, ollama_endpoint: e.target.value })}
+                        placeholder="http://127.0.0.1:11434"
+                        className="w-full h-9 px-3 app-input rounded-lg text-xs font-mono placeholder-slate-400 focus:outline-hidden focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-inherit mb-1">
+                        {t('ollama_model_label')}
+                      </label>
+                      <input
+                        type="text"
+                        value={form.ollama_model}
+                        onChange={(e) => setForm({ ...form, ollama_model: e.target.value })}
+                        placeholder="qwen2.5:3b"
+                        className="w-full h-9 px-3 app-input rounded-lg text-xs font-mono placeholder-slate-400 focus:outline-hidden focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-inherit mb-1">
+                      {t('ollama_role_label')}
+                    </label>
+                    <select
+                      value={form.ollama_role}
+                      onChange={(e) => setForm({ ...form, ollama_role: e.target.value })}
+                      className="w-full h-9 px-3 app-input rounded-lg text-xs font-medium focus:outline-hidden focus:border-emerald-500"
+                    >
+                      <option value="extract_only">{t('ollama_role_extract_only')}</option>
+                      <option value="extract_and_fallback">{t('ollama_role_extract_and_fallback')}</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleTestOllama}
+                      disabled={isTestingOllama}
+                      className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white border-none text-xs gap-1.5 font-medium disabled:opacity-50"
+                    >
+                      {isTestingOllama ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>{t('ollama_testing')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Cpu className="w-3.5 h-3.5" />
+                          <span>{t('ollama_test_btn')}</span>
+                        </>
+                      )}
+                    </button>
+
+                    {ollamaTestMsg && (
+                      <span
+                        className={`text-xs font-medium flex items-center gap-1 ${
+                          ollamaTestMsg.type === 'success'
+                            ? 'text-emerald-700 dark:text-emerald-400'
+                            : 'text-rose-600 dark:text-rose-400'
+                        }`}
+                      >
+                        {ollamaTestMsg.type === 'success' ? '✓ ' : '✕ '}
+                        {ollamaTestMsg.text}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Auto Mode Toggle */}
