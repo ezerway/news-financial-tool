@@ -201,27 +201,16 @@ export async function addMusicToYouTubeShort(
     // 5. Xử lý dialog selector 'tp-yt-paper-dialog' xác nhận thay đổi
     try {
       const checkbox = page.locator('[id="checkbox"]').first();
-      const isCheckboxVisible = await checkbox.isVisible({ timeout: 6000 }).catch(() => false);
+      notify('Phát hiện dialog xác nhận (tp-yt-paper-dialog), đang click checkbox và xác nhận...');
+      // Click vào checkbox id="checkbox"
+      await checkbox.click();
+      await page.waitForTimeout(800);
 
-      if (isCheckboxVisible) {
-        notify('Phát hiện dialog xác nhận (tp-yt-paper-dialog), đang click checkbox và xác nhận...');
-        // Click vào checkbox id="checkbox"
-        await checkbox.click();
-        await page.waitForTimeout(800);
-
-        // Click button có [aria-label="Confirm changes"]
-        const confirmBtn = page.locator('[aria-label="Confirm changes"]').first();
-        await confirmBtn.waitFor({ state: 'visible', timeout: 4000 });
-        await confirmBtn.click();
-        await page.waitForTimeout(2500);
-      } else {
-        // Fallback kiểm tra nút xác nhận nếu dialog không dùng tp-yt-paper-dialog
-        const fallbackConfirmBtn = page.locator('[aria-label="Confirm changes"]').first();
-        if (await fallbackConfirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await fallbackConfirmBtn.click();
-          await page.waitForTimeout(2000);
-        }
-      }
+      // Click button có [aria-label="Confirm changes"]
+      const confirmBtn = page.locator('[aria-label="Confirm changes"]').first();
+      await confirmBtn.waitFor({ state: 'visible', timeout: 4000 });
+      await confirmBtn.click();
+      await page.waitForTimeout(2500);
     } catch (dErr: any) {
       notify(`Cảnh báo khi xử lý dialog xác nhận: ${dErr.message}`, 'WARN');
     }
