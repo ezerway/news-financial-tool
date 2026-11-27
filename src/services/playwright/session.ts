@@ -11,7 +11,7 @@ export function getStorageDir(): string {
   if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) {
     try {
       fs.mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
-    } catch {}
+    } catch { }
   }
   return dir;
 }
@@ -42,7 +42,7 @@ export function cleanStaleChromeLocks(userDataDir: string = getUserDataDir()): v
         ) {
           fs.unlinkSync(/*turbopackIgnore: true*/ filePath);
         }
-      } catch {}
+      } catch { }
     }
 
     // Clean up stale orphan 0-byte SQLite journal and lock files in Default directory
@@ -58,11 +58,11 @@ export function cleanStaleChromeLocks(userDataDir: string = getUserDataDir()): v
             if (stat.size === 0) {
               fs.unlinkSync(/*turbopackIgnore: true*/ filePath);
             }
-          } catch {}
+          } catch { }
         }
       }
     }
-  } catch {}
+  } catch { }
 }
 
 export function isSessionAvailable(): boolean {
@@ -219,17 +219,17 @@ export async function launchInteractiveLogin(initialUrl?: string): Promise<strin
   const effectivePageUrl = !isGenericRoot(pageUrlSetting) ? pageUrlSetting : (!isGenericRoot(targetUrlSetting) ? targetUrlSetting : '');
   const target = initialUrl || effectivePageUrl || 'https://www.facebook.com/';
   logActivity('INFO', 'AUTH', `Đang mở Facebook tại: ${target}. Bạn có thể đăng nhập hoặc chuyển đổi sang Fanpage cần đăng bài.`);
-  await page.goto(target, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.goto(target, { waitUntil: 'domcontentloaded' }).catch(() => { });
 
   // Save session state on navigation or periodically
   const saveState = async () => {
     try {
       await browser.storageState({ path: getSessionPath() });
-    } catch {}
+    } catch { }
   };
 
   page.on('load', () => {
-    saveState().catch(() => {});
+    saveState().catch(() => { });
   });
 
   // Moderate periodic save (every 15s instead of 3s to avoid CDP focus & render jitter)
@@ -304,6 +304,74 @@ export function saveRawFacebookCookies(cUserVal: string, xsVal: string, extraCoo
 }
 
 /**
+ * Chuẩn hóa một cookie theo tiêu chuẩn nghiêm ngặt của Chromium DevTools Protocol (CDP) / Playwright
+ * Tránh lỗi: Protocol error (Storage.setCookies): Invalid cookie fields
+ */
+function sanitizeFacebookCookieForPlaywright(c: any): any | null {
+  if (!c || typeof c !== 'object') return null;
+  const name = String(c.name || '').trim();
+  const value = String(c.value || '').trim();
+  if (!name) return null;
+
+  const isHostCookie = name.startsWith('__Host-');
+  const isSecure = Boolean(c.secure ?? true);
+
+  // sameSite: Theo CDP, nếu sameSite là 'None' thì bắt buộc secure phải là true
+  let sameSite: 'Strict' | 'Lax' | 'None' = 'Lax';
+  if (c.sameSite === 'Strict' || c.sameSite === 'Lax') {
+    sameSite = c.sameSite;
+  } else if (c.sameSite === 'None' || c.sameSite === 'no_restriction') {
+    sameSite = isSecure ? 'None' : 'Lax';
+  }
+
+  // Sanitize domain: loại bỏ scheme (http/https), port, trailing slashes
+  let rawDomain = typeof c.domain === 'string' ? c.domain.trim() : '';
+  rawDomain = rawDomain.replace(/^https?:\/\//i, '').replace(/:\d+$/, '').replace(/\/.*$/, '');
+  let domain = '.facebook.com';
+  if (rawDomain) {
+    domain = rawDomain.startsWith('.') ? rawDomain : `.${rawDomain.replace(/^\.+/, '')}`;
+  }
+
+  // Sanitize path
+  const path = typeof c.path === 'string' && c.path.trim().startsWith('/') ? c.path.trim() : '/';
+
+  // Sanitize expires: chuyển đổi milliseconds sang seconds nếu cần, loại bỏ nếu âm hoặc session
+  let expires: number | undefined;
+  const rawExpires = typeof c.expires === 'number' ? c.expires : (typeof c.expirationDate === 'number' ? c.expirationDate : undefined);
+  if (typeof rawExpires === 'number' && !isNaN(rawExpires) && rawExpires > 0) {
+    if (rawExpires > 1e11) {
+      // Milliseconds sang seconds
+      expires = Math.floor(rawExpires / 1000);
+    } else {
+      expires = Math.floor(rawExpires);
+    }
+  }
+
+  const cookieObj: any = {
+    name,
+    value,
+    path,
+    httpOnly: Boolean(c.httpOnly),
+    secure: isSecure,
+    sameSite,
+  };
+
+  if (typeof expires === 'number') {
+    cookieObj.expires = expires;
+  }
+
+  if (isHostCookie) {
+    // RFC 6265bis: __Host- cookies MUST be secure, path '/', and MUST NOT have domain
+    cookieObj.secure = true;
+    cookieObj.path = '/';
+  } else {
+    cookieObj.domain = domain;
+  }
+
+  return cookieObj;
+}
+
+/**
  * Smart parse and save cookies from multiple formats:
  * - Cookie-Editor JSON array: [{ name: "c_user", value: "..." }, ...]
  * - Playwright storageState JSON: { cookies: [...], origins: [...] }
@@ -355,17 +423,9 @@ export function parseAndSaveFacebookCookies(rawInput: string): { success: boolea
     throw new Error('Không tìm thấy cookie c_user hoặc xs trong dữ liệu bạn vừa nhập. Vui lòng đảm bảo đã copy đúng cookie Facebook.');
   }
 
-  const oneYearLater = Math.floor(Date.now() / 1000) + 365 * 24 * 3600;
-  const normalizedCookies = cookiesList.map((c) => ({
-    name: String(c.name),
-    value: String(c.value),
-    domain: typeof c.domain === 'string' && c.domain ? (c.domain.startsWith('.') ? c.domain : `.${c.domain.replace(/^\.+/, '')}`) : '.facebook.com',
-    path: typeof c.path === 'string' && c.path ? c.path : '/',
-    expires: typeof c.expires === 'number' ? c.expires : (typeof c.expirationDate === 'number' ? Math.floor(c.expirationDate) : oneYearLater),
-    httpOnly: Boolean(c.httpOnly),
-    secure: Boolean(c.secure ?? true),
-    sameSite: (c.sameSite === 'Strict' || c.sameSite === 'Lax' || c.sameSite === 'None') ? c.sameSite : 'None',
-  }));
+  const normalizedCookies = cookiesList
+    .map((c) => sanitizeFacebookCookieForPlaywright(c))
+    .filter((c): c is NonNullable<typeof c> => c !== null);
 
   const state = {
     cookies: normalizedCookies,
@@ -395,24 +455,32 @@ export async function injectSessionCookies(context: { addCookies: (cookies: any[
     const cookies = state.cookies || [];
     if (!Array.isArray(cookies) || cookies.length === 0) return 0;
 
-    const oneYearLater = Math.floor(Date.now() / 1000) + 365 * 24 * 3600;
-    const validCookies = cookies
-      .filter((c: any) => c.name && c.value)
-      .map((c: any) => ({
-        name: c.name,
-        value: c.value,
-        domain: c.domain?.startsWith('.') ? c.domain : (c.domain ? `.${c.domain.replace(/^\.+/, '')}` : '.facebook.com'),
-        path: c.path || '/',
-        expires: typeof c.expires === 'number' ? c.expires : (c.expirationDate ? Math.floor(c.expirationDate) : oneYearLater),
-        httpOnly: Boolean(c.httpOnly),
-        secure: Boolean(c.secure ?? true),
-        sameSite: (c.sameSite === 'Strict' || c.sameSite === 'Lax' || c.sameSite === 'None') ? c.sameSite : 'None',
-      }));
-
-    if (validCookies.length > 0) {
-      await context.addCookies(validCookies);
-      return validCookies.length;
+    const validCookies: any[] = [];
+    for (const c of cookies) {
+      const sanitized = sanitizeFacebookCookieForPlaywright(c);
+      if (sanitized) validCookies.push(sanitized);
     }
+
+    if (validCookies.length === 0) return 0;
+
+    let loadedCount = 0;
+    // 1. Thử nạp toàn bộ một lượt để tối ưu hiệu năng
+    try {
+      await context.addCookies(validCookies);
+      loadedCount = validCookies.length;
+    } catch {
+      // 2. Fallback: Nếu có bất kỳ cookie nào bị Chrome từ chối định dạng, nạp độc lập từng cookie
+      for (const cookie of validCookies) {
+        try {
+          await context.addCookies([cookie]);
+          loadedCount++;
+        } catch {
+          // Bỏ qua cookie không hợp lệ để bảo toàn các cookie cốt lõi (c_user, xs, fr, datr...)
+        }
+      }
+    }
+
+    return loadedCount;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     logActivity('WARN', 'AUTH', `Không thể nạp cookies từ session file: ${msg}`);
