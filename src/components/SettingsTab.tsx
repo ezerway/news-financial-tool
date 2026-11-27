@@ -1796,6 +1796,9 @@ export default function SettingsTab({
                 <option value="bloomberg_terminal">📈 {lang === 'vi' ? 'Wall Street Terminal (Bloomberg Style)' : 'Wall Street Terminal'}</option>
                 <option value="editorial_magazine">💎 {lang === 'vi' ? 'Tạp chí Sang trọng (Editorial Luxury)' : 'Editorial Luxury'}</option>
                 <option value="neon_cyber">⚡ {lang === 'vi' ? 'Cyberpunk Neon (Crypto & Tech)' : 'Cyberpunk Neon'}</option>
+                <option value="crimson_breaking">🚨 {lang === 'vi' ? 'Thời sự & Khẩn cấp (Breaking News)' : 'Breaking News Alert'}</option>
+                <option value="emerald_wealth">👑 {lang === 'vi' ? 'Thịnh vượng & Đầu tư (Royal Wealth)' : 'Royal Emerald & Gold'}</option>
+                <option value="sunset_gradient">🌅 {lang === 'vi' ? 'TikTok GenZ Sunset (Vibrant Glow)' : 'Sunset Vibrant GenZ'}</option>
               </select>
             </div>
 

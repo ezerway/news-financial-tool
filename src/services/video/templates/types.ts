@@ -4,7 +4,10 @@ export type VideoTemplateId =
   | 'modern_dark'
   | 'bloomberg_terminal'
   | 'editorial_magazine'
-  | 'neon_cyber';
+  | 'neon_cyber'
+  | 'crimson_breaking'
+  | 'emerald_wealth'
+  | 'sunset_gradient';
 
 export interface TemplateRenderOptions {
   width?: number; // 720 hoặc 1080

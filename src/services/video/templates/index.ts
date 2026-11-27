@@ -4,18 +4,27 @@ import { modernDarkTemplate } from './template-modern-dark';
 import { bloombergTerminalTemplate } from './template-bloomberg-terminal';
 import { editorialMagazineTemplate } from './template-editorial-magazine';
 import { neonCyberTemplate } from './template-neon-cyber';
+import { crimsonBreakingTemplate } from './template-crimson-breaking';
+import { emeraldWealthTemplate } from './template-emerald-wealth';
+import { sunsetGradientTemplate } from './template-sunset-gradient';
 
 export * from './types';
 export { modernDarkTemplate } from './template-modern-dark';
 export { bloombergTerminalTemplate } from './template-bloomberg-terminal';
 export { editorialMagazineTemplate } from './template-editorial-magazine';
 export { neonCyberTemplate } from './template-neon-cyber';
+export { crimsonBreakingTemplate } from './template-crimson-breaking';
+export { emeraldWealthTemplate } from './template-emerald-wealth';
+export { sunsetGradientTemplate } from './template-sunset-gradient';
 
 export const TEMPLATES: Record<VideoTemplateId, VideoTemplateDefinition> = {
   modern_dark: modernDarkTemplate,
   bloomberg_terminal: bloombergTerminalTemplate,
   editorial_magazine: editorialMagazineTemplate,
   neon_cyber: neonCyberTemplate,
+  crimson_breaking: crimsonBreakingTemplate,
+  emerald_wealth: emeraldWealthTemplate,
+  sunset_gradient: sunsetGradientTemplate,
 };
 
 export const TEMPLATE_LIST: VideoTemplateDefinition[] = [
@@ -23,6 +32,9 @@ export const TEMPLATE_LIST: VideoTemplateDefinition[] = [
   bloombergTerminalTemplate,
   editorialMagazineTemplate,
   neonCyberTemplate,
+  crimsonBreakingTemplate,
+  emeraldWealthTemplate,
+  sunsetGradientTemplate,
 ];
 
 /**
@@ -142,7 +154,15 @@ export function getAllVideoTemplates(): VideoTemplateMeta[] {
  * Chọn ngẫu nhiên một template ID
  */
 export function getRandomTemplateId(): VideoTemplateId {
-  const ids: VideoTemplateId[] = ['modern_dark', 'bloomberg_terminal', 'editorial_magazine', 'neon_cyber'];
+  const ids: VideoTemplateId[] = [
+    'modern_dark',
+    'bloomberg_terminal',
+    'editorial_magazine',
+    'neon_cyber',
+    'crimson_breaking',
+    'emerald_wealth',
+    'sunset_gradient',
+  ];
   const randomIndex = Math.floor(Math.random() * ids.length);
   return ids[randomIndex];
 }

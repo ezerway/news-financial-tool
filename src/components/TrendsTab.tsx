@@ -94,6 +94,9 @@ export default function TrendsTab({
     { id: 'bloomberg_terminal', name: '📈 Wall Street Terminal', desc: 'Tone đen sâu & Vàng tài chính' },
     { id: 'editorial_magazine', name: '💎 Tạp chí Sang trọng', desc: 'Obsidian & Vàng Champagne' },
     { id: 'neon_cyber', name: '⚡ Cyberpunk Neon', desc: 'Cyan & Magenta FinTech tương lai' },
+    { id: 'crimson_breaking', name: '🚨 Thời sự & Khẩn cấp', desc: 'Đỏ Crimson rực lửa & Báo động nóng' },
+    { id: 'emerald_wealth', name: '👑 Thịnh vượng & Đầu tư', desc: 'Xanh ngọc lục bảo & Vàng Gold quý phái' },
+    { id: 'sunset_gradient', name: '🌅 TikTok GenZ Sunset', desc: 'Cam san hô & Tím Neon sôi động bắt mắt' },
   ];
 
   const toggleExpand = (id: string) => {
