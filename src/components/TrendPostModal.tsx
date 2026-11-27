@@ -367,6 +367,21 @@ export default function TrendPostModal({
           <div className="flex items-center gap-2 flex-wrap">
             {post ? (
               <>
+                {onGenerate && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await onGenerate(trend.id);
+                    }}
+                    disabled={isGenerating}
+                    className="btn btn-sm btn-secondary text-xs inline-flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                    title={lang === 'vi' ? 'Yêu cầu AI viết lại nội dung bài đăng này' : 'Regenerate post content with AI'}
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 text-indigo-500 ${isGenerating ? 'animate-spin' : ''}`} />
+                    <span>{isGenerating ? (lang === 'vi' ? 'Đang viết lại...' : 'Regenerating...') : (lang === 'vi' ? 'Viết lại bài' : 'Regenerate')}</span>
+                  </button>
+                )}
+
                 {onNavigateToPostsTab && (
                   <button
                     type="button"

@@ -137,7 +137,7 @@ export function getHyperframesPath(): string | null {
  */
 export async function renderTrendVideo(
   trend: TrendItem,
-  options: { force?: boolean; width?: number; height?: number; templateId?: string; duration?: number } = {}
+  options: { force?: boolean; width?: number; height?: number; templateId?: string; duration?: number; script?: VideoSlideScript } = {}
 ): Promise<RenderResult> {
   const width = options.width || 720; // 720x1280 (chuẩn HD 9:16 tối ưu tốc độ render)
   const height = options.height || 1280;
@@ -183,8 +183,8 @@ export async function renderTrendVideo(
 
   logActivity('INFO', 'VIDEO_RENDER', `Bắt đầu quy trình tạo video 9:16 cho xu hướng: "${trend.title}"...`);
 
-  // 2. Sinh kịch bản Slide (Gemini -> Alternate -> Smart Extractor Fallback)
-  const script = await generateVideoSlideScript(trend);
+  // 2. Sinh kịch bản Slide (Gemini -> Alternate -> Smart Extractor Fallback) nếu chưa có sẵn từ preview
+  const script = options.script || (await generateVideoSlideScript(trend));
 
   // 3. Tính toán thời lượng video tự động theo số slide (từ 20s đến 60s)
   const duration = options.duration || calculateVideoDuration(script);

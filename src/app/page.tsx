@@ -225,18 +225,18 @@ export default function DashboardPage() {
   };
 
   // Generate AI post handler
-  const handleGenerate = async (trendId: string) => {
+  const handleGenerate = async (trendId: string, force = false) => {
     setGeneratingId(trendId);
-    showToast('Đang tạo bài viết và comment nguồn bằng Gemini AI...', 'info');
+    showToast(force ? 'Đang viết lại bài đăng bằng AI...' : 'Đang tạo bài viết và comment nguồn bằng AI...', 'info');
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trendId }),
+        body: JSON.stringify({ trendId, force }),
       });
       const data = await res.json();
       if (data.success) {
-        showToast('Đã tạo xong bài viết và bình luận nguồn!', 'success');
+        showToast(force ? 'Đã viết lại xong bài viết!' : 'Đã tạo xong bài viết và bình luận nguồn!', 'success');
         await fetchData();
         setActiveTab('posts');
       } else {
@@ -249,15 +249,39 @@ export default function DashboardPage() {
     }
   };
 
+  // Regenerate Post handler
+  const handleRegeneratePost = async (postId: string) => {
+    showToast('Đang phân tích tin tức và viết lại nội dung bài đăng...', 'info');
+    try {
+      const res = await fetch(`/api/posts/${postId}/regenerate`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Đã viết lại bài đăng thành công!', 'success');
+        await fetchData(true);
+      } else {
+        showToast(`Lỗi viết lại bài viết: ${data.error}`, 'error');
+      }
+    } catch (err: any) {
+      showToast(`Lỗi mạng: ${err.message}`, 'error');
+    }
+  };
+
   // Generate 9:16 Video handler
-  const handleGenerateVideo = async (trendId: string, force = false, templateId?: string) => {
+  const handleGenerateVideo = async (
+    trendId: string,
+    force = false,
+    templateId?: string,
+    customScript?: any
+  ) => {
     setGeneratingVideoId(trendId);
     showToast('Đang tạo video dọc 9:16 bản tin...', 'info');
     try {
       const res = await fetch(`/api/trends/${trendId}/generate-video`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force, templateId }),
+        body: JSON.stringify({ force, templateId, script: customScript }),
       });
       const data = await res.json();
       if (data.success) {
@@ -1198,6 +1222,7 @@ export default function DashboardPage() {
               onDelete={handleDeletePost}
               onDeleteAllFailed={handleDeleteAllFailedPosts}
               onToggleRecordVideo={handleToggleRecordVideo}
+              onRegenerate={handleRegeneratePost}
               publishingId={publishingId}
               commentingId={commentingId}
             />

@@ -148,7 +148,9 @@ Hỗ trợ xóa một xu hướng cụ thể, xóa theo trạng thái hoặc xó
 - **Request Body**:
   ```json
   {
-    "force": false // true nếu muốn ghi đè tạo lại dù đã có video
+    "force": false, // true nếu muốn ghi đè tạo lại dù đã có video
+    "templateId": "editorial_magazine", // Tùy chọn mẫu video
+    "script": { ... } // Tùy chọn: truyền trực tiếp kịch bản slide đã xem trước/chỉnh sửa
   }
   ```
 - **Response (200 OK)**:
@@ -161,7 +163,25 @@ Hỗ trợ xóa một xu hướng cụ thể, xóa theo trạng thái hoặc xó
   }
   ```
 
-### 2.8. Tạo video hàng loạt cho các xu hướng chưa có video (`POST /api/trends/generate-videos`)
+### 2.8. Xem trước và sinh kịch bản Slide Video (`GET / POST /api/trends/[id]/slide-preview`)
+- `GET`: Sinh và trả về kịch bản Slide đầy đủ (`VideoSlideScript`) gồm: Slide Intro, Headline, các nhóm Slide nội dung kèm số liệu và Slide Outro.
+- `POST`: Gửi yêu cầu AI đọc lại báo chí và sinh lại kịch bản Slide mới (`{ "force": true }`).
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "script": {
+      "intro": { "categoryLabel": "BẢN TIN", "mainTitle": "...", "tagline": "..." },
+      "slide1": { "category": "Kinh Tế", "headline": "...", "timestamp": "Hôm nay" },
+      "contentSlides": [
+        { "title": "Diễn biến chính", "fragments": ["..."] }
+      ],
+      "outro": { "ctaText": "...", "subText": "..." }
+    }
+  }
+  ```
+
+### 2.9. Tạo video hàng loạt cho các xu hướng chưa có video (`POST /api/trends/generate-videos`)
 - Quét danh sách xu hướng và tạo video tự động cho các xu hướng chưa được tạo video.
 - **Request Body**:
   ```json
@@ -232,7 +252,30 @@ Hỗ trợ xóa một xu hướng cụ thể, xóa theo trạng thái hoặc xó
   }
   ```
 
-### 4.3. Xuất bản bài viết lên Facebook (`POST /api/publish`)
+### 4.3. Viết lại bài viết bằng AI (`POST /api/posts/[id]/regenerate`)
+- Kích hoạt AI (Gemini hoặc Ollama dự phòng) đọc lại toàn văn báo chí nguồn và sinh lại toàn bộ nội dung bài đăng Facebook cùng bình luận nguồn tin.
+- **Request Body** (tùy chọn):
+  ```json
+  {
+    "customTone": "chuyên gia phân tích tài chính"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Đã tạo lại nội dung bài viết thành công!",
+    "post": {
+      "id": "post_1234...",
+      "trend_title": "VN-Index",
+      "post_content": "🔥 [ĐIỂM TIN XU HƯỚNG MỚI] ...",
+      "comment_content": "🔗 Nguồn tin và bài viết chi tiết ...",
+      "status": "draft"
+    }
+  }
+  ```
+
+### 4.4. Xuất bản bài viết lên Facebook (`POST /api/publish`)
 - **Request Body**:
   ```json
   {

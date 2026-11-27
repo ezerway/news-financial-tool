@@ -12,6 +12,7 @@ export async function POST(
     const body = await req.json().catch(() => ({}));
     const force = body.force === true;
     const templateId = body.templateId as string | undefined;
+    const script = body.script;
 
     // Lấy thông tin trend từ CSDL
     const row = db.prepare('SELECT * FROM trends WHERE id = ?').get(id) as any;
@@ -27,7 +28,7 @@ export async function POST(
       articles: row.articles_json ? JSON.parse(row.articles_json) : [],
     };
 
-    const result = await renderTrendVideo(trend, { force, templateId });
+    const result = await renderTrendVideo(trend, { force, templateId, script });
 
     return NextResponse.json({
       success: true,

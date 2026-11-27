@@ -25,19 +25,20 @@ import {
 } from 'lucide-react';
 import Pagination from './Pagination';
 import TrendPostModal from './TrendPostModal';
+import SlidePreviewModal from './SlidePreviewModal';
 import { useI18n } from '@/context/I18nThemeContext';
 
 interface TrendsTabProps {
   trends: TrendItem[];
   posts?: PostItem[];
   onCrawl: (geo: string) => Promise<void>;
-  onGenerate: (trendId: string) => Promise<void>;
+  onGenerate: (trendId: string, force?: boolean) => Promise<void>;
   onFindSources?: (trendId: string) => Promise<void>;
   onRetryAndPublish?: (trendId?: string, allMissing?: boolean) => Promise<void>;
   onPublishPost?: (postId: string, force?: boolean) => Promise<void>;
   onNavigateToPostsTab?: (postId?: string) => void;
   onDeleteTrend?: (trendId: string) => Promise<void>;
-  onGenerateVideo?: (trendId: string, force?: boolean, templateId?: string) => Promise<void>;
+  onGenerateVideo?: (trendId: string, force?: boolean, templateId?: string, customScript?: any) => Promise<void>;
   generatingVideoId?: string | null;
   onBatchGenerateVideos?: (templateId?: string, limit?: number) => Promise<void>;
   isBatchGeneratingVideos?: boolean;
@@ -80,6 +81,7 @@ export default function TrendsTab({
   const [pageSize, setPageSize] = useState(15);
   const [viewingTrend, setViewingTrend] = useState<TrendItem | null>(null);
   const [playingVideoPath, setPlayingVideoPath] = useState<string | null>(null);
+  const [previewSlideTrend, setPreviewSlideTrend] = useState<TrendItem | null>(null);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [batchLimit, setBatchLimit] = useState(5);
   const [batchTemplate, setBatchTemplate] = useState('random');
@@ -505,7 +507,7 @@ export default function TrendsTab({
                         </div>
                       )}
 
-                      {/* 9:16 Video Action Button with Template Selector */}
+                      {/* 9:16 Video Action Button with Template Selector & Slide Preview */}
                       {onGenerateVideo && (
                         trend.video_generated === 1 && trend.video_path ? (
                           <div className="flex items-center gap-1 relative">
@@ -517,6 +519,17 @@ export default function TrendsTab({
                             >
                               <Play className="w-3.5 h-3.5" />
                               <span className="hidden sm:inline">{lang === 'vi' ? 'Xem Video' : 'Watch'}</span>
+                            </button>
+
+                            {/* Nút Xem trước Slide kịch bản */}
+                            <button
+                              type="button"
+                              onClick={() => setPreviewSlideTrend(trend)}
+                              className="btn btn-md sm:btn-sm btn-secondary justify-center font-semibold text-xs shadow-xs text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/40"
+                              title={lang === 'vi' ? 'Xem trước & chỉnh sửa kịch bản Slide trước khi tạo lại video' : 'Preview & edit slide script before regenerating video'}
+                            >
+                              <Eye className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                              <span className="hidden xl:inline">{lang === 'vi' ? 'Xem Slide' : 'Slides'}</span>
                             </button>
                             
                             {/* Split-button Tạo lại Video */}
@@ -530,7 +543,7 @@ export default function TrendsTab({
                               >
                                 <RotateCcw className={`w-3.5 h-3.5 ${generatingVideoId === trend.id ? 'animate-spin' : ''}`} />
                                 <span className="hidden sm:inline">
-                                  {generatingVideoId === trend.id
+                                   {generatingVideoId === trend.id
                                     ? (lang === 'vi' ? 'Đang tạo...' : 'Creating...')
                                     : (lang === 'vi' ? 'Tạo lại' : 'Re-create')}
                                 </span>
@@ -547,7 +560,7 @@ export default function TrendsTab({
                                 }}
                                 disabled={generatingVideoId === trend.id}
                                 className="h-8 px-1.5 inline-flex items-center justify-center text-amber-700 dark:text-amber-300 hover:bg-amber-100/80 dark:hover:bg-amber-900/50 transition cursor-pointer disabled:opacity-50 active:scale-[0.98]"
-                                title={lang === 'vi' ? 'Chọn mẫu giao diện cụ thể để tạo lại' : 'Select specific template'}
+                                title={lang === 'vi' ? 'Chọn mẫu giao diện cụ thể hoặc xem trước slide' : 'Select template or preview slides'}
                               >
                                 <ChevronDown className="w-3 h-3" />
                               </button>
@@ -556,6 +569,17 @@ export default function TrendsTab({
                             {/* Dropdown Menu Template */}
                             {templateDropdownTrendId === trend.id && templateDropdownForce && (
                               <div className="absolute right-0 top-full mt-1.5 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-30 p-1.5 animate-in fade-in duration-150">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTemplateDropdownTrendId(null);
+                                    setPreviewSlideTrend(trend);
+                                  }}
+                                  className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-100 dark:hover:bg-purple-900/40 transition flex items-center gap-1.5 mb-1 cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                                  <span>{lang === 'vi' ? 'Xem trước nội dung Slide...' : 'Preview Slide Content...'}</span>
+                                </button>
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
                                   {lang === 'vi' ? 'Chọn mẫu tạo lại' : 'Select Template'}
                                 </div>
@@ -579,7 +603,18 @@ export default function TrendsTab({
                             )}
                           </div>
                         ) : (
-                          <div className="relative">
+                          <div className="flex items-center gap-1 relative">
+                            {/* Nút Xem trước Slide kịch bản */}
+                            <button
+                              type="button"
+                              onClick={() => setPreviewSlideTrend(trend)}
+                              className="btn btn-md sm:btn-sm btn-secondary justify-center font-semibold text-xs shadow-xs text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/40"
+                              title={lang === 'vi' ? 'Xem trước & chỉnh sửa kịch bản Slide trước khi tạo video' : 'Preview & edit slide script before generating video'}
+                            >
+                              <Eye className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                              <span className="hidden xl:inline">{lang === 'vi' ? 'Xem Slide' : 'Slides'}</span>
+                            </button>
+
                             <div className="inline-flex items-stretch rounded-lg border border-purple-300 dark:border-purple-700/80 bg-purple-50/70 dark:bg-purple-950/40 shadow-xs overflow-hidden shrink-0">
                               <button
                                 type="button"
@@ -607,7 +642,7 @@ export default function TrendsTab({
                                 }}
                                 disabled={generatingVideoId === trend.id}
                                 className="h-8 px-1.5 inline-flex items-center justify-center text-purple-700 dark:text-purple-300 hover:bg-purple-100/80 dark:hover:bg-purple-900/50 transition cursor-pointer disabled:opacity-50 active:scale-[0.98]"
-                                title={lang === 'vi' ? 'Chọn mẫu video cụ thể' : 'Select template'}
+                                title={lang === 'vi' ? 'Chọn mẫu video cụ thể hoặc xem trước slide' : 'Select template or preview slides'}
                               >
                                 <ChevronDown className="w-3 h-3" />
                               </button>
@@ -616,6 +651,17 @@ export default function TrendsTab({
                             {/* Dropdown Menu Template */}
                             {templateDropdownTrendId === trend.id && !templateDropdownForce && (
                               <div className="absolute right-0 top-full mt-1.5 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-30 p-1.5 animate-in fade-in duration-150">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTemplateDropdownTrendId(null);
+                                    setPreviewSlideTrend(trend);
+                                  }}
+                                  className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-100 dark:hover:bg-purple-900/40 transition flex items-center gap-1.5 mb-1 cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                                  <span>{lang === 'vi' ? 'Xem trước nội dung Slide...' : 'Preview Slide Content...'}</span>
+                                </button>
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
                                   {lang === 'vi' ? 'Chọn mẫu giao diện' : 'Select Template'}
                                 </div>
@@ -943,6 +989,17 @@ export default function TrendsTab({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Slide Preview Modal */}
+      {previewSlideTrend && (
+        <SlidePreviewModal
+          isOpen={!!previewSlideTrend}
+          onClose={() => setPreviewSlideTrend(null)}
+          trend={previewSlideTrend}
+          onRenderVideo={onGenerateVideo || (async () => {})}
+          isRendering={generatingVideoId === previewSlideTrend?.id}
+        />
       )}
     </div>
   );

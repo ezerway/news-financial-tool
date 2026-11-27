@@ -5,7 +5,7 @@ import { TrendItem } from '@/types';
 
 export async function POST(req: NextRequest) {
   try {
-    const { trendId, customTone } = await req.json();
+    const { trendId, customTone, force } = await req.json();
 
     if (!trendId) {
       return NextResponse.json({ success: false, error: 'trendId is required' }, { status: 400 });
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       articles: row.articles_json ? JSON.parse(row.articles_json) : [],
     };
 
-    const post = await generateSocialPost(trend, customTone);
+    const post = await generateSocialPost(trend, customTone, { force: !!force });
     return NextResponse.json({ success: true, post });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

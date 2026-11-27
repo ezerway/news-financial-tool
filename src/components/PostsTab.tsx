@@ -20,6 +20,7 @@ import {
   Download,
   RotateCcw,
   Link2,
+  Sparkles,
 } from 'lucide-react';
 import FacebookIcon from './FacebookIcon';
 import Pagination from './Pagination';
@@ -40,8 +41,10 @@ interface PostsTabProps {
   onDelete: (postId: string) => Promise<void>;
   onDeleteAllFailed?: () => Promise<void>;
   onToggleRecordVideo?: (postId: string, enabled: boolean) => Promise<void>;
+  onRegenerate?: (postId: string) => Promise<void>;
   publishingId: string | null;
   commentingId?: string | null;
+  regeneratingId?: string | null;
 }
 
 export default function PostsTab({
@@ -52,8 +55,10 @@ export default function PostsTab({
   onDelete,
   onDeleteAllFailed,
   onToggleRecordVideo,
+  onRegenerate,
   publishingId,
   commentingId,
+  regeneratingId,
 }: PostsTabProps) {
   const { t, lang } = useI18n();
 
@@ -84,6 +89,24 @@ export default function PostsTab({
   const [expandedPosts, setExpandedPosts] = useState<Record<string, boolean>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [localRegeneratingId, setLocalRegeneratingId] = useState<string | null>(null);
+
+  const handleLocalRegenerate = async (postId: string) => {
+    setLocalRegeneratingId(postId);
+    try {
+      if (onRegenerate) {
+        await onRegenerate(postId);
+      } else {
+        const res = await fetch(`/api/posts/${postId}/regenerate`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success && data.post) {
+          await onUpdate(postId, data.post.post_content, data.post.comment_content, data.post.fb_post_url, data.post.status);
+        }
+      }
+    } finally {
+      setLocalRegeneratingId(null);
+    }
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedPosts((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -488,6 +511,22 @@ export default function PostsTab({
                           className="btn btn-sm btn-secondary cursor-pointer"
                         >
                           {t('btn_edit')}
+                        </button>
+
+                        {/* Regenerate AI Post Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleLocalRegenerate(post.id)}
+                          disabled={isPublishing || isCommenting || regeneratingId === post.id || localRegeneratingId === post.id}
+                          className="btn btn-sm btn-secondary inline-flex items-center gap-1.5 cursor-pointer text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                          title={lang === 'vi' ? 'Yêu cầu AI viết lại nội dung bài đăng này' : 'Regenerate post content with AI'}
+                        >
+                          <Sparkles className={`w-3.5 h-3.5 text-indigo-500 ${(regeneratingId === post.id || localRegeneratingId === post.id) ? 'animate-spin' : ''}`} />
+                          <span>
+                            {(regeneratingId === post.id || localRegeneratingId === post.id)
+                              ? (lang === 'vi' ? 'Đang viết lại...' : 'Regenerating...')
+                              : (lang === 'vi' ? 'Viết lại' : 'Regenerate')}
+                          </span>
                         </button>
 
                         {/* Manual Link Correction Button */}
