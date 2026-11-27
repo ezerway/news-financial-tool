@@ -841,8 +841,11 @@ export async function uploadTikTokVideo(options: PostTikTokOptions): Promise<Pos
     }
 
     // Click hashtag .hashtag-suggestion-item nếu có
+    await page.waitForSelector('.hashtag-suggestion-item', { timeout: 4000 }).catch(() => { });
+
     const firstHash = page.locator('.hashtag-suggestion-item').first();
-    if (firstHash) {
+    const firstHashVisible = await firstHash.isVisible({ timeout: 2000 }).catch(() => false);
+    if (firstHashVisible) {
       await firstHash.click();
     }
 
