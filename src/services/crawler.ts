@@ -502,7 +502,7 @@ export async function crawlGoogleTrends(geo = 'VN', method?: string): Promise<Tr
       return results;
     }
     logActivity('WARN', 'CRAWL', `[Google Trends] Web UI không trả về xu hướng nào. Tự động chuyển sang Google Trends RSS...`);
-    return await crawlGoogleTrendsRSS(geo);
+    return [];
   } catch (err: any) {
     const errMsg = err?.message || String(err);
     logActivity(
@@ -510,7 +510,7 @@ export async function crawlGoogleTrends(geo = 'VN', method?: string): Promise<Tr
       'CRAWL',
       `[Google Trends] Phát hiện lỗi / chặn từ Google Trends web (${errMsg}). Tự động kích hoạt cơ chế dự phòng RSS Feed (chống RpcError VPS)...`
     );
-    return await crawlGoogleTrendsRSS(geo);
+    return [];
   }
 }
 
