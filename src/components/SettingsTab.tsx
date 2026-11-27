@@ -103,6 +103,7 @@ export default function SettingsTab({
     ollama_endpoint: settings.ollama_endpoint || 'http://127.0.0.1:11434',
     ollama_model: settings.ollama_model || 'qwen2.5:3b',
     ollama_role: settings.ollama_role || 'extract_only',
+    ollama_timeout_seconds: settings.ollama_timeout_seconds || '90',
   });
 
   useEffect(() => {
@@ -140,6 +141,7 @@ export default function SettingsTab({
       ollama_endpoint: settings.ollama_endpoint ?? prev.ollama_endpoint,
       ollama_model: settings.ollama_model ?? prev.ollama_model,
       ollama_role: settings.ollama_role ?? prev.ollama_role,
+      ollama_timeout_seconds: settings.ollama_timeout_seconds ?? prev.ollama_timeout_seconds,
     }));
   }, [settings]);
 
@@ -1500,18 +1502,36 @@ export default function SettingsTab({
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-inherit mb-1">
-                      {t('ollama_role_label')}
-                    </label>
-                    <select
-                      value={form.ollama_role}
-                      onChange={(e) => setForm({ ...form, ollama_role: e.target.value })}
-                      className="w-full h-9 px-3 app-input rounded-lg text-xs font-medium focus:outline-hidden focus:border-emerald-500"
-                    >
-                      <option value="extract_only">{t('ollama_role_extract_only')}</option>
-                      <option value="extract_and_fallback">{t('ollama_role_extract_and_fallback')}</option>
-                    </select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-inherit mb-1">
+                        {t('ollama_role_label')}
+                      </label>
+                      <select
+                        value={form.ollama_role}
+                        onChange={(e) => setForm({ ...form, ollama_role: e.target.value })}
+                        className="w-full h-9 px-3 app-input rounded-lg text-xs font-medium focus:outline-hidden focus:border-emerald-500"
+                      >
+                        <option value="extract_only">{t('ollama_role_extract_only')}</option>
+                        <option value="extract_and_fallback">{t('ollama_role_extract_and_fallback')}</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-inherit mb-1">
+                        {lang === 'vi' ? 'Thời gian chờ tối đa (Timeout)' : 'Timeout (Seconds)'}
+                      </label>
+                      <select
+                        value={form.ollama_timeout_seconds || '90'}
+                        onChange={(e) => setForm({ ...form, ollama_timeout_seconds: e.target.value })}
+                        className="w-full h-9 px-3 app-input rounded-lg text-xs font-medium focus:outline-hidden focus:border-emerald-500"
+                      >
+                        <option value="60">60 {lang === 'vi' ? 'giây (VPS mạnh)' : 'seconds'}</option>
+                        <option value="90">90 {lang === 'vi' ? 'giây (Khuyên dùng)' : 'seconds (Recommended)'}</option>
+                        <option value="120">120 {lang === 'vi' ? 'giây (VPS tải nặng)' : 'seconds'}</option>
+                        <option value="180">180 {lang === 'vi' ? 'giây (VPS 1-2 vCPU)' : 'seconds'}</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 pt-1">

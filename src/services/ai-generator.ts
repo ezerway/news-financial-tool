@@ -212,7 +212,8 @@ Trả về duy nhất JSON hợp lệ (không kèm markdown \`\`\`json):
       if (ollamaConfig.enabled && (ollamaConfig.role === 'extract_and_fallback' || !apiKey)) {
         logActivity('INFO', 'GENERATE', `Kích hoạt Ollama (${ollamaConfig.model}) tạo bài viết thay thế cho "${trend.title}"...`);
         const articlesContext = exactArticles
-          .map((a, i) => `Bài báo ${i + 1} [${a.source || 'Báo chí'}] "${a.title}":\n${a.content || a.snippet || ''}`)
+          .slice(0, 3)
+          .map((a, i) => `Bài báo ${i + 1} [${a.source || 'Báo chí'}] "${a.title}":\n${(a.content || a.snippet || '').slice(0, 700)}`)
           .join('\n\n');
         const fallbackRes = await generateFacebookPostWithOllama(trend.title, articlesContext, sourceUrls, tone);
         if (fallbackRes.postContent) {

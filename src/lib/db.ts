@@ -242,6 +242,7 @@ export function initSchema(database: Database.Database) {
       ollama_endpoint: 'http://127.0.0.1:11434',
       ollama_model: 'qwen2.5:3b',
       ollama_role: 'extract_only',
+      ollama_timeout_seconds: '90',
     };
 
     const insertSettingStmt = database.prepare(`

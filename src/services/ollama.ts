@@ -15,12 +15,15 @@ export function getOllamaConfig() {
   const endpoint = getSetting('ollama_endpoint') || 'http://127.0.0.1:11434';
   const model = getSetting('ollama_model') || 'qwen2.5:3b';
   const role = getSetting('ollama_role') || 'extract_only'; // 'extract_only' | 'extract_and_fallback'
+  const timeoutSeconds = parseInt(getSetting('ollama_timeout_seconds') || '90', 10);
+  const timeoutMs = (isNaN(timeoutSeconds) || timeoutSeconds < 15 ? 90 : timeoutSeconds) * 1000;
 
   return {
     enabled,
     endpoint: endpoint.replace(/\/+$/, ''),
     model,
     role,
+    timeoutMs,
   };
 }
 
@@ -91,19 +94,22 @@ export async function queryOllama(
     system?: string;
     temperature?: number;
     timeoutMs?: number;
+    numPredict?: number;
   }
 ): Promise<string> {
   const config = getOllamaConfig();
   const endpoint = config.endpoint;
   const model = config.model;
-  const timeoutMs = options?.timeoutMs || 25000;
+  const timeoutMs = options?.timeoutMs || config.timeoutMs || 90000;
 
   const bodyPayload: any = {
     model,
     prompt,
     stream: false,
+    keep_alive: '30m',
     options: {
       temperature: options?.temperature ?? 0.2,
+      num_predict: options?.numPredict ?? 600,
     },
   };
 
@@ -142,8 +148,8 @@ export async function summarizeAndExtractArticleWithOllama(
     return fullArticleText;
   }
 
-  // Cắt bớt văn bản quá dài để tối ưu thời gian xử lý của Ollama (~3500 từ tối đa)
-  const truncatedSource = fullArticleText.length > 8000 ? fullArticleText.slice(0, 8000) + '...' : fullArticleText;
+  // Cắt gọn văn bản ở mức vừa đủ (~3.000 ký tự) để CPU trên VPS xử lý nhanh, không bị nghẽn
+  const truncatedSource = fullArticleText.length > 3200 ? fullArticleText.slice(0, 3200) + '...' : fullArticleText;
 
   const system = `Bạn là một trợ lý phân tích dữ liệu và tin tức báo chí chuyên nghiệp.
 Nhiệm vụ của bạn là đọc toàn văn bài báo, loại bỏ toàn bộ quảng cáo, câu chữ rác và trích xuất ra một "BẢN TỔNG HỢP DỮ KIỆN CỐT LÕI (FACT SHEET)" bằng tiếng Việt chuẩn mực.
@@ -153,7 +159,7 @@ NGUYÊN TẮC:
 2. Tóm tắt sự kiện chính (Ai, làm gì, ở đâu, khi nào, nguyên nhân, hệ quả).
 3. Trích dẫn ngắn gọn phát biểu của lãnh đạo, chuyên gia hoặc cơ quan chức năng (nếu có).
 4. KHÔNG suy diễn hư cấu, KHÔNG thêm nhận định ngoài bài báo.
-5. Định dạng đầu ra: Ngắn gọn, có gạch đầu dòng rõ ràng, dài khoảng 250 - 400 từ.`;
+5. Định dạng đầu ra: Ngắn gọn, có gạch đầu dòng rõ ràng, dài khoảng 200 - 350 từ.`;
 
   const prompt = `Từ khóa xu hướng đang theo dõi: "${trendKeyword}"
 Tiêu đề bài báo: "${articleTitle}"
@@ -170,7 +176,8 @@ Hãy tạo BẢN TỔNG HỢP DỮ KIỆN CỐT LÕI (Fact Sheet) từ bài báo
   const factSheet = await queryOllama(prompt, {
     system,
     temperature: 0.15,
-    timeoutMs: 25000,
+    numPredict: 400,
+    timeoutMs: Math.max(getOllamaConfig().timeoutMs, 75000),
   });
 
   if (!factSheet || factSheet.length < 50) {
@@ -205,23 +212,27 @@ QUY CÁCH BÀI VIẾT:
   "comment_content": "bình luận chứa link nguồn..."
 }`;
 
+  // Cắt gọn ngữ cảnh dữ kiện tối đa ~2.400 ký tự để prompt gọn nhẹ, tốc độ sinh trên VPS CPU nhanh gấp 4 lần
+  const trimmedFacts = factsContext.length > 2400 ? factsContext.slice(0, 2400) + '...' : factsContext;
+
   const prompt = `Chủ đề xu hướng: "${trendTitle}"
 Phong cách: ${tone}
 
 Dữ kiện và số liệu báo chí:
-${factsContext}
+${trimmedFacts}
 
 Danh sách link nguồn báo chí:
-${sourceUrls.map((u, i) => `${i + 1}. ${u}`).join('\n')}
+${sourceUrls.slice(0, 3).map((u, i) => `${i + 1}. ${u}`).join('\n')}
 
 Hãy tạo bài viết Facebook và bình luận nguồn theo định dạng JSON yêu cầu:`;
 
-  logActivity('INFO', 'OLLAMA_FALLBACK', `Đang kích hoạt Ollama dự phòng để tạo bài viết cho: "${trendTitle}"...`);
+  logActivity('INFO', 'OLLAMA_FALLBACK', `Đang kích hoạt Ollama dự phòng để tạo bài viết cho: "${trendTitle}" (timeout: ${Math.round(Math.max(getOllamaConfig().timeoutMs, 90000) / 1000)}s)...`);
 
   const response = await queryOllama(prompt, {
     system,
-    temperature: 0.5,
-    timeoutMs: 35000,
+    temperature: 0.4,
+    numPredict: 550,
+    timeoutMs: Math.max(getOllamaConfig().timeoutMs, 90000),
   });
 
   let postContent = '';
