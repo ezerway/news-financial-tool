@@ -78,7 +78,7 @@ export async function generateVideoSlideScript(trend: TrendItem): Promise<VideoS
   if (needsExtraction && exactArticles.length > 0) {
     try {
       exactArticles = await extractArticlesContent(exactArticles, trend.title);
-    } catch {}
+    } catch { }
   }
 
   // 2. Tầng 1: Google Gemini API
