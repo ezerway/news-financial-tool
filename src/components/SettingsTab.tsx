@@ -164,7 +164,7 @@ export default function SettingsTab({
   // TikTok session states
   const [tiktokStatus, setTiktokStatus] = useState<{ loggedIn: boolean; username?: string; message: string }>({
     loggedIn: false,
-    message: 'Đang kiểm tra...',
+    message: lang === 'vi' ? 'Đang kiểm tra...' : 'Checking...',
   });
   const [isOpeningTiktok, setIsOpeningTiktok] = useState(false);
   const [tiktokMsg, setTiktokMsg] = useState<string | null>(null);
@@ -210,7 +210,7 @@ export default function SettingsTab({
   // YouTube session states
   const [youtubeStatus, setYoutubeStatus] = useState<{ loggedIn: boolean; message: string; channelUrl?: string }>({
     loggedIn: false,
-    message: 'Đang kiểm tra...',
+    message: lang === 'vi' ? 'Đang kiểm tra...' : 'Checking...',
   });
   const [isOpeningYouTube, setIsOpeningYouTube] = useState(false);
   const [youtubeMsg, setYoutubeMsg] = useState<string | null>(null);
@@ -256,7 +256,7 @@ export default function SettingsTab({
   // Zalo session states
   const [zaloStatus, setZaloStatus] = useState<{ loggedIn: boolean; message: string }>({
     loggedIn: false,
-    message: 'Đang kiểm tra...',
+    message: lang === 'vi' ? 'Đang kiểm tra...' : 'Checking...',
   });
   const [isOpeningZalo, setIsOpeningZalo] = useState(false);
   const [zaloMsg, setZaloMsg] = useState<string | null>(null);
@@ -396,10 +396,10 @@ export default function SettingsTab({
       if (data.success) {
         setTelegramTestMsg({ text: data.message, type: 'success' });
       } else {
-        setTelegramTestMsg({ text: data.error || data.message || 'Lỗi gửi tin nhắn Telegram', type: 'error' });
+        setTelegramTestMsg({ text: data.error || data.message || (lang === 'vi' ? 'Lỗi gửi tin nhắn Telegram' : 'Error sending Telegram message'), type: 'error' });
       }
     } catch (err: any) {
-      setTelegramTestMsg({ text: 'Lỗi kết nối: ' + err.message, type: 'error' });
+      setTelegramTestMsg({ text: (lang === 'vi' ? 'Lỗi kết nối: ' : 'Connection error: ') + err.message, type: 'error' });
     } finally {
       setIsTestingTelegram(false);
     }
@@ -429,10 +429,10 @@ export default function SettingsTab({
       if (data.success) {
         setSlackTestMsg({ text: data.message, type: 'success' });
       } else {
-        setSlackTestMsg({ text: data.error || data.message || 'Lỗi gửi tin nhắn Slack', type: 'error' });
+        setSlackTestMsg({ text: data.error || data.message || (lang === 'vi' ? 'Lỗi gửi tin nhắn Slack' : 'Error sending Slack message'), type: 'error' });
       }
     } catch (err: any) {
-      setSlackTestMsg({ text: 'Lỗi kết nối: ' + err.message, type: 'error' });
+      setSlackTestMsg({ text: (lang === 'vi' ? 'Lỗi kết nối: ' : 'Connection error: ') + err.message, type: 'error' });
     } finally {
       setIsTestingSlack(false);
     }

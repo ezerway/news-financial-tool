@@ -138,10 +138,10 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
           'success'
         );
       } else {
-        onNotify?.(data.error || 'Lỗi khi lưu cài đặt', 'error');
+        onNotify?.(data.error || (lang === 'vi' ? 'Lỗi khi lưu cài đặt' : 'Error saving settings'), 'error');
       }
     } catch {
-      onNotify?.('Lỗi kết nối khi lưu cài đặt', 'error');
+      onNotify?.(lang === 'vi' ? 'Lỗi kết nối khi lưu cài đặt' : 'Connection error saving settings', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -167,10 +167,10 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
           setPreviewDuration(data.duration);
         }
       } else {
-        onNotify?.(data.error || 'Không thể tạo bản xem trước', 'error');
+        onNotify?.(data.error || (lang === 'vi' ? 'Không thể tạo bản xem trước' : 'Could not generate preview'), 'error');
       }
     } catch {
-      onNotify?.('Lỗi khi tải bản xem trước', 'error');
+      onNotify?.(lang === 'vi' ? 'Lỗi khi tải bản xem trước' : 'Error loading preview', 'error');
     } finally {
       setIsLoadingPreview(false);
     }
@@ -266,15 +266,15 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
             <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300 mb-6">
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>Tránh sự lặp lại đơn điệu</span>
+                <span>{lang === 'vi' ? 'Tránh sự lặp lại đơn điệu' : 'Avoid repetitive styling'}</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>Phù hợp với thuật toán Reels & Shorts</span>
+                <span>{lang === 'vi' ? 'Phù hợp với thuật toán Reels & Shorts' : 'Optimized for Reels & Shorts algorithms'}</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>Tự động cân đối tất cả 4 mẫu</span>
+                <span>{lang === 'vi' ? 'Tự động cân đối tất cả các mẫu' : 'Automatically balances all templates'}</span>
               </div>
             </div>
           </div>
@@ -419,7 +419,7 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
                 {isLoadingPreview ? (
                   <div className="flex flex-col items-center gap-2 text-slate-400 text-xs">
                     <RotateCcw className="w-6 h-6 animate-spin text-indigo-400" />
-                    <span>Đang render mẫu HTML...</span>
+                    <span>{lang === 'vi' ? 'Đang render mẫu HTML...' : 'Rendering HTML template...'}</span>
                   </div>
                 ) : (
                   <div
@@ -472,7 +472,7 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
                       setIsPlayingPreview(!isPlayingPreview);
                     }}
                     className="w-7 h-7 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shrink-0 transition cursor-pointer shadow-xs"
-                    title={isPlayingPreview ? 'Tạm dừng' : 'Phát tự động'}
+                    title={isPlayingPreview ? (lang === 'vi' ? 'Tạm dừng' : 'Pause') : (lang === 'vi' ? 'Phát tự động' : 'Auto play')}
                   >
                     {isPlayingPreview ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
                   </button>
@@ -487,7 +487,7 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
                       }
                     }}
                     className="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 flex items-center justify-center shrink-0 transition cursor-pointer"
-                    title="Xem lại từ đầu"
+                    title={lang === 'vi' ? 'Xem lại từ đầu' : 'Replay from start'}
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
@@ -532,7 +532,7 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
 
                 <div>
                   <div className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
-                    Mô tả phong cách
+                    {lang === 'vi' ? 'Mô tả phong cách' : 'Style Description'}
                   </div>
                   <p className="text-sm text-slate-400 leading-relaxed">
                     {previewTemplate.tagline}
@@ -541,7 +541,7 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
 
                 <div>
                   <div className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                    Điểm nổi bật & Thiết kế
+                    {lang === 'vi' ? 'Điểm nổi bật & Thiết kế' : 'Highlights & Design'}
                   </div>
                   <div className="space-y-2">
                     {previewTemplate.features.map((f, i) => (
@@ -554,7 +554,9 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
                 </div>
 
                 <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700/60 space-y-2">
-                  <div className="text-xs font-bold text-slate-200">Chuẩn xuất bản hỗ trợ</div>
+                  <div className="text-xs font-bold text-slate-200">
+                    {lang === 'vi' ? 'Chuẩn xuất bản hỗ trợ' : 'Supported Platforms'}
+                  </div>
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <span className="px-2 py-0.5 rounded bg-blue-900/60 text-blue-300 border border-blue-700 font-semibold">
                       Facebook Reels
@@ -579,7 +581,7 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
                   onClick={() => setPreviewTemplate(null)}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition"
                 >
-                  Đóng
+                  {lang === 'vi' ? 'Đóng' : 'Close'}
                 </button>
                 <button
                   type="button"
@@ -593,8 +595,8 @@ export default function TemplatesTab({ onNotify }: TemplatesTabProps) {
                   <Check className="w-4 h-4" />
                   <span>
                     {defaultTemplate === previewTemplate.id
-                      ? 'Đang là mẫu mặc định'
-                      : 'Đặt mẫu này làm mặc định'}
+                      ? (lang === 'vi' ? 'Đang là mẫu mặc định' : 'Current default template')
+                      : (lang === 'vi' ? 'Đặt mẫu này làm mặc định' : 'Set as default template')}
                   </span>
                 </button>
               </div>

@@ -1888,7 +1888,7 @@ export default function ReelsTab({
                       className="text-[10px] text-blue-500 hover:underline inline-flex items-center gap-1"
                       title={lang === 'vi' ? 'Mở thử liên kết' : 'Test link in new tab'}
                     >
-                      <span>Mở thử</span>
+                      <span>{lang === 'vi' ? 'Mở thử' : 'Test'}</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -1917,7 +1917,7 @@ export default function ReelsTab({
                       className="text-[10px] text-rose-500 hover:underline inline-flex items-center gap-1"
                       title={lang === 'vi' ? 'Mở thử liên kết' : 'Test link in new tab'}
                     >
-                      <span>Mở thử</span>
+                      <span>{lang === 'vi' ? 'Mở thử' : 'Test'}</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -1946,7 +1946,7 @@ export default function ReelsTab({
                       className="text-[10px] text-red-500 hover:underline inline-flex items-center gap-1"
                       title={lang === 'vi' ? 'Mở thử liên kết' : 'Test link in new tab'}
                     >
-                      <span>Mở thử</span>
+                      <span>{lang === 'vi' ? 'Mở thử' : 'Test'}</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -1975,7 +1975,7 @@ export default function ReelsTab({
                       className="text-[10px] text-blue-500 hover:underline inline-flex items-center gap-1"
                       title={lang === 'vi' ? 'Mở thử liên kết' : 'Test link in new tab'}
                     >
-                      <span>Mở thử</span>
+                      <span>{lang === 'vi' ? 'Mở thử' : 'Test'}</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
