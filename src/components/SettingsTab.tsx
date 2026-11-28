@@ -489,10 +489,10 @@ export default function SettingsTab({
         fetchStorageStats();
         if (onRefreshData) onRefreshData();
       } else {
-        setStorageMsg({ text: data.error || 'Lỗi khi dọn dẹp', type: 'error' });
+        setStorageMsg({ text: data.error || (lang === 'vi' ? 'Lỗi khi dọn dẹp' : 'Error cleaning up'), type: 'error' });
       }
     } catch (err: any) {
-      setStorageMsg({ text: 'Lỗi: ' + err.message, type: 'error' });
+      setStorageMsg({ text: (lang === 'vi' ? 'Lỗi: ' : 'Error: ') + err.message, type: 'error' });
     } finally {
       setIsCleaningStorage(false);
     }
@@ -513,10 +513,10 @@ export default function SettingsTab({
         fetchStorageStats();
         if (onRefreshData) onRefreshData();
       } else {
-        setStorageMsg({ text: data.error || 'Lỗi khi dọn dẹp Reel cũ', type: 'error' });
+        setStorageMsg({ text: data.error || (lang === 'vi' ? 'Lỗi khi dọn dẹp Reel cũ' : 'Error cleaning old Reels'), type: 'error' });
       }
     } catch (err: any) {
-      setStorageMsg({ text: 'Lỗi: ' + err.message, type: 'error' });
+      setStorageMsg({ text: (lang === 'vi' ? 'Lỗi: ' : 'Error: ') + err.message, type: 'error' });
     } finally {
       setIsCleaningStorage(false);
     }
@@ -537,10 +537,10 @@ export default function SettingsTab({
         fetchStorageStats();
         if (onRefreshData) onRefreshData();
       } else {
-        setStorageMsg({ text: data.error || 'Lỗi khi xóa bài viết', type: 'error' });
+        setStorageMsg({ text: data.error || (lang === 'vi' ? 'Lỗi khi xóa bài viết' : 'Error deleting posts'), type: 'error' });
       }
     } catch (err: any) {
-      setStorageMsg({ text: 'Lỗi: ' + err.message, type: 'error' });
+      setStorageMsg({ text: (lang === 'vi' ? 'Lỗi: ' : 'Error: ') + err.message, type: 'error' });
     } finally {
       setIsDeletingPosts(false);
     }
@@ -561,10 +561,10 @@ export default function SettingsTab({
         fetchStorageStats();
         if (onRefreshData) onRefreshData();
       } else {
-        setStorageMsg({ text: data.error || 'Lỗi khi xóa Reels', type: 'error' });
+        setStorageMsg({ text: data.error || (lang === 'vi' ? 'Lỗi khi xóa Reels' : 'Error deleting Reels'), type: 'error' });
       }
     } catch (err: any) {
-      setStorageMsg({ text: 'Lỗi: ' + err.message, type: 'error' });
+      setStorageMsg({ text: (lang === 'vi' ? 'Lỗi: ' : 'Error: ') + err.message, type: 'error' });
     } finally {
       setIsDeletingReels(false);
     }
@@ -585,10 +585,10 @@ export default function SettingsTab({
         fetchStorageStats();
         if (onRefreshData) onRefreshData();
       } else {
-        setStorageMsg({ text: data.error || 'Lỗi khi xóa xu hướng', type: 'error' });
+        setStorageMsg({ text: data.error || (lang === 'vi' ? 'Lỗi khi xóa xu hướng' : 'Error deleting trends'), type: 'error' });
       }
     } catch (err: any) {
-      setStorageMsg({ text: 'Lỗi: ' + err.message, type: 'error' });
+      setStorageMsg({ text: (lang === 'vi' ? 'Lỗi: ' : 'Error: ') + err.message, type: 'error' });
     } finally {
       setIsDeletingTrends(false);
     }
@@ -1269,7 +1269,7 @@ export default function SettingsTab({
                         type="text"
                         value={form.telegram_chat_id}
                         onChange={(e) => setForm({ ...form, telegram_chat_id: e.target.value })}
-                        placeholder="Ví dụ: 123456789 hoặc -100123456789"
+                        placeholder={lang === 'vi' ? 'Ví dụ: 123456789 hoặc -100123456789' : 'Example: 123456789 or -100123456789'}
                         className="w-full h-9 px-3 app-input rounded-lg text-xs font-mono placeholder-slate-400 focus:outline-hidden focus:border-indigo-500"
                       />
                     </div>
@@ -1650,7 +1650,7 @@ export default function SettingsTab({
                             onChange={(e) =>
                               setForm({ ...form, ollama_post_model: e.target.value })
                             }
-                            placeholder={form.ollama_model ? `${form.ollama_model} (Mặc định)` : 'qwen2.5:3b'}
+                            placeholder={form.ollama_model ? `${form.ollama_model} (${lang === 'vi' ? 'Mặc định' : 'Default'})` : 'qwen2.5:3b'}
                             className="w-full h-8 px-2.5 app-input rounded-lg text-xs font-mono placeholder-slate-400 focus:outline-hidden focus:border-emerald-500"
                           />
                         </div>
@@ -1697,7 +1697,7 @@ export default function SettingsTab({
                             onChange={(e) =>
                               setForm({ ...form, ollama_video_model: e.target.value })
                             }
-                            placeholder={form.ollama_model ? `${form.ollama_model} (Mặc định)` : 'qwen2.5:3b'}
+                            placeholder={form.ollama_model ? `${form.ollama_model} (${lang === 'vi' ? 'Mặc định' : 'Default'})` : 'qwen2.5:3b'}
                             className="w-full h-8 px-2.5 app-input rounded-lg text-xs font-mono placeholder-slate-400 focus:outline-hidden focus:border-emerald-500"
                           />
                         </div>
@@ -1989,11 +1989,11 @@ export default function SettingsTab({
                   onChange={(e) => setForm({ ...form, target_geo: e.target.value })}
                   className="w-full h-9 px-3 app-input rounded-lg text-xs focus:outline-hidden focus:border-indigo-500 cursor-pointer"
                 >
-                  <option value="VN">🇻🇳 Việt Nam (VN)</option>
-                  <option value="US">🇺🇸 Hoa Kỳ (US)</option>
+                  <option value="VN">🇻🇳 {lang === 'vi' ? 'Việt Nam (VN)' : 'Vietnam (VN)'}</option>
+                  <option value="US">🇺🇸 {lang === 'vi' ? 'Hoa Kỳ (US)' : 'United States (US)'}</option>
                   <option value="SG">🇸🇬 Singapore (SG)</option>
-                  <option value="GB">🇬🇧 Vương quốc Anh (GB)</option>
-                  <option value="JP">🇯🇵 Nhật Bản (JP)</option>
+                  <option value="GB">🇬🇧 {lang === 'vi' ? 'Vương quốc Anh (GB)' : 'United Kingdom (GB)'}</option>
+                  <option value="JP">🇯🇵 {lang === 'vi' ? 'Nhật Bản (JP)' : 'Japan (JP)'}</option>
                 </select>
               </div>
             </div>
