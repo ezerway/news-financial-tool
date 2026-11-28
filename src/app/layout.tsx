@@ -1,18 +1,7 @@
 import type { Metadata, Viewport } from 'next';
-import { Figtree, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import PwaManager from '@/components/PwaManager';
 import { I18nThemeProvider } from '@/context/I18nThemeContext';
-
-const figtree = Figtree({
-  variable: '--font-figtree',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 export const viewport: Viewport = {
   themeColor: '#0b0f19',
@@ -47,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" data-theme="dark" suppressHydrationWarning className={`${figtree.variable} ${geistMono.variable} h-full dark`}>
+    <html lang="vi" data-theme="dark" suppressHydrationWarning className="h-full dark">
       <body className="min-h-full antialiased font-sans flex flex-col">
         <I18nThemeProvider>
           {children}

@@ -46,7 +46,7 @@ export default function DashboardPage() {
   const [fbStatus, setFbStatus] = useState({
     loggedIn: false,
     username: '',
-    message: 'Đang kiểm tra...',
+    message: lang === 'vi' ? 'Đang kiểm tra...' : 'Checking...',
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -198,7 +198,9 @@ export default function DashboardPage() {
   const handleCrawl = async (geo: string) => {
     setIsCrawling(true);
     showToast(
-      `Đang cào xu hướng Kinh doanh & Tài chính cho ${geo}...`,
+      lang === 'vi'
+        ? `Đang cào xu hướng Kinh doanh & Tài chính cho ${geo}...`
+        : `Crawling Business & Finance trends for ${geo}...`,
       'info'
     );
     try {
@@ -210,15 +212,17 @@ export default function DashboardPage() {
       const data = await res.json();
       if (data.success) {
         showToast(
-          `Đã cào thành công ${data.count} xu hướng Kinh doanh & Tài chính!`,
+          lang === 'vi'
+            ? `Đã cào thành công ${data.count} xu hướng Kinh doanh & Tài chính!`
+            : `Successfully crawled ${data.count} Business & Finance trends!`,
           'success'
         );
         await fetchData();
       } else {
-        showToast(`Lỗi cào dữ liệu: ${data.error}`, 'error');
+        showToast(`${lang === 'vi' ? 'Lỗi cào dữ liệu' : 'Crawl error'}: ${data.error}`, 'error');
       }
     } catch (err: any) {
-      showToast(`Lỗi mạng: ${err.message}`, 'error');
+      showToast(`${lang === 'vi' ? 'Lỗi mạng' : 'Network error'}: ${err.message}`, 'error');
     } finally {
       setIsCrawling(false);
     }
@@ -227,7 +231,12 @@ export default function DashboardPage() {
   // Generate AI post handler
   const handleGenerate = async (trendId: string, force = false) => {
     setGeneratingId(trendId);
-    showToast(force ? 'Đang viết lại bài đăng bằng AI...' : 'Đang tạo bài viết và comment nguồn bằng AI...', 'info');
+    showToast(
+      force
+        ? (lang === 'vi' ? 'Đang viết lại bài đăng bằng AI...' : 'Regenerating post with AI...')
+        : (lang === 'vi' ? 'Đang tạo bài viết và comment nguồn bằng AI...' : 'Generating post and source comment with AI...'),
+      'info'
+    );
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',

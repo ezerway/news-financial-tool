@@ -310,6 +310,3 @@ export default function OverviewReelsSection({
     </div>
   );
 }
-    </div>
-  );
-}

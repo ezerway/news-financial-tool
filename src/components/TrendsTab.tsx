@@ -681,9 +681,11 @@ export default function TrendsTab({
                                     className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition group flex flex-col"
                                   >
                                     <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
-                                      {choice.name}
+                                      {lang === 'vi' ? choice.nameVi : choice.nameEn}
                                     </span>
-                                    <span className="text-[10px] text-slate-400">{choice.desc}</span>
+                                    <span className="text-[10px] text-slate-400">
+                                      {lang === 'vi' ? choice.descVi : choice.descEn}
+                                    </span>
                                   </button>
                                 ))}
                               </div>
