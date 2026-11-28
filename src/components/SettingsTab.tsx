@@ -2087,7 +2087,7 @@ export default function SettingsTab({
                       {lang === 'vi' ? 'Từ khóa xu hướng' : 'Trending Topics'}
                     </div>
                     <div className="text-[11px] text-slate-400 font-mono">
-                      bảng trends
+                      {lang === 'vi' ? 'bảng trends' : 'trends table'}
                     </div>
                   </div>
                 </div>
@@ -2112,7 +2112,7 @@ export default function SettingsTab({
                       {lang === 'vi' ? 'Bài viết Fanpage' : 'Social Posts'}
                     </div>
                     <div className="text-[11px] text-slate-400 font-mono">
-                      bảng posts
+                      {lang === 'vi' ? 'bảng posts' : 'posts table'}
                     </div>
                   </div>
                 </div>
@@ -2137,7 +2137,7 @@ export default function SettingsTab({
                       {lang === 'vi' ? 'Video ngắn (Reels)' : 'Shorts & Reels'}
                     </div>
                     <div className="text-[11px] text-slate-400 font-mono">
-                      bảng reels
+                      {lang === 'vi' ? 'bảng reels' : 'reels table'}
                     </div>
                   </div>
                 </div>
