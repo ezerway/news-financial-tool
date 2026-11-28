@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useI18n } from '@/context/I18nThemeContext';
 import {
   Film,
   Play,
@@ -30,6 +31,7 @@ export default function OverviewReelsSection({
   onNavigateToReels,
   onNavigateToTrends,
 }: OverviewReelsSectionProps) {
+  const { lang } = useI18n();
   const [previewReel, setPreviewReel] = useState<ReelItem | null>(null);
 
   const draftCount = reels.filter((r) => r.status === 'draft').length;
@@ -53,14 +55,16 @@ export default function OverviewReelsSection({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                Video Reels 9:16 Mới Nhất
+                {lang === 'vi' ? 'Video Reels 9:16 Mới Nhất' : 'Latest 9:16 Video Reels'}
               </h3>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-fuchsia-50 dark:bg-fuchsia-950/60 text-fuchsia-600 dark:text-fuchsia-400 border border-fuchsia-200 dark:border-fuchsia-800">
-                {reels.length} video
+                {reels.length} {lang === 'vi' ? 'video' : 'videos'}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Bản tin ngắn 9:16 tự động từ xu hướng, tối ưu phân phối đa nền tảng
+              {lang === 'vi'
+                ? 'Bản tin ngắn 9:16 tự động từ xu hướng, tối ưu phân phối đa nền tảng'
+                : 'Automated 9:16 news shorts from trends, optimized for multi-platform reach'}
             </p>
           </div>
         </div>
@@ -70,16 +74,16 @@ export default function OverviewReelsSection({
           <button
             onClick={onNavigateToTrends}
             className="btn btn-sm btn-secondary text-xs flex items-center gap-1.5"
-            title="Đến trang Xu hướng để tạo thêm video"
+            title={lang === 'vi' ? 'Đến trang Xu hướng để tạo thêm video' : 'Go to Trends page to create more videos'}
           >
             <TrendingUp className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Tạo từ Trend</span>
+            <span>{lang === 'vi' ? 'Tạo từ Trend' : 'Create from Trend'}</span>
           </button>
           <button
             onClick={onNavigateToReels}
             className="btn btn-sm btn-primary text-xs flex items-center gap-1"
           >
-            <span>Quản lý Reels ({reels.length})</span>
+            <span>{lang === 'vi' ? `Quản lý Reels (${reels.length})` : `Manage Reels (${reels.length})`}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -89,20 +93,20 @@ export default function OverviewReelsSection({
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2">
           <span className="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 font-medium text-[11px] border border-amber-200/50 dark:border-amber-800/40">
-            Bản nháp: <b>{draftCount}</b>
+            {lang === 'vi' ? 'Bản nháp:' : 'Drafts:'} <b>{draftCount}</b>
           </span>
           <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-medium text-[11px] border border-emerald-200/50 dark:border-emerald-800/40">
-            Đã đăng: <b>{publishedCount}</b>
+            {lang === 'vi' ? 'Đã đăng:' : 'Published:'} <b>{publishedCount}</b>
           </span>
           {scheduledCount > 0 && (
             <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-medium text-[11px] border border-blue-200/50 dark:border-blue-800/40">
-              Lên lịch: <b>{scheduledCount}</b>
+              {lang === 'vi' ? 'Lên lịch:' : 'Scheduled:'} <b>{scheduledCount}</b>
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
-          <span>Hỗ trợ:</span>
+          <span>{lang === 'vi' ? 'Hỗ trợ:' : 'Supports:'}</span>
           <div className="flex items-center gap-1">
             <span className="p-1 rounded bg-slate-100 dark:bg-slate-800 text-[#1877F2]" title="Facebook Reels">
               <FacebookIcon className="w-3 h-3" />
@@ -128,10 +132,12 @@ export default function OverviewReelsSection({
           </div>
           <div className="space-y-1">
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Chưa có video Reel nào trong hệ thống
+              {lang === 'vi' ? 'Chưa có video Reel nào trong hệ thống' : 'No Reel videos in system yet'}
             </p>
             <p className="text-xs text-slate-400 max-w-md mx-auto">
-              Chuyển sang trang Xu hướng để tạo video dọc 9:16 hiện đại, chuyên nghiệp từ bất kỳ từ khóa hot nào chỉ với 1 click.
+              {lang === 'vi'
+                ? 'Chuyển sang trang Xu hướng để tạo video dọc 9:16 hiện đại, chuyên nghiệp từ bất kỳ từ khóa hot nào chỉ với 1 click.'
+                : 'Switch to Trends page to create modern, professional 9:16 vertical videos from any hot keyword with just 1 click.'}
             </p>
           </div>
           <button
@@ -139,7 +145,7 @@ export default function OverviewReelsSection({
             className="btn btn-sm btn-primary flex items-center gap-1.5"
           >
             <TrendingUp className="w-3.5 h-3.5" />
-            <span>Đến trang Xu hướng để tạo Video</span>
+            <span>{lang === 'vi' ? 'Đến trang Xu hướng để tạo Video' : 'Go to Trends page to create video'}</span>
           </button>
         </div>
       ) : (
@@ -170,7 +176,7 @@ export default function OverviewReelsSection({
                   <button
                     onClick={() => setPreviewReel(reel)}
                     className="absolute inset-0 m-auto w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center text-white shadow-lg transition-transform transform group-hover:scale-110"
-                    title="Xem trước video"
+                    title={lang === 'vi' ? 'Xem trước video' : 'Preview video'}
                   >
                     <Play className="w-5 h-5 fill-white ml-0.5" />
                   </button>
@@ -183,15 +189,15 @@ export default function OverviewReelsSection({
 
                     {reel.status === 'published' ? (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white flex items-center gap-1 shadow-xs">
-                        <CheckCircle2 className="w-3 h-3" /> Đã đăng
+                        <CheckCircle2 className="w-3 h-3" /> {lang === 'vi' ? 'Đã đăng' : 'Published'}
                       </span>
                     ) : reel.status === 'scheduled' ? (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500 text-white flex items-center gap-1 shadow-xs">
-                        <Clock className="w-3 h-3" /> Lên lịch
+                        <Clock className="w-3 h-3" /> {lang === 'vi' ? 'Lên lịch' : 'Scheduled'}
                       </span>
                     ) : (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white flex items-center gap-1 shadow-xs">
-                        Bản nháp
+                        {lang === 'vi' ? 'Bản nháp' : 'Draft'}
                       </span>
                     )}
                   </div>
@@ -222,7 +228,7 @@ export default function OverviewReelsSection({
                 {/* Card Content & Action */}
                 <div className="p-3 flex flex-col justify-between flex-1 gap-2.5">
                   <p className="text-xs font-semibold text-slate-900 dark:text-white line-clamp-2 leading-relaxed">
-                    {reel.caption.split('\n')[0] || 'Bản tin tài chính ngắn'}
+                    {reel.caption.split('\n')[0] || (lang === 'vi' ? 'Bản tin tài chính ngắn' : 'Short financial news')}
                   </p>
 
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2">
@@ -230,14 +236,14 @@ export default function OverviewReelsSection({
                       onClick={() => setPreviewReel(reel)}
                       className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
                     >
-                      <Play className="w-3 h-3" /> Xem video
+                      <Play className="w-3 h-3" /> {lang === 'vi' ? 'Xem video' : 'Watch video'}
                     </button>
 
                     <button
                       onClick={onNavigateToReels}
                       className="text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-0.5"
                     >
-                      Chi tiết <ArrowRight className="w-3 h-3" />
+                      {lang === 'vi' ? 'Chi tiết' : 'Details'} <ArrowRight className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
@@ -255,7 +261,9 @@ export default function OverviewReelsSection({
             <div className="p-3.5 border-b border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
-                <span className="font-bold text-xs text-white">Xem Trước Video Reel 9:16</span>
+                <span className="font-bold text-xs text-white">
+                  {lang === 'vi' ? 'Xem Trước Video Reel 9:16' : '9:16 Video Reel Preview'}
+                </span>
               </div>
               <button
                 onClick={() => setPreviewReel(null)}
@@ -282,7 +290,7 @@ export default function OverviewReelsSection({
               </p>
               <div className="flex items-center justify-between pt-1">
                 <span className="text-[10px] text-slate-500 font-mono">
-                  Định dạng: 720x1280 • H.264
+                  {lang === 'vi' ? 'Định dạng: 720x1280 • H.264' : 'Format: 720x1280 • H.264'}
                 </span>
                 <button
                   onClick={() => {
@@ -291,7 +299,7 @@ export default function OverviewReelsSection({
                   }}
                   className="btn btn-xs btn-primary text-[11px] flex items-center gap-1"
                 >
-                  <span>Chuyển tới Reels Tab</span>
+                  <span>{lang === 'vi' ? 'Chuyển tới Reels Tab' : 'Go to Reels Tab'}</span>
                   <ArrowRight className="w-3 h-3" />
                 </button>
               </div>
@@ -299,6 +307,9 @@ export default function OverviewReelsSection({
           </div>
         </div>
       )}
+    </div>
+  );
+}
     </div>
   );
 }

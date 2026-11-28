@@ -37,14 +37,14 @@ export interface SlidePreviewModalProps {
 }
 
 const TEMPLATE_OPTIONS = [
-  { id: 'random', name: '🎲 Ngẫu nhiên thông minh', desc: 'Tự động chọn mẫu tối ưu' },
-  { id: 'modern_dark', name: '🌌 Hiện đại & Tối giản', desc: 'Navy Blue & Kính mờ sang trọng' },
-  { id: 'bloomberg_terminal', name: '📈 Wall Street Terminal', desc: 'Tone đen sâu & Vàng tài chính' },
-  { id: 'editorial_magazine', name: '💎 Tạp chí Sang trọng', desc: 'Obsidian & Vàng Champagne' },
-  { id: 'neon_cyber', name: '⚡ Cyberpunk Neon', desc: 'Cyan & Magenta FinTech tương lai' },
-  { id: 'crimson_breaking', name: '🚨 Thời sự & Khẩn cấp', desc: 'Đỏ Crimson rực lửa & Báo động nóng' },
-  { id: 'emerald_wealth', name: '👑 Thịnh vượng & Đầu tư', desc: 'Xanh ngọc lục bảo & Vàng Gold quý phái' },
-  { id: 'sunset_gradient', name: '🌅 TikTok GenZ Sunset', desc: 'Cam san hô & Tím Neon sôi động bắt mắt' },
+  { id: 'random', nameVi: '🎲 Ngẫu nhiên thông minh', nameEn: '🎲 Smart Random', descVi: 'Tự động chọn mẫu tối ưu', descEn: 'Auto-select optimal template' },
+  { id: 'modern_dark', nameVi: '🌌 Hiện đại & Tối giản', nameEn: '🌌 Modern & Minimal', descVi: 'Navy Blue & Kính mờ sang trọng', descEn: 'Navy Blue & Frosted Glass' },
+  { id: 'bloomberg_terminal', nameVi: '📈 Wall Street Terminal', nameEn: '📈 Wall Street Terminal', descVi: 'Tone đen sâu & Vàng tài chính', descEn: 'Deep black & Financial gold' },
+  { id: 'editorial_magazine', nameVi: '💎 Tạp chí Sang trọng', nameEn: '💎 Editorial Magazine', descVi: 'Obsidian & Vàng Champagne', descEn: 'Obsidian & Champagne gold' },
+  { id: 'neon_cyber', nameVi: '⚡ Cyberpunk Neon', nameEn: '⚡ Cyberpunk Neon', descVi: 'Cyan & Magenta FinTech tương lai', descEn: 'Cyan & Magenta futuristic' },
+  { id: 'crimson_breaking', nameVi: '🚨 Thời sự & Khẩn cấp', nameEn: '🚨 Breaking News', descVi: 'Đỏ Crimson rực lửa & Báo động nóng', descEn: 'Crimson Red & Urgent alerts' },
+  { id: 'emerald_wealth', nameVi: '👑 Thịnh vượng & Đầu tư', nameEn: '👑 Emerald Wealth', descVi: 'Xanh ngọc lục bảo & Vàng Gold quý phái', descEn: 'Emerald Green & Rich Gold' },
+  { id: 'sunset_gradient', nameVi: '🌅 TikTok GenZ Sunset', nameEn: '🌅 TikTok GenZ Sunset', descVi: 'Cam san hô & Tím Neon sôi động bắt mắt', descEn: 'Coral Orange & Neon Purple' },
 ];
 
 export default function SlidePreviewModal({
@@ -79,17 +79,17 @@ export default function SlidePreviewModal({
             setScript(data.script);
             setIsFromCache(!!data.fromCache);
           } else {
-            setErrorMsg(data.error || 'Không thể tải kịch bản slide');
+            setErrorMsg(data.error || (lang === 'vi' ? 'Không thể tải kịch bản slide' : 'Could not load slide script'));
           }
         })
         .catch((err) => {
-          setErrorMsg(err.message || 'Lỗi kết nối khi tải slide');
+          setErrorMsg(err.message || (lang === 'vi' ? 'Lỗi kết nối khi tải slide' : 'Connection error loading slides'));
         })
         .finally(() => {
           setIsLoading(false);
         });
     }
-  }, [isOpen, trend?.id]);
+  }, [isOpen, trend?.id, lang]);
 
   // Sinh lại script bằng AI khi người dùng chủ động yêu cầu
   const handleRegenerateScript = async () => {
@@ -107,10 +107,10 @@ export default function SlidePreviewModal({
         setScript(data.script);
         setIsFromCache(false);
       } else {
-        setErrorMsg(data.error || 'Lỗi sinh lại kịch bản slide');
+        setErrorMsg(data.error || (lang === 'vi' ? 'Lỗi sinh lại kịch bản slide' : 'Error regenerating slide script'));
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Lỗi kết nối');
+      setErrorMsg(err.message || (lang === 'vi' ? 'Lỗi kết nối' : 'Connection error'));
     } finally {
       setIsRegenerating(false);
     }
@@ -132,10 +132,10 @@ export default function SlidePreviewModal({
         setSaveSuccessMsg(true);
         setTimeout(() => setSaveSuccessMsg(false), 2500);
       } else {
-        setErrorMsg(data.error || 'Lỗi khi lưu kịch bản');
+        setErrorMsg(data.error || (lang === 'vi' ? 'Lỗi khi lưu kịch bản' : 'Error saving script'));
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Lỗi kết nối');
+      setErrorMsg(err.message || (lang === 'vi' ? 'Lỗi kết nối' : 'Connection error'));
     } finally {
       setIsSavingEdits(false);
     }
@@ -199,7 +199,7 @@ export default function SlidePreviewModal({
             >
               {TEMPLATE_OPTIONS.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name}
+                  {lang === 'vi' ? t.nameVi : t.nameEn}
                 </option>
               ))}
             </select>
@@ -270,17 +270,17 @@ export default function SlidePreviewModal({
                   <div className="flex items-center justify-between text-xs font-bold text-purple-700 dark:text-purple-400">
                     <span className="flex items-center gap-1.5">
                       <Layers className="w-3.5 h-3.5" />
-                      SLIDE 1: MỞ ĐẦU (INTRO - 3 GIÂY)
+                      {lang === 'vi' ? 'SLIDE 1: MỞ ĐẦU (INTRO - 3 GIÂY)' : 'SLIDE 1: INTRO (3 SECONDS)'}
                     </span>
                     <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-200/60 dark:bg-purple-900/60 font-mono">
-                      {script.intro?.categoryLabel || 'BẢN TIN'}
+                      {script.intro?.categoryLabel || (lang === 'vi' ? 'BẢN TIN' : 'NEWS')}
                     </span>
                   </div>
                   <h3 className="text-base font-extrabold text-slate-900 dark:text-white leading-tight">
                     {script.intro?.mainTitle || trend.title}
                   </h3>
                   <p className="text-xs text-slate-600 dark:text-slate-300 italic">
-                    "{script.intro?.tagline || 'Cập nhật tin tức thị trường nhanh nhất'}"
+                    "{script.intro?.tagline || (lang === 'vi' ? 'Cập nhật tin tức thị trường nhanh nhất' : 'Fastest market updates')}"
                   </p>
                 </div>
 
@@ -289,10 +289,10 @@ export default function SlidePreviewModal({
                   <div className="flex items-center justify-between text-xs font-bold text-blue-700 dark:text-blue-400">
                     <span className="flex items-center gap-1.5">
                       <Layers className="w-3.5 h-3.5" />
-                      SLIDE 2: TIÊU ĐỀ CHÍNH (HEADLINE)
+                      {lang === 'vi' ? 'SLIDE 2: TIÊU ĐỀ CHÍNH (HEADLINE)' : 'SLIDE 2: HEADLINE'}
                     </span>
                     <span className="text-[10px] px-2 py-0.5 rounded-md bg-blue-200/60 dark:bg-blue-900/60 font-mono">
-                      {script.slide1?.timestamp || 'Hôm nay'}
+                      {script.slide1?.timestamp || (lang === 'vi' ? 'Hôm nay' : 'Today')}
                     </span>
                   </div>
                   <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
@@ -304,7 +304,11 @@ export default function SlidePreviewModal({
                 <div className="space-y-3">
                   <div className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                     <Layers className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>NỘI DUNG CHI TIẾT & SỐ LIỆU ({script.contentSlides?.length || 0} NHÓM SLIDE)</span>
+                    <span>
+                      {lang === 'vi'
+                        ? `NỘI DUNG CHI TIẾT & SỐ LIỆU (${script.contentSlides?.length || 0} NHÓM SLIDE)`
+                        : `DETAILS & DATA (${script.contentSlides?.length || 0} SLIDE GROUPS)`}
+                    </span>
                   </div>
 
                   {(script.contentSlides || []).map((cs, idx) => (
@@ -313,9 +317,9 @@ export default function SlidePreviewModal({
                       className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/40 space-y-2.5"
                     >
                       <div className="flex items-center justify-between text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                        <span>NHÓM {idx + 1}: {cs.title}</span>
+                        <span>{lang === 'vi' ? `NHÓM ${idx + 1}:` : `GROUP ${idx + 1}:`} {cs.title}</span>
                         <span className="text-[10px] text-slate-400 font-mono">
-                          {cs.fragments?.length || 0} ý chính
+                          {cs.fragments?.length || 0} {lang === 'vi' ? 'ý chính' : 'points'}
                         </span>
                       </div>
                       <div className="space-y-1.5 pl-2 border-l-2 border-indigo-500/40">
@@ -335,13 +339,13 @@ export default function SlidePreviewModal({
                 <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/40 dark:bg-emerald-950/20 space-y-1.5">
                   <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                     <MessageCircle className="w-3.5 h-3.5" />
-                    <span>SLIDE KẾT THÚC (OUTRO & KÊU GỌI TƯƠNG TÁC)</span>
+                    <span>{lang === 'vi' ? 'SLIDE KẾT THÚC (OUTRO & KÊU GỌI TƯƠNG TÁC)' : 'OUTRO SLIDE & CALL TO ACTION'}</span>
                   </div>
                   <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                    {script.outro?.ctaText || 'Theo dõi kênh để đón xem bản tin tiếp theo!'}
+                    {script.outro?.ctaText || (lang === 'vi' ? 'Theo dõi kênh để đón xem bản tin tiếp theo!' : 'Follow our channel for next updates!')}
                   </h4>
                   <p className="text-xs text-slate-600 dark:text-slate-400">
-                    {script.outro?.subText || 'Bình luận ý kiến của bạn bên dưới.'}
+                    {script.outro?.subText || (lang === 'vi' ? 'Bình luận ý kiến của bạn bên dưới.' : 'Leave your comment below.')}
                   </p>
                 </div>
               </div>
@@ -351,11 +355,11 @@ export default function SlidePreviewModal({
                 {/* Edit Intro */}
                 <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2.5">
                   <h4 className="text-xs font-bold text-purple-600 dark:text-purple-400">
-                    Slide Mở đầu (Intro)
+                    {lang === 'vi' ? 'Slide Mở đầu (Intro)' : 'Intro Slide'}
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[11px] text-slate-500 block mb-0.5">Nhãn chuyên mục:</label>
+                      <label className="text-[11px] text-slate-500 block mb-0.5">{lang === 'vi' ? 'Nhãn chuyên mục:' : 'Category label:'}</label>
                       <input
                         type="text"
                         value={script.intro?.categoryLabel || ''}
@@ -384,7 +388,7 @@ export default function SlidePreviewModal({
                     </div>
                   </div>
                   <div>
-                    <label className="text-[11px] text-slate-500 block mb-0.5">Tiêu đề lớn:</label>
+                    <label className="text-[11px] text-slate-500 block mb-0.5">{lang === 'vi' ? 'Tiêu đề lớn:' : 'Main title:'}</label>
                     <input
                       type="text"
                       value={script.intro?.mainTitle || ''}
@@ -402,10 +406,10 @@ export default function SlidePreviewModal({
                 {/* Edit Headline */}
                 <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2.5">
                   <h4 className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                    Slide Tiêu đề (Headline)
+                    {lang === 'vi' ? 'Slide Tiêu đề (Headline)' : 'Headline Slide'}
                   </h4>
                   <div>
-                    <label className="text-[11px] text-slate-500 block mb-0.5">Tiêu đề tin tức:</label>
+                    <label className="text-[11px] text-slate-500 block mb-0.5">{lang === 'vi' ? 'Tiêu đề tin tức:' : 'News headline:'}</label>
                     <input
                       type="text"
                       value={script.slide1?.headline || ''}
@@ -423,12 +427,12 @@ export default function SlidePreviewModal({
                 {/* Edit Content Slides */}
                 <div className="space-y-3">
                   <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                    Nội dung chi tiết & Đoạn dẫn
+                    {lang === 'vi' ? 'Nội dung chi tiết & Đoạn dẫn' : 'Details & Key Points'}
                   </h4>
                   {(script.contentSlides || []).map((cs, cIdx) => (
                     <div key={cIdx} className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
                       <label className="text-[11px] font-bold text-slate-500 block">
-                        Nhóm {cIdx + 1} - Tiêu đề nhóm:
+                        {lang === 'vi' ? `Nhóm ${cIdx + 1} - Tiêu đề nhóm:` : `Group ${cIdx + 1} - Title:`}
                       </label>
                       <input
                         type="text"
@@ -442,7 +446,7 @@ export default function SlidePreviewModal({
                       />
 
                       <div className="space-y-1.5 pt-1">
-                        <label className="text-[10px] text-slate-400 block">Các đoạn dẫn dữ kiện:</label>
+                        <label className="text-[10px] text-slate-400 block">{lang === 'vi' ? 'Các đoạn dẫn dữ kiện:' : 'Key data fragments:'}</label>
                         {(cs.fragments || []).map((frag, fIdx) => (
                           <textarea
                             key={fIdx}
@@ -464,11 +468,11 @@ export default function SlidePreviewModal({
                 {/* Edit Outro */}
                 <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2.5">
                   <h4 className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    Slide Kết (Outro)
+                    {lang === 'vi' ? 'Slide Kết (Outro)' : 'Outro Slide'}
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[11px] text-slate-500 block mb-0.5">Lời kêu gọi (CTA):</label>
+                      <label className="text-[11px] text-slate-500 block mb-0.5">{lang === 'vi' ? 'Lời kêu gọi (CTA):' : 'Call to Action (CTA):'}</label>
                       <input
                         type="text"
                         value={script.outro?.ctaText || ''}
@@ -482,7 +486,7 @@ export default function SlidePreviewModal({
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] text-slate-500 block mb-0.5">Câu kết phụ:</label>
+                      <label className="text-[11px] text-slate-500 block mb-0.5">{lang === 'vi' ? 'Câu kết phụ:' : 'Sub-text:'}</label>
                       <input
                         type="text"
                         value={script.outro?.subText || ''}

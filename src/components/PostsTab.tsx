@@ -214,7 +214,7 @@ export default function PostsTab({
                 onClick={() => setConfirmDeleteAllFailed(true)}
                 disabled={isDeletingAllFailed}
                 className="btn btn-sm text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 transition-colors"
-                title="Xóa tất cả bài viết lỗi và các ảnh, video đính kèm"
+                title={lang === 'vi' ? 'Xóa tất cả bài viết lỗi và các ảnh, video đính kèm' : 'Delete all failed posts and attached media'}
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{t('delete_all_failed')} ({filteredPosts.length})</span>
@@ -365,7 +365,7 @@ export default function PostsTab({
                         type="url"
                         value={editFbPostUrl}
                         onChange={(e) => setEditFbPostUrl(e.target.value)}
-                        placeholder="https://www.facebook.com/... (Link bài viết trên Facebook)"
+                        placeholder={lang === 'vi' ? 'https://www.facebook.com/... (Link bài viết trên Facebook)' : 'https://www.facebook.com/... (Facebook post URL)'}
                         className="w-full p-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-indigo-500 font-mono max-w-full"
                       />
                     </div>
@@ -406,7 +406,7 @@ export default function PostsTab({
                           <MessageSquare className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                           <span>{t('comment_source_title')}</span>
                         </span>
-                        <span className="text-[10px] font-mono text-slate-400">{post.comment_content.length} ký tự</span>
+                        <span className="text-[10px] font-mono text-slate-400">{post.comment_content.length} {lang === 'vi' ? 'ký tự' : 'chars'}</span>
                       </div>
                       <div className="font-mono text-[11px] text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-all line-clamp-2">
                         {post.comment_content}
@@ -833,7 +833,7 @@ export default function PostsTab({
                 type="url"
                 value={correctFbUrl}
                 onChange={(e) => setCorrectFbUrl(e.target.value)}
-                placeholder="https://www.facebook.com/... (Link bài viết trên Fanpage)"
+                placeholder={lang === 'vi' ? 'https://www.facebook.com/... (Link bài viết trên Fanpage)' : 'https://www.facebook.com/... (Fanpage post URL)'}
                 className="app-input w-full text-xs p-2.5 rounded-lg border border-[var(--app-border)] font-mono text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
               />
               <p className="text-[10px] text-[var(--app-text-secondary)]">

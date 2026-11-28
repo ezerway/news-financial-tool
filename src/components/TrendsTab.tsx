@@ -89,14 +89,14 @@ export default function TrendsTab({
   const [templateDropdownForce, setTemplateDropdownForce] = useState(false);
 
   const VIDEO_TEMPLATE_CHOICES = [
-    { id: 'random', name: '🎲 Ngẫu nhiên thông minh', desc: 'Luân phiên tự động các mẫu' },
-    { id: 'modern_dark', name: '🌌 Hiện đại & Tối giản', desc: 'Navy Blue & Kính mờ sang trọng' },
-    { id: 'bloomberg_terminal', name: '📈 Wall Street Terminal', desc: 'Tone đen sâu & Vàng tài chính' },
-    { id: 'editorial_magazine', name: '💎 Tạp chí Sang trọng', desc: 'Obsidian & Vàng Champagne' },
-    { id: 'neon_cyber', name: '⚡ Cyberpunk Neon', desc: 'Cyan & Magenta FinTech tương lai' },
-    { id: 'crimson_breaking', name: '🚨 Thời sự & Khẩn cấp', desc: 'Đỏ Crimson rực lửa & Báo động nóng' },
-    { id: 'emerald_wealth', name: '👑 Thịnh vượng & Đầu tư', desc: 'Xanh ngọc lục bảo & Vàng Gold quý phái' },
-    { id: 'sunset_gradient', name: '🌅 TikTok GenZ Sunset', desc: 'Cam san hô & Tím Neon sôi động bắt mắt' },
+    { id: 'random', nameVi: '🎲 Ngẫu nhiên thông minh', nameEn: '🎲 Smart Random', descVi: 'Luân phiên tự động các mẫu', descEn: 'Auto-select optimal template' },
+    { id: 'modern_dark', nameVi: '🌌 Hiện đại & Tối giản', nameEn: '🌌 Modern & Minimal', descVi: 'Navy Blue & Kính mờ sang trọng', descEn: 'Navy Blue & Frosted Glass' },
+    { id: 'bloomberg_terminal', nameVi: '📈 Wall Street Terminal', nameEn: '📈 Wall Street Terminal', descVi: 'Tone đen sâu & Vàng tài chính', descEn: 'Deep black & Financial gold' },
+    { id: 'editorial_magazine', nameVi: '💎 Tạp chí Sang trọng', nameEn: '💎 Editorial Magazine', descVi: 'Obsidian & Vàng Champagne', descEn: 'Obsidian & Champagne gold' },
+    { id: 'neon_cyber', nameVi: '⚡ Cyberpunk Neon', nameEn: '⚡ Cyberpunk Neon', descVi: 'Cyan & Magenta FinTech tương lai', descEn: 'Cyan & Magenta futuristic' },
+    { id: 'crimson_breaking', nameVi: '🚨 Thời sự & Khẩn cấp', nameEn: '🚨 Breaking News', descVi: 'Đỏ Crimson rực lửa & Báo động nóng', descEn: 'Crimson Red & Urgent alerts' },
+    { id: 'emerald_wealth', nameVi: '👑 Thịnh vượng & Đầu tư', nameEn: '👑 Emerald Wealth', descVi: 'Xanh ngọc lục bảo & Vàng Gold quý phái', descEn: 'Emerald Green & Rich Gold' },
+    { id: 'sunset_gradient', nameVi: '🌅 TikTok GenZ Sunset', nameEn: '🌅 TikTok GenZ Sunset', descVi: 'Cam san hô & Tím Neon sôi động bắt mắt', descEn: 'Coral Orange & Neon Purple' },
   ];
 
   const toggleExpand = (id: string) => {
@@ -357,7 +357,7 @@ export default function TrendsTab({
                             type="button"
                             onClick={() => setViewingTrend(trend)}
                             className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition cursor-pointer"
-                            title="Chưa có link nguồn báo chí, thực tế chưa thể đăng bài"
+                            title={lang === 'vi' ? 'Chưa có link nguồn báo chí, thực tế chưa thể đăng bài' : 'Missing news source link, cannot publish'}
                           >
                             <AlertTriangle className="w-2.5 h-2.5 text-amber-500" />
                             <span>{t('missing_sources_badge')} ({t('not_published_hint')})</span>
@@ -415,7 +415,7 @@ export default function TrendsTab({
                                 className="inline-flex items-center gap-1 text-[10px] app-tag hover:border-indigo-500 px-2 py-0.5 rounded-md transition"
                                 title={art.title}
                               >
-                                <span className="max-w-[100px] sm:max-w-none truncate">{art.source || 'Nguồn báo'}</span>
+                                <span className="max-w-[100px] sm:max-w-none truncate">{art.source || (lang === 'vi' ? 'Nguồn báo' : 'News source')}</span>
                                 <ExternalLink className="w-2.5 h-2.5 opacity-60 shrink-0" />
                               </a>
                             ))}
@@ -597,9 +597,11 @@ export default function TrendsTab({
                                     className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition group flex flex-col"
                                   >
                                     <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
-                                      {choice.name}
+                                      {lang === 'vi' ? choice.nameVi : choice.nameEn}
                                     </span>
-                                    <span className="text-[10px] text-slate-400">{choice.desc}</span>
+                                    <span className="text-[10px] text-slate-400">
+                                      {lang === 'vi' ? choice.descVi : choice.descEn}
+                                    </span>
                                   </button>
                                 ))}
                               </div>
@@ -768,7 +770,7 @@ export default function TrendsTab({
                                 </span>
                               )}
                               <span className="text-indigo-600 dark:text-indigo-400 group-hover:underline flex items-center gap-0.5">
-                                Đọc báo <ExternalLink className="w-2.5 h-2.5" />
+                                {lang === 'vi' ? 'Đọc báo' : 'Read'} <ExternalLink className="w-2.5 h-2.5" />
                               </span>
                             </div>
                           </div>
@@ -821,7 +823,7 @@ export default function TrendsTab({
             <div className="flex items-center justify-between w-full pb-3 border-b border-slate-800 text-sm font-bold text-white">
               <div className="flex items-center gap-2">
                 <Film className="w-4 h-4 text-purple-400" />
-                <span>Bản tin video 9:16</span>
+                <span>{lang === 'vi' ? 'Bản tin video 9:16' : 'Video 9:16 News'}</span>
               </div>
               <button
                 type="button"
@@ -852,7 +854,7 @@ export default function TrendsTab({
                   }
                 }}
                 className="text-amber-400 hover:text-amber-300 hover:underline font-semibold cursor-pointer inline-flex items-center gap-1"
-                title="Tạo lại video mới cho xu hướng này"
+                title={lang === 'vi' ? 'Tạo lại video mới cho xu hướng này' : 'Re-create video for this trend'}
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>{lang === 'vi' ? 'Tạo lại video này' : 'Re-create video'}</span>
@@ -894,7 +896,7 @@ export default function TrendsTab({
                   <p className="text-xs text-slate-500">
                     {lang === 'vi'
                       ? `Hiện có ${trends.filter((t) => !t.video_generated || !t.video_path).length} xu hướng chưa có video`
-                      : `${trends.filter((t) => !t.video_generated || !t.video_path).length} trends without video`}
+                      : `${trends.filter((t) => !t.video_generated || !t.video_path).length} trends currently without video`}
                   </p>
                 </div>
               </div>
@@ -948,9 +950,9 @@ export default function TrendsTab({
                   >
                     <div>
                       <div className="text-xs font-bold flex items-center gap-1.5">
-                        <span>{choice.name}</span>
+                        <span>{lang === 'vi' ? choice.nameVi : choice.nameEn}</span>
                       </div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">{choice.desc}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">{lang === 'vi' ? choice.descVi : choice.descEn}</div>
                     </div>
                     <div
                       className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${

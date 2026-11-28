@@ -191,16 +191,16 @@ export default function FacebookConnectModal({
 
       const data = await res.json();
       if (data.success) {
-        setSuccessMessage(data.message || 'Đã nạp file session thành công!');
+        setSuccessMessage(data.message || (lang === 'vi' ? 'Đã nạp file session thành công!' : 'Session file loaded successfully!'));
         setTimeout(() => {
           onSuccess();
           onClose();
         }, 1200);
       } else {
-        setErrorMessage(data.error || 'Nạp file thất bại.');
+        setErrorMessage(data.error || (lang === 'vi' ? 'Nạp file thất bại.' : 'Failed to load file.'));
       }
     } catch (err: unknown) {
-      setErrorMessage(`Lỗi tải file: ${err instanceof Error ? err.message : String(err)}`);
+      setErrorMessage(`${lang === 'vi' ? 'Lỗi tải file' : 'File upload error'}: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsUploading(false);
     }
@@ -340,7 +340,7 @@ export default function FacebookConnectModal({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                   <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>Chọn cách nhập:</span>
+                  <span>{lang === 'vi' ? 'Chọn cách nhập:' : 'Input method:'}</span>
                 </span>
                 <div className="grid grid-cols-2 p-1 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[11px] font-semibold">
                   <button
@@ -355,7 +355,7 @@ export default function FacebookConnectModal({
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    JSON (Khuyên dùng) ★
+                    {lang === 'vi' ? 'JSON (Khuyên dùng) ★' : 'JSON (Recommended) ★'}
                   </button>
                   <button
                     type="button"
@@ -369,7 +369,7 @@ export default function FacebookConnectModal({
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    Nhập c_user &amp; xs
+                    {lang === 'vi' ? 'Nhập c_user & xs' : 'Enter c_user & xs'}
                   </button>
                 </div>
               </div>
@@ -378,18 +378,30 @@ export default function FacebookConnectModal({
               {cookieInputMode === 'json' ? (
                 <div className="space-y-3.5 animate-in fade-in duration-200">
                   <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-500/30 text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
-                    💡 <strong>Cách tiện nhất:</strong> Mở facebook.com trên trình duyệt máy tính $\rightarrow$ Mở tiện ích <strong>Cookie-Editor</strong> $\rightarrow$ Bấm nút <strong>Export</strong> $\rightarrow$ Dán vào ô bên dưới. Cách này mang theo đầy đủ <code>datr</code>, <code>sb</code>, <code>c_user</code>, <code>xs</code> giúp phiên Facebook hoạt động ổn định nhất!
+                    {lang === 'vi' ? (
+                      <>
+                        💡 <strong>Cách tiện nhất:</strong> Mở facebook.com trên trình duyệt máy tính $\rightarrow$ Mở tiện ích <strong>Cookie-Editor</strong> $\rightarrow$ Bấm nút <strong>Export</strong> $\rightarrow$ Dán vào ô bên dưới. Cách này mang theo đầy đủ <code>datr</code>, <code>sb</code>, <code>c_user</code>, <code>xs</code> giúp phiên Facebook hoạt động ổn định nhất!
+                      </>
+                    ) : (
+                      <>
+                        💡 <strong>Best method:</strong> Open facebook.com on your desktop browser $\rightarrow$ Open the <strong>Cookie-Editor</strong> extension $\rightarrow$ Click <strong>Export</strong> $\rightarrow$ Paste into the box below. This includes full <code>datr</code>, <code>sb</code>, <code>c_user</code>, <code>xs</code> cookies for maximum stability!
+                      </>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Dán nội dung JSON Cookie hoặc chuỗi cookie:
+                      {lang === 'vi' ? 'Dán nội dung JSON Cookie hoặc chuỗi cookie:' : 'Paste JSON Cookie content or cookie string:'}
                     </label>
                     <textarea
                       rows={6}
                       value={rawCookies}
                       onChange={(e) => setRawCookies(e.target.value)}
-                      placeholder={`Ví dụ định dạng Cookie-Editor:\n[\n  { "name": "c_user", "value": "..." },\n  { "name": "xs", "value": "..." }\n]\n\nHoặc chuỗi: c_user=...; xs=...; datr=...`}
+                      placeholder={
+                        lang === 'vi'
+                          ? `Ví dụ định dạng Cookie-Editor:\n[\n  { "name": "c_user", "value": "..." },\n  { "name": "xs", "value": "..." }\n]\n\nHoặc chuỗi: c_user=...; xs=...; datr=...`
+                          : `Example Cookie-Editor format:\n[\n  { "name": "c_user", "value": "..." },\n  { "name": "xs", "value": "..." }\n]\n\nOr string: c_user=...; xs=...; datr=...`
+                      }
                       className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-2xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono shadow-inner transition"
                     />
                   </div>
@@ -403,12 +415,12 @@ export default function FacebookConnectModal({
                     {isSubmitting ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Đang lưu và nạp cookie...</span>
+                        <span>{lang === 'vi' ? 'Đang lưu và nạp cookie...' : 'Saving and loading cookies...'}</span>
                       </>
                     ) : (
                       <>
                         <FileCode className="w-4 h-4" />
-                        <span>Lưu &amp; Kích hoạt Phiên Facebook</span>
+                        <span>{lang === 'vi' ? 'Lưu & Kích hoạt Phiên Facebook' : 'Save & Activate Facebook Session'}</span>
                       </>
                     )}
                   </button>
@@ -418,13 +430,17 @@ export default function FacebookConnectModal({
                 <form onSubmit={handleSaveFieldsCookies} className="space-y-3.5 animate-in fade-in duration-200">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Cookie <code>c_user</code> (ID tài khoản Facebook) *
+                      {lang === 'vi' ? (
+                        <>Cookie <code>c_user</code> (ID tài khoản Facebook) *</>
+                      ) : (
+                        <>Cookie <code>c_user</code> (Facebook Account ID) *</>
+                      )}
                     </label>
                     <input
                       type="text"
                       value={cUser}
                       onChange={(e) => setCUser(e.target.value)}
-                      placeholder="Ví dụ: 100089234567890"
+                      placeholder={lang === 'vi' ? 'Ví dụ: 100089234567890' : 'Example: 100089234567890'}
                       required
                       className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-2xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono shadow-inner transition"
                     />
@@ -432,13 +448,17 @@ export default function FacebookConnectModal({
 
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Cookie <code>xs</code> (Mã token phiên) *
+                      {lang === 'vi' ? (
+                        <>Cookie <code>xs</code> (Mã token phiên) *</>
+                      ) : (
+                        <>Cookie <code>xs</code> (Session token) *</>
+                      )}
                     </label>
                     <input
                       type="text"
                       value={xs}
                       onChange={(e) => setXs(e.target.value)}
-                      placeholder="Ví dụ: 24%3Al6J...%3A2%3A17..."
+                      placeholder={lang === 'vi' ? 'Ví dụ: 24%3Al6J...%3A2%3A17...' : 'Example: 24%3Al6J...%3A2%3A17...'}
                       required
                       className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-2xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono shadow-inner transition"
                     />
@@ -452,12 +472,12 @@ export default function FacebookConnectModal({
                     {isSubmitting ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Đang lưu và nạp cookie...</span>
+                        <span>{lang === 'vi' ? 'Đang lưu và nạp cookie...' : 'Saving and loading cookies...'}</span>
                       </>
                     ) : (
                       <>
                         <Key className="w-4 h-4" />
-                        <span>Lưu &amp; Kích hoạt Phiên Facebook</span>
+                        <span>{lang === 'vi' ? 'Lưu & Kích hoạt Phiên Facebook' : 'Save & Activate Facebook Session'}</span>
                       </>
                     )}
                   </button>
@@ -473,18 +493,33 @@ export default function FacebookConnectModal({
                 >
                   <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
                     <HelpCircle className="w-3.5 h-3.5" />
-                    <span>Cách lấy cookie Facebook từ máy bạn trong 10 giây</span>
+                    <span>{lang === 'vi' ? 'Cách lấy cookie Facebook từ máy bạn trong 10 giây' : 'How to get Facebook cookies in 10 seconds'}</span>
                   </span>
-                  <span className="text-[10px] text-slate-500 font-semibold">{showGuide ? 'Ẩn hướng dẫn' : 'Xem chi tiết'}</span>
+                  <span className="text-[10px] text-slate-500 font-semibold">
+                    {showGuide ? (lang === 'vi' ? 'Ẩn hướng dẫn' : 'Hide guide') : (lang === 'vi' ? 'Xem chi tiết' : 'Show details')}
+                  </span>
                 </button>
                 {showGuide && (
                   <div className="p-4 pt-1 border-t border-slate-200 dark:border-slate-800/60 text-slate-600 dark:text-slate-400 space-y-2 leading-relaxed">
-                    <p>
-                      <strong>Cách 1 (Khuyên dùng - Tiện ích Cookie-Editor):</strong> Cài extension <em>Cookie-Editor</em> trên Chrome/Edge. Mở <code>facebook.com</code>, bấm vào icon extension $\rightarrow$ chọn nút <strong>Export</strong> $\rightarrow$ Dán vào tab <strong>&quot;Dán Cookie-Editor (JSON)&quot;</strong> ở trên.
-                    </p>
-                    <p>
-                      <strong>Cách 2 (F12 DevTools):</strong> Vào <code>facebook.com</code>, nhấn <strong>F12</strong> $\rightarrow$ chọn tab <strong>Application</strong> $\rightarrow$ <strong>Cookies</strong> $\rightarrow$ <code>https://www.facebook.com</code> $\rightarrow$ Copy giá trị của <code>c_user</code> và <code>xs</code>.
-                    </p>
+                    {lang === 'vi' ? (
+                      <>
+                        <p>
+                          <strong>Cách 1 (Khuyên dùng - Tiện ích Cookie-Editor):</strong> Cài extension <em>Cookie-Editor</em> trên Chrome/Edge. Mở <code>facebook.com</code>, bấm vào icon extension $\rightarrow$ chọn nút <strong>Export</strong> $\rightarrow$ Dán vào tab <strong>&quot;Dán Cookie-Editor (JSON)&quot;</strong> ở trên.
+                        </p>
+                        <p>
+                          <strong>Cách 2 (F12 DevTools):</strong> Vào <code>facebook.com</code>, nhấn <strong>F12</strong> $\rightarrow$ chọn tab <strong>Application</strong> $\rightarrow$ <strong>Cookies</strong> $\rightarrow$ <code>https://www.facebook.com</code> $\rightarrow$ Copy giá trị của <code>c_user</code> và <code>xs</code>.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p>
+                          <strong>Method 1 (Recommended - Cookie-Editor):</strong> Install the <em>Cookie-Editor</em> extension on Chrome/Edge. Open <code>facebook.com</code>, click the extension icon $\rightarrow$ click <strong>Export</strong> $\rightarrow$ Paste into the <strong>&quot;JSON (Recommended)&quot;</strong> tab above.
+                        </p>
+                        <p>
+                          <strong>Method 2 (F12 DevTools):</strong> Go to <code>facebook.com</code>, press <strong>F12</strong> $\rightarrow$ select tab <strong>Application</strong> $\rightarrow$ <strong>Cookies</strong> $\rightarrow$ <code>https://www.facebook.com</code> $\rightarrow$ Copy values of <code>c_user</code> and <code>xs</code>.
+                        </p>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -495,12 +530,20 @@ export default function FacebookConnectModal({
           {activeTab === 'file' && (
             <div className="space-y-4">
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                Tải lên file <code>fb-session.json</code> hoặc file Profile ZIP đã xuất từ máy tính cá nhân của bạn. Hệ thống sẽ tự động cập nhật session cho Playwright.
+                {lang === 'vi' ? (
+                  <>
+                    Tải lên file <code>fb-session.json</code> hoặc file Profile ZIP đã xuất từ máy tính cá nhân của bạn. Hệ thống sẽ tự động cập nhật session cho Playwright.
+                  </>
+                ) : (
+                  <>
+                    Upload <code>fb-session.json</code> or exported profile ZIP file from your computer. The system will automatically update Playwright session.
+                  </>
+                )}
               </div>
 
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Chọn file phiên (.json hoặc .zip)
+                  {lang === 'vi' ? 'Chọn file phiên (.json hoặc .zip)' : 'Select session file (.json or .zip)'}
                 </label>
                 <input
                   type="file"
@@ -519,12 +562,12 @@ export default function FacebookConnectModal({
                 {isUploading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Đang nạp file session...</span>
+                    <span>{lang === 'vi' ? 'Đang nạp file session...' : 'Uploading session file...'}</span>
                   </>
                 ) : (
                   <>
                     <Upload className="w-4 h-4" />
-                    <span>Nạp file session lên hệ thống</span>
+                    <span>{lang === 'vi' ? 'Nạp file session lên hệ thống' : 'Upload session file to system'}</span>
                   </>
                 )}
               </button>
@@ -535,15 +578,23 @@ export default function FacebookConnectModal({
           {activeTab === 'browser' && (
             <div className="space-y-4">
               <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-500/40 text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
-                ⚠️ <strong>Lưu ý:</strong> Chế độ này chỉ hoạt động khi ứng dụng chạy trên máy tính có màn hình (macOS, Windows, hoặc Linux có Desktop). Nếu ứng dụng chạy trên <strong>Linux VPS không có giao diện (Headless)</strong>, lệnh này sẽ không thể mở cửa sổ! Hãy sử dụng tab <strong>&quot;Dán Cookie&quot;</strong>.
+                {lang === 'vi' ? (
+                  <>
+                    ⚠️ <strong>Lưu ý:</strong> Chế độ này chỉ hoạt động khi ứng dụng chạy trên máy tính có màn hình (macOS, Windows, hoặc Linux có Desktop). Nếu ứng dụng chạy trên <strong>Linux VPS không có giao diện (Headless)</strong>, lệnh này sẽ không thể mở cửa sổ! Hãy sử dụng tab <strong>&quot;Dán Cookie&quot;</strong>.
+                  </>
+                ) : (
+                  <>
+                    ⚠️ <strong>Note:</strong> This mode only works when running on a machine with a desktop display (macOS, Windows, or desktop Linux). On a <strong>headless Linux VPS</strong>, this cannot open a window! Please use the <strong>&quot;Paste Cookie&quot;</strong> tab.
+                  </>
+                )}
               </div>
 
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-1.5">
-                <p>Khi bấm nút, máy chủ sẽ mở Chromium:</p>
+                <p>{lang === 'vi' ? 'Khi bấm nút, máy chủ sẽ mở Chromium:' : 'When clicked, the server will open Chromium:'}</p>
                 <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300">
-                  <li>Đăng nhập tài khoản Facebook bình thường &amp; 2FA nếu có.</li>
-                  <li>Chuyển đổi sang tư cách Fanpage nếu bạn cấu hình đăng lên Page.</li>
-                  <li>Đóng cửa sổ khi xong, hệ thống sẽ tự động lưu phiên.</li>
+                  <li>{lang === 'vi' ? 'Đăng nhập tài khoản Facebook bình thường & 2FA nếu có.' : 'Log in to your Facebook account normally & 2FA if prompted.'}</li>
+                  <li>{lang === 'vi' ? 'Chuyển đổi sang tư cách Fanpage nếu bạn cấu hình đăng lên Page.' : 'Switch to your Fanpage profile if publishing to a Page.'}</li>
+                  <li>{lang === 'vi' ? 'Đóng cửa sổ khi xong, hệ thống sẽ tự động lưu phiên.' : 'Close the window when done; the session will be saved automatically.'}</li>
                 </ul>
               </div>
 
@@ -556,12 +607,12 @@ export default function FacebookConnectModal({
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Đang khởi chạy Chromium...</span>
+                    <span>{lang === 'vi' ? 'Đang khởi chạy Chromium...' : 'Launching Chromium...'}</span>
                   </>
                 ) : (
                   <>
                     <Globe className="w-4 h-4 text-blue-400" />
-                    <span>Khởi chạy cửa sổ trình duyệt Chromium</span>
+                    <span>{lang === 'vi' ? 'Khởi chạy cửa sổ trình duyệt Chromium' : 'Launch Chromium browser window'}</span>
                   </>
                 )}
               </button>

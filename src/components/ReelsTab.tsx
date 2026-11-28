@@ -945,7 +945,9 @@ export default function ReelsTab({
                             <FacebookIcon className="w-3.5 h-3.5 fill-blue-600 dark:fill-blue-400 shrink-0" />
                             <span className="whitespace-nowrap font-semibold">Facebook Reel</span>
                             {reel.status === 'published' && reel.comment_status === 'commented' && (
-                              <span className="text-[10px] text-emerald-500 font-medium shrink-0">✓ Đã cmt</span>
+                              <span className="text-[10px] text-emerald-500 font-medium shrink-0">
+                                {lang === 'vi' ? '✓ Đã cmt' : '✓ Commented'}
+                              </span>
                             )}
                           </div>
                           {reel.fb_post_url ? (
@@ -1024,7 +1026,9 @@ export default function ReelsTab({
                             <TikTokIcon className="w-3.5 h-3.5 shrink-0" />
                             <span className="whitespace-nowrap font-semibold">TikTok</span>
                             {reel.tiktok_status === 'published' && reel.tiktok_comment_status === 'commented' && (
-                              <span className="text-[10px] text-emerald-500 font-medium shrink-0">✓ Đã cmt</span>
+                              <span className="text-[10px] text-emerald-500 font-medium shrink-0">
+                                {lang === 'vi' ? '✓ Đã cmt' : '✓ Commented'}
+                              </span>
                             )}
                             {reel.tiktok_status === 'publishing' && (
                               <span className="text-[10px] text-amber-500 inline-flex items-center gap-0.5 font-normal shrink-0">
@@ -1121,7 +1125,9 @@ export default function ReelsTab({
                             <YouTubeIcon className="w-3.5 h-3.5 text-red-600 shrink-0" />
                             <span className="whitespace-nowrap font-semibold">YouTube Shorts</span>
                             {reel.youtube_status === 'published' && reel.youtube_comment_status === 'commented' && (
-                              <span className="text-[10px] text-emerald-500 font-medium shrink-0">✓ Đã cmt</span>
+                              <span className="text-[10px] text-emerald-500 font-medium shrink-0">
+                                {lang === 'vi' ? '✓ Đã cmt' : '✓ Commented'}
+                              </span>
                             )}
                             {reel.youtube_status === 'publishing' && (
                               <span className="text-[10px] text-amber-500 inline-flex items-center gap-0.5 font-normal shrink-0">
@@ -1218,7 +1224,9 @@ export default function ReelsTab({
                             <ZaloIcon className="w-3.5 h-3.5 text-[#0068FF] shrink-0" />
                             <span className="whitespace-nowrap font-semibold">Zalo Video</span>
                             {reel.zalo_status === 'published' && reel.zalo_comment_status === 'commented' && (
-                              <span className="text-[10px] text-emerald-500 font-medium shrink-0">✓ Đã cmt</span>
+                              <span className="text-[10px] text-emerald-500 font-medium shrink-0">
+                                {lang === 'vi' ? '✓ Đã cmt' : '✓ Commented'}
+                              </span>
                             )}
                             {reel.zalo_status === 'publishing' && (
                               <span className="text-[10px] text-amber-500 inline-flex items-center gap-0.5 font-normal shrink-0">
